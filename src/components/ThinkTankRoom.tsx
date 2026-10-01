@@ -30,7 +30,7 @@ export function ThinkTankRoom(){
 
   const playback=useEventPlayback(applyEvent,motionMode);
 
-  const latestEvent=state.events.at(-1);
+  const latestEvent=state.events[state.events.length-1];
   const cue=useMemo(()=>deriveMotionCue(latestEvent,state),[latestEvent,state]);
 
   const activeRole=useMemo(
