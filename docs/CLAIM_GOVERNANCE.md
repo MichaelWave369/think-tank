@@ -156,3 +156,26 @@ Claim Policy does not consume those maps in PR 15.
 A missing, draft, accepted, dismissed, or stale argument review does not alter current mode authorization.
 
 A later governance version may add an explicit fresh-accepted-map requirement for selected modes. That must be frozen and tested separately.
+
+
+## Third synthesis check: Argument Policy
+
+PR 16 adds Argument Policy beside Reality Gate and Claim Policy.
+
+Claim Policy still evaluates deterministic structural Challenger audits.
+
+Argument Policy separately evaluates whether selected rigorous modes have current human-accepted provider reasoning maps for excerpt-bearing claims.
+
+The two must not be conflated.
+
+A claim may therefore have:
+
+- Reality Gate PASS
+- Claim Policy PASS
+- Argument Policy BLOCK
+
+and synthesis may still be withheld.
+
+Provider argument maps contribute zero numeric Reality Gate score.
+
+See [ARGUMENT_GOVERNANCE.md](ARGUMENT_GOVERNANCE.md).
