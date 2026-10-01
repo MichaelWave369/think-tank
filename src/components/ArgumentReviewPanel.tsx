@@ -152,7 +152,9 @@ export function ArgumentReviewPanel({
             <span>{review.createdAt}</span>
             <div>
               {review.status==="draft"&&
-                <button type="button" onClick={()=>onAccept(review.id)} disabled={busy}>ACCEPT ANALYSIS MAP</button>}
+                <button type="button" onClick={()=>onAccept(review.id)} disabled={busy||!fresh}>
+                  {fresh?"ACCEPT ANALYSIS MAP":"STALE · RERUN REQUIRED"}
+                </button>}
               {review.status!=="dismissed"&&
                 <button type="button" onClick={()=>onDismiss(review.id)} disabled={busy}>DISMISS</button>}
             </div>
