@@ -3,7 +3,7 @@ import { claimGraphSummary,claimStatusFromBindings } from "./claims";
 import { createInitialState } from "./state";
 import type { ClaimBinding } from "./types";
 
-const binding=(relation:ClaimBinding["relation"],id=relation):ClaimBinding=>({
+const binding=(relation:ClaimBinding["relation"],id:string=relation):ClaimBinding=>({
   id:"CB-"+id,
   claimId:"CL-1",
   evidenceId:"EV-"+id,
