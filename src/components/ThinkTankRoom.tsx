@@ -2,9 +2,11 @@ import { useCallback,useEffect,useMemo,useReducer,useRef,useState } from "react"
 import { roles,seats } from "../data/terminals";
 import { planAssignments,routingEventInputs,scoreSeatForRole } from "../domain/craneFly";
 import { evaluateClaimCoverage } from "../domain/claimCoverage";
+import { argumentReviewBasisFingerprint,argumentReviewEligibility } from "../domain/argumentReview";
 import { projectEvent,thinkTankReducer } from "../domain/reducer";
 import { createInitialState } from "../domain/state";
 import type {
+  ArgumentReview,
   CollaborationMode,
   ClaimRelation,
   EvidenceExcerpt,
@@ -24,9 +26,11 @@ import { useEventPlayback } from "../motion/useEventPlayback";
 import { useMotionPolicy } from "../motion/useMotionPolicy";
 import { fetchMachineEvidence,fetchProviderStatus,fetchResearchStatus,invokeProvider,pinMachineEvidenceExcerpt,projectMachineEvidence,searchResearch } from "../providers/client";
 import { runLiveProviderSession } from "../providers/liveRunner";
+import { buildArgumentReviewMessages,parseArgumentReviewResponse } from "../providers/argumentReview";
 import type { EvidenceProjectionResponse,ProviderStatusResponse,ResearchBackendStatusResponse } from "../providers/types";
 import { scenarioEventInputs,type DemoScenario } from "../sim/demo";
 import { TerminalPanel } from "./TerminalPanel";
+import { ArgumentReviewPanel } from "./ArgumentReviewPanel";
 import { Commonline } from "./Commonline";
 import { ClaimBoard } from "./ClaimBoard";
 import { ClaimCoverageMatrix } from "./ClaimCoverageMatrix";
@@ -61,10 +65,13 @@ export function ThinkTankRoom(){
   const [researchError,setResearchError]=useState("");
   const [excerptBusy,setExcerptBusy]=useState(false);
   const [excerptError,setExcerptError]=useState("");
+  const [argumentReviewBusy,setArgumentReviewBusy]=useState(false);
+  const [argumentReviewError,setArgumentReviewError]=useState("");
   const liveAbortRef=useRef<AbortController|null>(null);
   const evidenceAbortRef=useRef<AbortController|null>(null);
   const researchAbortRef=useRef<AbortController|null>(null);
   const excerptAbortRef=useRef<AbortController|null>(null);
+  const argumentReviewAbortRef=useRef<AbortController|null>(null);
   const motionMode=useMotionPolicy();
 
   const applyEvent=useCallback((event:ThinkTankEvent)=>{
@@ -73,7 +80,7 @@ export function ThinkTankRoom(){
   },[]);
 
   const playback=useEventPlayback(applyEvent,motionMode);
-  const busy=playback.playing||liveRunning||evidenceFetching||researchSearching||excerptBusy;
+  const busy=playback.playing||liveRunning||evidenceFetching||researchSearching||excerptBusy||argumentReviewBusy;
 
   const refreshProviders=useCallback(async()=>{
     try{
@@ -129,6 +136,26 @@ export function ThinkTankRoom(){
       return provider.state==="configured"||provider.state==="connected";
     });
   },[providerStatus,routeReady,routingPreview,localModel]);
+
+  const challengerProvider=useMemo(()=>{
+    const assignment=state.assignments.find(item=>item.roleId==="challenger");
+    if(!assignment)return {ready:false,label:"UNASSIGNED",seatId:null as SeatId|null};
+
+    const provider=providerStatus?.seats.find(item=>item.seatId===assignment.seatId);
+    const ready=assignment.seatId==="local"
+      ?provider?.state==="connected"&&Boolean(localModel)
+      :provider?.state==="configured"||provider?.state==="connected";
+
+    const model=assignment.seatId==="local"
+      ?localModel
+      :(provider?.model??"NO MODEL");
+
+    return {
+      ready:Boolean(ready),
+      label:assignment.seatId.toUpperCase()+" · "+model,
+      seatId:assignment.seatId
+    };
+  },[state.assignments,providerStatus,localModel]);
 
   const activeRole=useMemo(
     ()=>[...state.events].reverse().find(event=>event.roleId)?.roleId,
@@ -368,6 +395,120 @@ export function ThinkTankRoom(){
       phase:"intake",
       evidenceExcerptId,
       message:"Operator removed evidence excerpt "+evidenceExcerptId+"."
+    });
+  };
+
+  const runArgumentReview=async(claimId:string)=>{
+    if(busy)return;
+
+    const eligibility=argumentReviewEligibility(stateRef.current,claimId);
+    if(!eligibility.allowed){
+      setArgumentReviewError(eligibility.reason);
+      return;
+    }
+
+    const assignment=stateRef.current.assignments.find(item=>item.roleId==="challenger");
+    if(!assignment||!challengerProvider.ready){
+      setArgumentReviewError("Assigned Challenger provider is not ready.");
+      return;
+    }
+
+    const controller=new AbortController();
+    argumentReviewAbortRef.current=controller;
+    setArgumentReviewBusy(true);
+    setArgumentReviewError("");
+
+    emitInput({
+      source:"operator",
+      kind:"argument.review.requested",
+      phase:"intake",
+      roleId:"challenger",
+      seatId:assignment.seatId,
+      claimId,
+      message:"Operator requested excerpt-aware Challenger argument review for "+claimId+"."
+    });
+
+    try{
+      const messages=buildArgumentReviewMessages(stateRef.current,claimId);
+      const response=await invokeProvider({
+        seatId:assignment.seatId,
+        roleId:"challenger",
+        model:assignment.seatId==="local"?localModel:undefined,
+        messages
+      },controller.signal);
+
+      const parsed=parseArgumentReviewResponse(stateRef.current,claimId,response.text);
+      const basisFingerprint=argumentReviewBasisFingerprint(stateRef.current,claimId);
+      if(!basisFingerprint)throw new Error("Argument review basis is unavailable.");
+
+      const argumentReview:ArgumentReview={
+        id:"AR-"+String(stateRef.current.seq+1).padStart(4,"0"),
+        claimId,
+        roleId:"challenger",
+        seatId:assignment.seatId,
+        providerModel:response.model,
+        providerRequestId:response.requestId,
+        createdAt:new Date().toISOString(),
+        basisFingerprint,
+        points:parsed.points,
+        unresolvedGaps:parsed.unresolvedGaps,
+        summary:parsed.summary,
+        status:"draft"
+      };
+
+      emitInput({
+        source:"provider",
+        kind:"argument.review.completed",
+        phase:"intake",
+        roleId:"challenger",
+        seatId:assignment.seatId,
+        claimId,
+        argumentReview,
+        providerModel:response.model,
+        providerLatencyMs:response.latencyMs,
+        providerRequestId:response.requestId,
+        message:"Challenger drafted argument review "+argumentReview.id+" for "+claimId+"."
+      });
+    }catch(error){
+      const message=error instanceof Error?error.message:String(error);
+      setArgumentReviewError(message);
+
+      try{
+        emitInput({
+          source:"provider",
+          kind:"argument.review.failed",
+          phase:"intake",
+          roleId:"challenger",
+          seatId:assignment.seatId,
+          claimId,
+          message:"Challenger argument review failed: "+message
+        });
+      }catch{}
+    }finally{
+      argumentReviewAbortRef.current=null;
+      setArgumentReviewBusy(false);
+    }
+  };
+
+  const acceptArgumentReview=(argumentReviewId:string)=>{
+    if(busy)return;
+    emitInput({
+      source:"operator",
+      kind:"argument.review.accepted",
+      phase:"intake",
+      argumentReviewId,
+      message:"Operator accepted analytical map "+argumentReviewId+"."
+    });
+  };
+
+  const dismissArgumentReview=(argumentReviewId:string)=>{
+    if(busy)return;
+    emitInput({
+      source:"operator",
+      kind:"argument.review.dismissed",
+      phase:"intake",
+      argumentReviewId,
+      message:"Operator dismissed analytical map "+argumentReviewId+"."
     });
   };
 
@@ -687,6 +828,7 @@ export function ThinkTankRoom(){
     evidenceAbortRef.current?.abort();
     researchAbortRef.current?.abort();
     excerptAbortRef.current?.abort();
+    argumentReviewAbortRef.current?.abort();
     liveAbortRef.current?.abort();
     playback.cancel();
     setLiveRunning(false);
@@ -823,6 +965,18 @@ export function ThinkTankRoom(){
           onRemove={removeClaim}
           onBind={bindEvidence}
           onUnbind={unbindEvidence}
+        />
+
+        <ArgumentReviewPanel
+          state={state}
+          busy={busy}
+          running={argumentReviewBusy}
+          providerReady={challengerProvider.ready}
+          providerLabel={challengerProvider.label}
+          error={argumentReviewError}
+          onRun={claimId=>void runArgumentReview(claimId)}
+          onAccept={acceptArgumentReview}
+          onDismiss={dismissArgumentReview}
         />
 
         <ClaimCoverageMatrix
