@@ -6,6 +6,10 @@ import { evaluateClaimCoverage } from "../domain/claimCoverage";
 import { evaluateClaimGovernance } from "../domain/claimGovernance";
 import { evaluateArgumentGovernance } from "../domain/argumentGovernance";
 import {
+  buildDecisionOverrideReceipt,
+  buildSynthesisDecisionDossier
+} from "../domain/decisionDossier";
+import {
   argumentReviewBasisFingerprint,
   argumentReviewEligibility,
   argumentReviewEligibleExcerpts,
@@ -1065,12 +1069,52 @@ function assertPolicyEvent(state:ThinkTankState,event:ThinkTankEvent):void{
     if(Boolean(event.actionAllowed)!==decision.actionAllowed){
       throw new KernelIntegrityError("Action authorization contradicts the mode law.",event.seq);
     }
+    if(event.governanceReason!==decision.reason){
+      throw new KernelIntegrityError("Governance reason does not match deterministic mode-law decision.",event.seq);
+    }
+
+    const expectedDossier=buildSynthesisDecisionDossier(
+      state,
+      event.seq,
+      event.kind==="synthesis.completed"?"completed":"withheld",
+      decision.outputLabel,
+      decision.actionAllowed,
+      decision.reason
+    );
+    if(!event.decisionDossier){
+      throw new KernelIntegrityError("Synthesis resolution requires a decision dossier.",event.seq);
+    }
+    if(stableStringify(event.decisionDossier)!==stableStringify(expectedDossier)){
+      throw new KernelIntegrityError("Decision dossier does not match deterministic recomputation.",event.seq);
+    }
     return;
   }
 
   if(event.kind==="operator.override"){
+    if(event.source!=="operator"||event.override!==true){
+      throw new KernelIntegrityError("Operator override must be an explicit operator-authorized event.",event.seq);
+    }
     if(!state.synthesisWithheld&&!state.faultCode){
       throw new KernelIntegrityError("Operator override requires a withheld or faulted session.",event.seq);
+    }
+
+    const expectedReason=event.governanceReason??"Human operator explicitly overrode the withheld/faulted synthesis state.";
+    const expectedLabel=event.outputLabel??(state.mode==="audit"?"AUDIT":"STANDARD");
+    let expectedOverride;
+    try{
+      expectedOverride=buildDecisionOverrideReceipt(state,event.seq,expectedLabel,expectedReason);
+    }catch(error){
+      throw new KernelIntegrityError(
+        error instanceof Error?error.message:String(error),
+        event.seq
+      );
+    }
+
+    if(!event.decisionOverride||event.decisionDossierId!==expectedOverride.dossierId){
+      throw new KernelIntegrityError("Operator override requires a linked decision override receipt.",event.seq);
+    }
+    if(stableStringify(event.decisionOverride)!==stableStringify(expectedOverride)){
+      throw new KernelIntegrityError("Decision override receipt does not match deterministic recomputation.",event.seq);
     }
   }
 }
@@ -1116,6 +1160,9 @@ export function buildEvent(state:ThinkTankState,input:ThinkTankEventInput):Think
     gateBreakdown:input.gateBreakdown,
     claimGovernance:input.claimGovernance,
     argumentGovernance:input.argumentGovernance,
+    decisionDossier:input.decisionDossier,
+    decisionDossierId:input.decisionDossierId,
+    decisionOverride:input.decisionOverride,
     message:input.message,
     gateScore:input.gateScore,
     override:input.override,
@@ -1128,6 +1175,39 @@ export function buildEvent(state:ThinkTankState,input:ThinkTankEventInput):Think
     stateBefore,
     stateAfter:"pending"
   };
+
+  if(
+    (draft.kind==="synthesis.completed"||draft.kind==="synthesis.withheld")&&
+    !draft.decisionDossier
+  ){
+    const expectedClaimGovernance=evaluateClaimGovernance(state,state.mode);
+    const expectedArgumentGovernance=evaluateArgumentGovernance(state,state.mode);
+    const decision=evaluateGovernance(
+      state.mode,
+      state.gateScore??0,
+      state.gateThreshold,
+      state.objectionCount,
+      Boolean(state.faultCode),
+      expectedClaimGovernance,
+      expectedArgumentGovernance
+    );
+    draft.decisionDossier=buildSynthesisDecisionDossier(
+      state,
+      draft.seq,
+      draft.kind==="synthesis.completed"?"completed":"withheld",
+      decision.outputLabel,
+      decision.actionAllowed,
+      decision.reason
+    );
+  }
+
+  if(draft.kind==="operator.override"&&!draft.decisionOverride){
+    const reason=draft.governanceReason??"Human operator explicitly overrode the withheld/faulted synthesis state.";
+    const label=draft.outputLabel??(state.mode==="audit"?"AUDIT":"STANDARD");
+    const receipt=buildDecisionOverrideReceipt(state,draft.seq,label,reason);
+    draft.decisionOverride=receipt;
+    draft.decisionDossierId=receipt.dossierId;
+  }
 
   assertPolicyEvent(state,draft);
   const projected=projectEvent(state,draft);
