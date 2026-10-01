@@ -107,6 +107,23 @@ export interface ClaimReviewReceipt{
   flags:ClaimCoverageFlag[];
 }
 
+export interface EvidenceExcerpt{
+  id:string;
+  evidenceId:string;
+  tool:"text-projector";
+  extractor:"text-projection-v1";
+  sourceUri:string;
+  sourceSha256:string;
+  projectionSha256:string;
+  excerptSha256:string;
+  contentType:string;
+  startChar:number;
+  endChar:number;
+  text:string;
+  extractedAt:string;
+  addedBy:"tool";
+}
+
 export interface EvidenceRef{
   id:string;
   kind:EvidenceKind;
@@ -180,6 +197,10 @@ export type ThinkTankEventKind=
   |"evidence.fetch.failed"
   |"evidence.added"
   |"evidence.removed"
+  |"evidence.excerpt.requested"
+  |"evidence.excerpt.failed"
+  |"evidence.excerpt.added"
+  |"evidence.excerpt.removed"
   |"provider.failed"
   |"schedule.planned"
   |"round.started"
@@ -223,6 +244,10 @@ export interface ThinkTankEvent{
   evidenceRef?:EvidenceRef;
   evidenceId?:string;
   evidenceUri?:string;
+  evidenceExcerpt?:EvidenceExcerpt;
+  evidenceExcerptId?:string;
+  excerptStart?:number;
+  excerptEnd?:number;
   gateBreakdown?:GateBreakdown;
   claimGovernance?:ClaimGovernanceReport;
   message?:string;
@@ -263,6 +288,10 @@ export interface ThinkTankEventInput{
   evidenceRef?:EvidenceRef;
   evidenceId?:string;
   evidenceUri?:string;
+  evidenceExcerpt?:EvidenceExcerpt;
+  evidenceExcerptId?:string;
+  excerptStart?:number;
+  excerptEnd?:number;
   gateBreakdown?:GateBreakdown;
   claimGovernance?:ClaimGovernanceReport;
   message?:string;
@@ -289,6 +318,7 @@ export interface ThinkTankState{
   gateBreakdown:GateBreakdown|null;
   claimGovernance:ClaimGovernanceReport|null;
   evidenceRefs:EvidenceRef[];
+  evidenceExcerpts:EvidenceExcerpt[];
   claims:Claim[];
   claimBindings:ClaimBinding[];
   claimReviews:ClaimReviewReceipt[];

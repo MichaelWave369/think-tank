@@ -7,6 +7,7 @@ import { createInitialState } from "../domain/state";
 import type {
   CollaborationMode,
   ClaimRelation,
+  EvidenceExcerpt,
   EvidenceRef,
   ResearchCandidate,
   RoleId,
@@ -21,9 +22,9 @@ import { buildEvent,buildEventBatch,replayEvents,verifyReplay } from "../kernel/
 import { deriveMotionCue } from "../motion/motion";
 import { useEventPlayback } from "../motion/useEventPlayback";
 import { useMotionPolicy } from "../motion/useMotionPolicy";
-import { fetchMachineEvidence,fetchProviderStatus,fetchResearchStatus,invokeProvider,searchResearch } from "../providers/client";
+import { fetchMachineEvidence,fetchProviderStatus,fetchResearchStatus,invokeProvider,pinMachineEvidenceExcerpt,projectMachineEvidence,searchResearch } from "../providers/client";
 import { runLiveProviderSession } from "../providers/liveRunner";
-import type { ProviderStatusResponse,ResearchBackendStatusResponse } from "../providers/types";
+import type { EvidenceProjectionResponse,ProviderStatusResponse,ResearchBackendStatusResponse } from "../providers/types";
 import { scenarioEventInputs,type DemoScenario } from "../sim/demo";
 import { TerminalPanel } from "./TerminalPanel";
 import { Commonline } from "./Commonline";
@@ -37,6 +38,7 @@ import { ModeBar } from "./ModeBar";
 import { MotionLayer } from "./MotionLayer";
 import { ProviderPanel } from "./ProviderPanel";
 import { ResearchPanel } from "./ResearchPanel";
+import { SourceExcerptPanel } from "./SourceExcerptPanel";
 import { SystemStatus } from "./SystemStatus";
 import { LedgerRoll } from "./LedgerRoll";
 
@@ -57,9 +59,12 @@ export function ThinkTankRoom(){
   const [researchStatus,setResearchStatus]=useState<ResearchBackendStatusResponse|null>(null);
   const [researchSearching,setResearchSearching]=useState(false);
   const [researchError,setResearchError]=useState("");
+  const [excerptBusy,setExcerptBusy]=useState(false);
+  const [excerptError,setExcerptError]=useState("");
   const liveAbortRef=useRef<AbortController|null>(null);
   const evidenceAbortRef=useRef<AbortController|null>(null);
   const researchAbortRef=useRef<AbortController|null>(null);
+  const excerptAbortRef=useRef<AbortController|null>(null);
   const motionMode=useMotionPolicy();
 
   const applyEvent=useCallback((event:ThinkTankEvent)=>{
@@ -68,7 +73,7 @@ export function ThinkTankRoom(){
   },[]);
 
   const playback=useEventPlayback(applyEvent,motionMode);
-  const busy=playback.playing||liveRunning||evidenceFetching||researchSearching;
+  const busy=playback.playing||liveRunning||evidenceFetching||researchSearching||excerptBusy;
 
   const refreshProviders=useCallback(async()=>{
     try{
@@ -257,6 +262,115 @@ export function ThinkTankRoom(){
     }
   };
 
+  const previewEvidenceSource=async(evidenceId:string):Promise<EvidenceProjectionResponse>=>{
+    if(busy)throw new Error("Room is busy.");
+    const ref=stateRef.current.evidenceRefs.find(item=>item.id===evidenceId);
+    if(!ref?.uri||!ref.retrieval||ref.verification!=="machine-verified"){
+      throw new Error("Source projection requires machine-verified evidence.");
+    }
+
+    const controller=new AbortController();
+    excerptAbortRef.current=controller;
+    setExcerptBusy(true);
+    setExcerptError("");
+
+    try{
+      return await projectMachineEvidence(ref.uri,ref.retrieval.sha256,controller.signal);
+    }catch(error){
+      const message=error instanceof Error?error.message:String(error);
+      setExcerptError(message);
+      throw error;
+    }finally{
+      excerptAbortRef.current=null;
+      setExcerptBusy(false);
+    }
+  };
+
+  const pinEvidenceExcerpt=async(evidenceId:string,start:number,end:number)=>{
+    if(busy)return;
+    const ref=stateRef.current.evidenceRefs.find(item=>item.id===evidenceId);
+    if(!ref?.uri||!ref.retrieval||ref.verification!=="machine-verified")return;
+
+    const controller=new AbortController();
+    excerptAbortRef.current=controller;
+    setExcerptBusy(true);
+    setExcerptError("");
+
+    emitInput({
+      source:"operator",
+      kind:"evidence.excerpt.requested",
+      phase:"intake",
+      evidenceId,
+      excerptStart:start,
+      excerptEnd:end,
+      message:"Operator requested exact excerpt "+start+"→"+end+" from "+evidenceId+"."
+    });
+
+    try{
+      const receipt=await pinMachineEvidenceExcerpt(
+        ref.uri,ref.retrieval.sha256,start,end,controller.signal
+      );
+
+      const evidenceExcerpt:EvidenceExcerpt={
+        id:"EX-"+String(stateRef.current.seq+1).padStart(4,"0"),
+        evidenceId,
+        tool:"text-projector",
+        extractor:"text-projection-v1",
+        sourceUri:receipt.sourceUri,
+        sourceSha256:receipt.sourceSha256,
+        projectionSha256:receipt.projectionSha256,
+        excerptSha256:receipt.excerptSha256,
+        contentType:receipt.contentType,
+        startChar:receipt.startChar,
+        endChar:receipt.endChar,
+        text:receipt.text,
+        extractedAt:receipt.extractedAt,
+        addedBy:"tool"
+      };
+
+      emitInput({
+        source:"tool",
+        kind:"evidence.excerpt.added",
+        phase:"intake",
+        evidenceId,
+        evidenceExcerpt,
+        excerptStart:start,
+        excerptEnd:end,
+        message:
+          "Pinned exact excerpt "+evidenceExcerpt.id+" from "+evidenceId+
+          " · SHA-256 "+evidenceExcerpt.excerptSha256.slice(0,16)+"…."
+      });
+    }catch(error){
+      const message=error instanceof Error?error.message:String(error);
+      setExcerptError(message);
+      try{
+        emitInput({
+          source:"tool",
+          kind:"evidence.excerpt.failed",
+          phase:"intake",
+          evidenceId,
+          excerptStart:start,
+          excerptEnd:end,
+          message:"Excerpt extraction failed: "+message
+        });
+      }catch{}
+    }finally{
+      excerptAbortRef.current=null;
+      setExcerptBusy(false);
+    }
+  };
+
+  const removeEvidenceExcerpt=(evidenceExcerptId:string)=>{
+    if(busy)return;
+    emitInput({
+      source:"operator",
+      kind:"evidence.excerpt.removed",
+      phase:"intake",
+      evidenceExcerptId,
+      message:"Operator removed evidence excerpt "+evidenceExcerptId+"."
+    });
+  };
+
   const runResearch=async(claimId:string,query:string)=>{
     if(busy)return;
     const normalized=query.trim();
@@ -443,7 +557,7 @@ export function ThinkTankRoom(){
   };
 
   const removeEvidence=(evidenceId:string)=>{
-    if(busy||stateRef.current.claimBindings.some(binding=>binding.evidenceId===evidenceId))return;
+    if(busy||stateRef.current.claimBindings.some(binding=>binding.evidenceId===evidenceId)||stateRef.current.evidenceExcerpts.some(excerpt=>excerpt.evidenceId===evidenceId))return;
     emitInput({
       source:"operator",
       kind:"evidence.removed",
@@ -572,6 +686,7 @@ export function ThinkTankRoom(){
     const sessionActive=liveRunning||playback.playing;
     evidenceAbortRef.current?.abort();
     researchAbortRef.current?.abort();
+    excerptAbortRef.current?.abort();
     liveAbortRef.current?.abort();
     playback.cancel();
     setLiveRunning(false);
@@ -683,9 +798,20 @@ export function ThinkTankRoom(){
           verifyBusy={evidenceFetching}
           verifyError={evidenceToolError}
           boundEvidenceIds={state.claimBindings.map(binding=>binding.evidenceId)}
+          excerptEvidenceIds={state.evidenceExcerpts.map(excerpt=>excerpt.evidenceId)}
           onAdd={addEvidence}
           onVerify={(label,uri,note)=>void verifyEvidence(label,uri,note)}
           onRemove={removeEvidence}
+        />
+
+        <SourceExcerptPanel
+          evidence={state.evidenceRefs}
+          excerpts={state.evidenceExcerpts}
+          busy={busy}
+          toolError={excerptError}
+          onPreview={previewEvidenceSource}
+          onPin={pinEvidenceExcerpt}
+          onRemove={removeEvidenceExcerpt}
         />
 
         <ClaimBoard

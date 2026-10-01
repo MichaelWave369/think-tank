@@ -6,29 +6,33 @@ A governed, event-sourced multi-mind control room. Cognitive roles are staffed b
 
 ## Current rung
 
-**PR 13 — Claim-Aware Governance Policy**
+**PR 14 — Hash-Locked Source Excerpts**
 
-The Think Tank now composes numeric Reality Gate results with deterministic claim-review requirements at synthesis time.
+The Think Tank can now pin exact quotations from machine-verified source bytes without storing entire webpages in canonical state.
 
-PR 13 adds:
-- explicit claim policy per collaboration mode
-- informational / bound-fresh / all-fresh / audit-ready policies
-- canonical ClaimGovernanceReport receipts
-- kernel recomputation of every synthesis claim-policy receipt
-- forged policy receipt rejection
-- claim-policy-aware LIVE and SIM execution
-- COUNCIL all-claims freshness requirement
-- TRIO / DEBATE fresh review requirement for bound claims
-- BUILD downgrade to DRAFT when claim policy fails
-- AUDIT fresh-review + non-THIN/non-UNBOUND requirement
-- Governance panel claim-policy telemetry
-- preserved human FORCE SYNTHESIS override
+PR 14 adds:
+- deterministic source text projection
+- source re-fetch with original SHA-256 lock
+- transient source preview
+- exact character-range selection
+- canonical EvidenceExcerpt receipts
+- source / projection / excerpt SHA-256 lineage
+- operator request → tool receipt event flow
+- one terminal result per excerpt request
+- source-change rejection
+- 1600-character kernel excerpt cap
+- evidence deletion protection while excerpts exist
+- excerpt-aware Challenger review freshness
+- authorization invalidation after excerpt mutation
+- Source Excerpt Console
+- explicit PDF extraction non-support
+- expanded bridge and kernel tests
 
 ### Important semantic rule
 
-**REALITY GATE PASS ≠ CLAIM POLICY PASS.**
+**EXACT EXCERPT ≠ CLAIM TRUE.**
 
-Both are governance checks. Neither is a truth oracle.
+The excerpt proves exact source text provenance. Claim interpretation remains a separate binding/audit/governance step.
 
 See:
 - [Architecture](docs/ARCHITECTURE.md)
@@ -44,6 +48,7 @@ See:
 - [Governed Research / Search](docs/GOVERNED_RESEARCH.md)
 - [Challenger Claim Coverage](docs/CHALLENGER_COVERAGE.md)
 - [Claim-Aware Governance](docs/CLAIM_GOVERNANCE.md)
+- [Hash-Locked Source Excerpts](docs/SOURCE_EXCERPTS.md)
 
 ## Local-first setup
 
@@ -66,7 +71,7 @@ Verification:
 
 > **If a light changes, a sequenced event explains why.**
 
-If synthesis is authorized or withheld, deterministic receipts explain both the numeric Reality Gate result and the claim-review policy result.
+If source text is quoted, a hash-locked excerpt receipt explains exactly which verified bytes and character range produced it.
 
 ## Build ladder
 
@@ -82,6 +87,7 @@ If synthesis is authorized or withheld, deterministic receipts explain both the 
 10. ✅ Claim registry + claim-to-source binding
 11. ✅ Governed research / search
 12. ✅ Challenger claim coverage audits
-13. **Claim-aware governance policy**
+13. ✅ Claim-aware governance policy
+14. **Hash-locked source excerpts**
 
 **Φ THINK TANK is a control room, not eight chat cards.**

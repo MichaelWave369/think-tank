@@ -12,6 +12,7 @@ export function EvidencePanel({
   verifyBusy,
   verifyError,
   boundEvidenceIds,
+  excerptEvidenceIds,
   onAdd,
   onVerify,
   onRemove
@@ -23,6 +24,7 @@ export function EvidencePanel({
   verifyBusy:boolean;
   verifyError:string;
   boundEvidenceIds:string[];
+  excerptEvidenceIds:string[];
   onAdd:(label:string,uri:string,note:string)=>void;
   onVerify:(label:string,uri:string,note:string)=>void;
   onRemove:(id:string)=>void;
@@ -74,10 +76,10 @@ export function EvidencePanel({
 
     <div className="evidence-list">
       {refs.length===0&&<p className="evidence-empty">No external evidence receipts. Model output alone is capped below the normal gate threshold.</p>}
-      {refs.map(ref=>{const bound=boundEvidenceIds.includes(ref.id);return <article className={"evidence-ref verification-"+ref.verification+(bound?" evidence-bound":"")} key={ref.id}>
+      {refs.map(ref=>{const bound=boundEvidenceIds.includes(ref.id);const hasExcerpt=excerptEvidenceIds.includes(ref.id);return <article className={"evidence-ref verification-"+ref.verification+(bound?" evidence-bound":"")} key={ref.id}>
         <div>
           <strong>{ref.label}</strong>
-          <span>{ref.id} · {ref.verification.toUpperCase()} · {ref.kind.toUpperCase()} · BY {ref.addedBy.toUpperCase()}{bound?" · BOUND":""}</span>
+          <span>{ref.id} · {ref.verification.toUpperCase()} · {ref.kind.toUpperCase()} · BY {ref.addedBy.toUpperCase()}{bound?" · BOUND":""}{hasExcerpt?" · EXCERPTED":""}</span>
           {ref.uri&&<small>{ref.uri}</small>}
           {ref.researchCandidateId&&<small>FROM CANDIDATE {ref.researchCandidateId}</small>}
           {ref.note&&<p>{ref.note}</p>}
@@ -88,7 +90,7 @@ export function EvidencePanel({
             <span>{ref.retrieval.retrievedAt}</span>
           </div>}
         </div>
-        <button type="button" onClick={()=>onRemove(ref.id)} disabled={busy||bound}>{bound?"UNBIND FIRST":"REMOVE"}</button>
+        <button type="button" onClick={()=>onRemove(ref.id)} disabled={busy||bound||hasExcerpt}>{bound?"UNBIND FIRST":hasExcerpt?"REMOVE EXCERPTS FIRST":"REMOVE"}</button>
       </article>})}
     </div>
 

@@ -15,6 +15,8 @@ const MAX_BODY_BYTES=512_000;
 const MAX_OUTPUT_TOKENS=Math.max(64,Number(process.env.PROVIDER_MAX_OUTPUT_TOKENS||1200));
 const EVIDENCE_MAX_BYTES=Math.max(1024,Number(process.env.EVIDENCE_MAX_BYTES||2_000_000));
 const EVIDENCE_MAX_REDIRECTS=Math.max(0,Math.min(5,Number(process.env.EVIDENCE_MAX_REDIRECTS||3)));
+const EVIDENCE_PROJECTION_MAX_CHARS=Math.max(2000,Math.min(200000,Number(process.env.EVIDENCE_PROJECTION_MAX_CHARS||100000)));
+const EVIDENCE_EXCERPT_MAX_CHARS=Math.max(200,Math.min(4000,Number(process.env.EVIDENCE_EXCERPT_MAX_CHARS||1600)));
 const SEARXNG_URL=(process.env.SEARXNG_URL||"").replace(/\/$/,"");
 const RESEARCH_MAX_RESULTS=Math.max(1,Math.min(10,Number(process.env.RESEARCH_MAX_RESULTS||5)));
 
@@ -314,7 +316,7 @@ const requestPinned=({url,address,family},maxBytes)=>new Promise((resolve,reject
   request.end();
 });
 
-const fetchEvidenceReceipt=async(requestedUri)=>{
+const fetchEvidenceResource=async(requestedUri)=>{
   let target=await assertPublicHttpUrl(requestedUri);
   let redirects=0;
 
@@ -323,38 +325,151 @@ const fetchEvidenceReceipt=async(requestedUri)=>{
     const status=response.status;
 
     if([301,302,303,307,308].includes(status)){
-      if(redirects>=EVIDENCE_MAX_REDIRECTS)throw new Error("Evidence redirect limit exceeded.");
+      if(redirects>=EVIDENCE_MAX_REDIRECTS)throw bridgeError("Evidence redirect limit exceeded.",422);
       const location=Array.isArray(response.headers.location)
         ?response.headers.location[0]
         :response.headers.location;
-      if(!location)throw new Error("Evidence redirect did not include a Location header.");
+      if(!location)throw bridgeError("Evidence redirect did not include a Location header.",422);
       target=await assertPublicHttpUrl(new URL(location,target.url).toString());
       redirects+=1;
       continue;
     }
 
-    if(status<200||status>=300)throw new Error("Evidence fetch returned HTTP "+status+".");
+    if(status<200||status>=300)throw bridgeError("Evidence fetch returned HTTP "+status+".",502);
 
     const contentType=String(response.headers["content-type"]||"application/octet-stream");
     if(!allowedEvidenceType(contentType)){
-      throw new Error("Evidence content type is not allowed: "+contentType+".");
+      throw bridgeError("Evidence content type is not allowed: "+contentType+".",415);
     }
 
     const sha256=createHash("sha256").update(response.body).digest("hex");
-
     return {
-      ok:true,
-      tool:"url-fetch",
-      requestedUri,
-      finalUri:target.url.toString(),
-      httpStatus:status,
-      contentType,
-      bytes:response.body.length,
-      sha256,
-      redirects,
-      retrievedAt:new Date().toISOString()
+      body:response.body,
+      receipt:{
+        ok:true,
+        tool:"url-fetch",
+        requestedUri,
+        finalUri:target.url.toString(),
+        httpStatus:status,
+        contentType,
+        bytes:response.body.length,
+        sha256,
+        redirects,
+        retrievedAt:new Date().toISOString()
+      }
     };
   }
+};
+
+const fetchEvidenceReceipt=async(requestedUri)=>{
+  const {receipt}=await fetchEvidenceResource(requestedUri);
+  return receipt;
+};
+
+const decodeEntities=(value)=>value
+  .replace(/&#(\d+);/g,(_m,n)=>String.fromCodePoint(Math.min(0x10ffff,Number(n))))
+  .replace(/&#x([0-9a-f]+);/gi,(_m,n)=>String.fromCodePoint(Math.min(0x10ffff,parseInt(n,16))))
+  .replace(/&nbsp;/gi," ")
+  .replace(/&amp;/gi,"&")
+  .replace(/&lt;/gi,"<")
+  .replace(/&gt;/gi,">")
+  .replace(/&quot;/gi,'"')
+  .replace(/&#39;|&apos;/gi,"'");
+
+const normalizeProjectedText=(value)=>value
+  .replace(/\r\n?/g,"\n")
+  .replace(/[\t\f\v ]+/g," ")
+  .replace(/ *\n */g,"\n")
+  .replace(/\n{3,}/g,"\n\n")
+  .trim();
+
+export const projectEvidenceText=(body,contentType)=>{
+  const type=String(contentType||"").split(";")[0].trim().toLowerCase();
+  if(type==="application/pdf"){
+    throw bridgeError("PDF text projection is not supported in this rung.",415);
+  }
+
+  let text=new TextDecoder("utf-8",{fatal:false}).decode(body);
+
+  if(type==="text/html"||type==="application/xhtml+xml"){
+    text=text
+      .replace(/<!--[\s\S]*?-->/g," ")
+      .replace(/<(script|style|noscript|svg)\b[^>]*>[\s\S]*?<\/\1>/gi," ")
+      .replace(/<\s*br\s*\/?>/gi,"\n")
+      .replace(/<\/(p|div|section|article|li|h[1-6]|tr|table|blockquote)>/gi,"\n")
+      .replace(/<[^>]+>/g," ");
+    text=decodeEntities(text);
+  }else if(type==="application/xml"){
+    text=decodeEntities(text.replace(/<[^>]+>/g," "));
+  }else if(type==="application/json"){
+    try{text=JSON.stringify(JSON.parse(text),null,2);}catch{}
+  }else if(!type.startsWith("text/")){
+    throw bridgeError("Evidence type cannot be projected as text: "+type+".",415);
+  }
+
+  const normalized=normalizeProjectedText(text);
+  const totalCharCount=normalized.length;
+  const projected=normalized.slice(0,EVIDENCE_PROJECTION_MAX_CHARS);
+  return {
+    extractor:"text-projection-v1",
+    text:projected,
+    charCount:projected.length,
+    totalCharCount,
+    truncated:totalCharCount>projected.length,
+    projectionSha256:createHash("sha256").update(projected,"utf8").digest("hex")
+  };
+};
+
+export const assertEvidenceSourceDigest=(actualSha256,expectedSha256)=>{
+  if(typeof expectedSha256!=="string"||!/^[a-f0-9]{64}$/.test(expectedSha256)){
+    throw bridgeError("Evidence projection requires the original lowercase SHA-256.",400);
+  }
+  if(actualSha256!==expectedSha256){
+    throw bridgeError("Evidence source bytes changed since machine verification.",409);
+  }
+};
+
+const extractEvidenceText=async({uri,expectedSha256,startChar,endChar})=>{
+  if(typeof uri!=="string"||!uri.trim())throw bridgeError("Evidence projection requires a URI.",400);
+
+  const {body,receipt}=await fetchEvidenceResource(uri.trim());
+  assertEvidenceSourceDigest(receipt.sha256,expectedSha256);
+
+  const projection=projectEvidenceText(body,receipt.contentType);
+  const base={
+    ok:true,
+    tool:"text-projector",
+    extractor:"text-projection-v1",
+    sourceUri:receipt.finalUri,
+    sourceSha256:receipt.sha256,
+    projectionSha256:projection.projectionSha256,
+    contentType:receipt.contentType,
+    charCount:projection.charCount,
+    totalCharCount:projection.totalCharCount,
+    truncated:projection.truncated,
+    extractedAt:new Date().toISOString()
+  };
+
+  if(startChar===undefined&&endChar===undefined){
+    return {...base,text:projection.text};
+  }
+
+  if(!Number.isInteger(startChar)||!Number.isInteger(endChar)||
+     startChar<0||endChar<=startChar||endChar>projection.text.length||
+     endChar-startChar>EVIDENCE_EXCERPT_MAX_CHARS){
+    throw bridgeError("Excerpt range is invalid or exceeds the configured limit.",400);
+  }
+
+  const text=projection.text.slice(startChar,endChar);
+  if(!text.trim())throw bridgeError("Excerpt range contains no meaningful text.",400);
+
+  return {
+    ...base,
+    startChar,
+    endChar,
+    text,
+    excerptSha256:createHash("sha256").update(text,"utf8").digest("hex")
+  };
 };
 
 const ollamaStatus=async()=>{
@@ -397,7 +512,7 @@ const remoteStatus=(seatId,provider,key,model)=>({
 
 const statusPayload=async()=>({
   ok:true,
-  bridgeVersion:"0.3.0",
+  bridgeVersion:"0.4.0",
   seats:[
     await ollamaStatus(),
     remoteStatus("openai","OpenAI",process.env.OPENAI_API_KEY,process.env.OPENAI_MODEL),
@@ -510,7 +625,7 @@ const server=http.createServer(async(req,res)=>{
 
   try{
     if(req.method==="GET"&&req.url==="/health"){
-      send(res,200,{ok:true,service:"phi-think-tank-provider-bridge",version:"0.3.0"},origin);
+      send(res,200,{ok:true,service:"phi-think-tank-provider-bridge",version:"0.4.0"},origin);
       return;
     }
 
@@ -541,9 +656,21 @@ const server=http.createServer(async(req,res)=>{
 
     if(req.method==="POST"&&req.url==="/evidence/fetch"){
       const raw=await readJson(req);
-      if(typeof raw.uri!=="string"||!raw.uri.trim())throw new Error("Evidence fetch requires a URI.");
+      if(typeof raw.uri!=="string"||!raw.uri.trim())throw bridgeError("Evidence fetch requires a URI.",400);
       const receipt=await fetchEvidenceReceipt(raw.uri.trim());
       send(res,200,receipt,origin);
+      return;
+    }
+
+    if(req.method==="POST"&&req.url==="/evidence/extract"){
+      const raw=await readJson(req);
+      const result=await extractEvidenceText({
+        uri:raw.uri,
+        expectedSha256:raw.expectedSha256,
+        startChar:raw.startChar,
+        endChar:raw.endChar
+      });
+      send(res,200,result,origin);
       return;
     }
 

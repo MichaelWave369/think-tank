@@ -91,7 +91,8 @@ function assertClaimReviewEvent(state:ThinkTankState,event:ThinkTankEvent):boole
 
     const graphMutations=new Set([
       "claim.added","claim.removed","evidence.added","evidence.removed",
-      "evidence.bound","evidence.unbound"
+      "evidence.bound","evidence.unbound",
+      "evidence.excerpt.added","evidence.excerpt.removed"
     ]);
     const changedAfterRequest=state.events.some(item=>
       item.seq>request.seq&&graphMutations.has(item.kind)
@@ -359,6 +360,127 @@ function assertClaimEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
   return false;
 }
 
+function assertExcerptEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
+  const action=[
+    "evidence.excerpt.requested",
+    "evidence.excerpt.failed",
+    "evidence.excerpt.added",
+    "evidence.excerpt.removed"
+  ].includes(event.kind);
+
+  if(action&&state.phase!=="intake"&&state.phase!=="complete"&&state.phase!=="aborted"){
+    throw new KernelIntegrityError("Evidence excerpts cannot mutate during an active governed session.",event.seq);
+  }
+
+  const evidence=event.evidenceId
+    ?state.evidenceRefs.find(ref=>ref.id===event.evidenceId)
+    :undefined;
+
+  if(event.kind==="evidence.excerpt.requested"){
+    if(event.source!=="operator")throw new KernelIntegrityError("Excerpt requests are operator-authorized.",event.seq);
+    if(!evidence||evidence.verification!=="machine-verified"||!evidence.retrieval){
+      throw new KernelIntegrityError("Excerpt request requires machine-verified evidence.",event.seq);
+    }
+    const start=event.excerptStart;
+    const end=event.excerptEnd;
+    if(typeof start!=="number"||typeof end!=="number"||
+       !Number.isInteger(start)||!Number.isInteger(end)||
+       start<0||end<=start||end-start>1600){
+      throw new KernelIntegrityError("Excerpt request range is invalid or exceeds 1600 characters.",event.seq);
+    }
+    return true;
+  }
+
+  if(event.kind==="evidence.excerpt.failed"){
+    if(event.source!=="tool")throw new KernelIntegrityError("Excerpt failure must be tool-originated.",event.seq);
+    if(!event.evidenceId)throw new KernelIntegrityError("Excerpt failure requires evidence id.",event.seq);
+    const request=[...state.events].reverse().find(item=>
+      item.kind==="evidence.excerpt.requested"&&
+      item.evidenceId===event.evidenceId&&
+      item.excerptStart===event.excerptStart&&
+      item.excerptEnd===event.excerptEnd
+    );
+    if(!request)throw new KernelIntegrityError("Excerpt failure has no matching operator request.",event.seq);
+    const terminal=[...state.events].reverse().find(item=>
+      (item.kind==="evidence.excerpt.added"||item.kind==="evidence.excerpt.failed")&&
+      item.evidenceId===event.evidenceId&&
+      item.excerptStart===event.excerptStart&&
+      item.excerptEnd===event.excerptEnd
+    );
+    if(terminal&&terminal.seq>request.seq){
+      throw new KernelIntegrityError("Excerpt request is already resolved.",event.seq);
+    }
+    return true;
+  }
+
+  if(event.kind==="evidence.excerpt.added"){
+    if(event.source!=="tool")throw new KernelIntegrityError("Verified excerpt addition must be tool-originated.",event.seq);
+    const excerpt=event.evidenceExcerpt;
+    if(!excerpt)throw new KernelIntegrityError("Excerpt add event requires a receipt.",event.seq);
+    const ref=state.evidenceRefs.find(item=>item.id===excerpt.evidenceId);
+    if(!ref||ref.verification!=="machine-verified"||!ref.retrieval){
+      throw new KernelIntegrityError("Excerpt references non-machine-verified evidence.",event.seq);
+    }
+    if(event.evidenceId!==excerpt.evidenceId||event.excerptStart!==excerpt.startChar||event.excerptEnd!==excerpt.endChar){
+      throw new KernelIntegrityError("Excerpt event metadata does not match its receipt.",event.seq);
+    }
+    if(excerpt.tool!=="text-projector"||excerpt.extractor!=="text-projection-v1"||excerpt.addedBy!=="tool"){
+      throw new KernelIntegrityError("Excerpt provenance is invalid.",event.seq);
+    }
+    if(excerpt.sourceUri!==ref.uri||excerpt.sourceSha256!==ref.retrieval.sha256){
+      throw new KernelIntegrityError("Excerpt source provenance does not match evidence receipt.",event.seq);
+    }
+    if(excerpt.contentType!==ref.retrieval.contentType){
+      throw new KernelIntegrityError("Excerpt content type does not match evidence receipt.",event.seq);
+    }
+    if(!/^[a-f0-9]{64}$/.test(excerpt.projectionSha256)||!/^[a-f0-9]{64}$/.test(excerpt.excerptSha256)){
+      throw new KernelIntegrityError("Excerpt requires lowercase SHA-256 digests.",event.seq);
+    }
+    if(!excerpt.text.trim()||excerpt.endChar-excerpt.startChar!==excerpt.text.length||excerpt.text.length>1600){
+      throw new KernelIntegrityError("Excerpt text/range is invalid.",event.seq);
+    }
+    if(Number.isNaN(Date.parse(excerpt.extractedAt)))throw new KernelIntegrityError("Excerpt timestamp is invalid.",event.seq);
+    if(state.evidenceExcerpts.some(existing=>existing.id===excerpt.id)){
+      throw new KernelIntegrityError("Excerpt id already exists.",event.seq);
+    }
+    if(state.evidenceExcerpts.some(existing=>
+      existing.evidenceId===excerpt.evidenceId&&
+      existing.projectionSha256===excerpt.projectionSha256&&
+      existing.startChar===excerpt.startChar&&
+      existing.endChar===excerpt.endChar
+    )){
+      throw new KernelIntegrityError("Equivalent excerpt already exists.",event.seq);
+    }
+    const request=[...state.events].reverse().find(item=>
+      item.kind==="evidence.excerpt.requested"&&
+      item.evidenceId===excerpt.evidenceId&&
+      item.excerptStart===excerpt.startChar&&
+      item.excerptEnd===excerpt.endChar
+    );
+    if(!request)throw new KernelIntegrityError("Excerpt receipt has no matching operator request.",event.seq);
+    const terminal=[...state.events].reverse().find(item=>
+      (item.kind==="evidence.excerpt.added"||item.kind==="evidence.excerpt.failed")&&
+      item.evidenceId===excerpt.evidenceId&&
+      item.excerptStart===excerpt.startChar&&
+      item.excerptEnd===excerpt.endChar
+    );
+    if(terminal&&terminal.seq>request.seq){
+      throw new KernelIntegrityError("Excerpt request is already resolved.",event.seq);
+    }
+    return true;
+  }
+
+  if(event.kind==="evidence.excerpt.removed"){
+    if(event.source!=="operator")throw new KernelIntegrityError("Excerpt removal is operator-authorized.",event.seq);
+    if(!event.evidenceExcerptId||!state.evidenceExcerpts.some(excerpt=>excerpt.id===event.evidenceExcerptId)){
+      throw new KernelIntegrityError("Excerpt removal requires an existing excerpt id.",event.seq);
+    }
+    return true;
+  }
+
+  return false;
+}
+
 function assertEvidenceEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
   const evidenceAction=
     event.kind==="evidence.fetch.requested"||
@@ -494,6 +616,9 @@ function assertEvidenceEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
     if(state.claimBindings.some(binding=>binding.evidenceId===event.evidenceId)){
       throw new KernelIntegrityError("Cannot remove evidence while claim bindings still exist.",event.seq);
     }
+    if(state.evidenceExcerpts.some(excerpt=>excerpt.evidenceId===event.evidenceId)){
+      throw new KernelIntegrityError("Cannot remove evidence while excerpt receipts still exist.",event.seq);
+    }
     return true;
   }
 
@@ -567,6 +692,7 @@ function assertRoutingEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
 }
 
 function assertPolicyEvent(state:ThinkTankState,event:ThinkTankEvent):void{
+  if(assertExcerptEvent(state,event))return;
   if(assertClaimReviewEvent(state,event))return;
   if(assertResearchEvent(state,event))return;
   if(assertClaimEvent(state,event))return;
@@ -753,6 +879,10 @@ export function buildEvent(state:ThinkTankState,input:ThinkTankEventInput):Think
     evidenceRef:input.evidenceRef,
     evidenceId:input.evidenceId,
     evidenceUri:input.evidenceUri,
+    evidenceExcerpt:input.evidenceExcerpt,
+    evidenceExcerptId:input.evidenceExcerptId,
+    excerptStart:input.excerptStart,
+    excerptEnd:input.excerptEnd,
     gateBreakdown:input.gateBreakdown,
     claimGovernance:input.claimGovernance,
     message:input.message,

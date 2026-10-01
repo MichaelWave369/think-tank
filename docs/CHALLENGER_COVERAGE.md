@@ -112,6 +112,7 @@ The review fingerprint covers the exact semantic/provenance basis available at r
 - evidence URI
 - research candidate lineage
 - machine retrieval SHA-256 when present
+- pinned excerpt ids, offsets, projection digests, and excerpt digests
 
 Review history itself is excluded from this fingerprint.
 
@@ -209,3 +210,14 @@ PR 12 does not:
 - automatically search for missing evidence
 
 Those require separate, explicit policy or research rungs.
+
+
+## Excerpt-aware freshness
+
+PR 14 includes pinned source excerpts in the review basis fingerprint.
+
+Adding or removing an excerpt attached to evidence bound to a claim therefore makes the prior Challenger audit stale.
+
+The historical audit remains immutable.
+
+See [SOURCE_EXCERPTS.md](SOURCE_EXCERPTS.md).
