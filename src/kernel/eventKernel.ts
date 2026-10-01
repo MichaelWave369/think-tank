@@ -7,7 +7,8 @@ import { evaluateClaimGovernance } from "../domain/claimGovernance";
 import {
   argumentReviewBasisFingerprint,
   argumentReviewEligibility,
-  argumentReviewEligibleExcerpts
+  argumentReviewEligibleExcerpts,
+  argumentReviewIsFresh
 } from "../domain/argumentReview";
 import { fingerprintProjection } from "./fingerprint";
 import { stableStringify } from "./stable";
@@ -54,6 +55,9 @@ function assertArgumentReviewEvent(state:ThinkTankState,event:ThinkTankEvent):bo
     const assignment=state.assignments.find(item=>item.roleId==="challenger");
     if(!assignment||event.seatId!==assignment.seatId){
       throw new KernelIntegrityError("Argument review must route through the currently assigned Challenger seat.",event.seq);
+    }
+    if(state.seatStatus[event.seatId]==="offline"){
+      throw new KernelIntegrityError("Argument review cannot route through an offline Challenger seat.",event.seq);
     }
     const eligibility=argumentReviewEligibility(state,event.claimId);
     if(!eligibility.allowed){
@@ -207,6 +211,9 @@ function assertArgumentReviewEvent(state:ThinkTankState,event:ThinkTankEvent):bo
     const review=state.argumentReviews.find(item=>item.id===event.argumentReviewId);
     if(!review||review.status!=="draft"){
       throw new KernelIntegrityError("Only an existing DRAFT argument review may be accepted.",event.seq);
+    }
+    if(!argumentReviewIsFresh(state,review)){
+      throw new KernelIntegrityError("Stale argument reviews cannot be accepted; request a fresh Challenger review.",event.seq);
     }
     return true;
   }
