@@ -6,40 +6,35 @@ A governed, event-sourced multi-mind control room. Cognitive roles are staffed b
 
 ## Current rung
 
-**PR 7 — Provider Adapters + LIVE Execution**
+**PR 8 — Reality Gate Evidence Engine**
 
-The Think Tank can now execute real provider turns through the same governed event path used by simulation.
+LIVE sessions now receive a deterministic, inspectable evidence score instead of a placeholder gate value.
 
-PR 7 adds:
-- local companion provider bridge
-- real Ollama model discovery + chat
-- server-side OpenAI Responses adapter
-- server-side Kimi OpenAI-compatible adapter
-- zero provider secrets in browser state/storage/bundles
-- remote providers disabled until explicit key + model configuration
-- provider-neutral cognitive role prompts
-- Provider Bridge console with health/model status
-- explicit provider health → Crane Fly sync
-- LIVE execution alongside deterministic SIM
-- provider model/latency/request receipt metadata
-- abortable in-flight provider requests
-- canonical `provider.failed` governance path
-- fail-closed LIVE Reality Gate when no evidence scorer exists
-- 1200-token default remote/local output guardrail
-- provider bridge syntax validation in CI
-- automated LIVE replay and failure tests
+PR 8 adds:
+- canonical evidence receipts
+- operator-attested reference entry/removal
+- explicit evidence verification classes
+- deterministic Reality Gate score breakdown
+- provider provenance scoring
+- required-role coverage scoring
+- low-weight seat-diversity scoring
+- challenge coverage scoring
+- external-support scoring
+- hard evidence-class confidence caps
+- model-consensus ceiling of 0.65 without external evidence
+- single-attestation ceiling of 0.74
+- machine-verified evidence reserved for system/tool integrations
+- gate score + cap visible in the control room
+- kernel recomputation of scored LIVE gate receipts
+- forged score/breakdown rejection
+- exact evidence replay
+- automated evidence and LIVE gate tests
 
-### Local-first setup
+### Important semantic rule
 
-    cp .env.example .env
-    npm install
-    npm run bridge
+**Reality Gate is evidence/provenance governance, not a truth oracle.**
 
-In another terminal:
-
-    npm run dev
-
-No remote API key is required for Ollama.
+Multiple models agreeing with one another do not become external evidence merely by agreeing.
 
 See:
 - [Architecture](docs/ARCHITECTURE.md)
@@ -49,6 +44,17 @@ See:
 - [Motion Layer](docs/MOTION_LAYER.md)
 - [Crane Fly](docs/CRANE_FLY.md)
 - [Providers](docs/PROVIDERS.md)
+- [Reality Gate Evidence Engine](docs/EVIDENCE_GATE.md)
+
+## Local-first setup
+
+    cp .env.example .env
+    npm install
+    npm run bridge
+
+In another terminal:
+
+    npm run dev
 
 Verification:
 
@@ -60,7 +66,7 @@ Verification:
 
 > **If a light changes, a sequenced event explains why.**
 
-Real provider output changes the event emitter, not the cognitive role, scheduler, routing, governance, motion, or ledger contracts.
+If the Reality Gate changes, a replayable evidence packet explains why.
 
 ## Build ladder
 
@@ -70,6 +76,7 @@ Real provider output changes the event emitter, not the cognitive role, schedule
 4. ✅ Modes + scheduler + governance
 5. ✅ Semantic motion layer
 6. ✅ Crane Fly assignments
-7. **Provider adapters + LIVE execution**
+7. ✅ Provider adapters + LIVE execution
+8. **Reality Gate evidence engine**
 
 **Φ THINK TANK is a control room, not eight chat cards.**
