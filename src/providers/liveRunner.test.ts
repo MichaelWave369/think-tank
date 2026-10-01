@@ -51,6 +51,18 @@ describe("LIVE provider runner",()=>{
     expect(replayed.events).toHaveLength(events.length);
     expect(replayed.lastUtterance.vessie).toBe(result.state.lastUtterance.vessie);
     expect(replayed.gateScore).toBe(.65);
+
+    expect(result.state.decisionDossiers).toHaveLength(1);
+    const dossier=result.state.decisionDossiers[0]!;
+    expect(dossier.outcome).toBe("completed");
+    expect(dossier.providerTurns).toHaveLength(1);
+    expect(dossier.providerTurns[0]).toMatchObject({
+      roleId:"vessie",
+      seatId:"local",
+      providerModel:"qwen-test",
+      providerRequestId:"req-test"
+    });
+    expect(dossier.basisFingerprint).toMatch(/^fnv1a32:[a-f0-9]{8}$/);
   });
 
   it("turns provider transport failure into a governed withheld state",async()=>{
