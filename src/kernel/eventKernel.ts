@@ -156,6 +156,19 @@ function assertPolicyEvent(state:ThinkTankState,event:ThinkTankEvent):void{
     return;
   }
 
+  if(event.kind==="provider.failed"){
+    if(!state.currentSpeaker){
+      throw new KernelIntegrityError("Provider failure recorded without an active speaker.",event.seq);
+    }
+    if(event.roleId!==state.currentSpeaker){
+      throw new KernelIntegrityError("Provider failure role does not match the active speaker.",event.seq);
+    }
+    if(!event.seatId){
+      throw new KernelIntegrityError("Provider failure requires the responsible seat.",event.seq);
+    }
+    return;
+  }
+
   if(event.kind==="gate.scored"){
     if(!state.turnPlan)throw new KernelIntegrityError("Reality Gate scored before a schedule was planned.",event.seq);
     if(state.currentSpeaker)throw new KernelIntegrityError("Reality Gate cannot score while a speaker is active.",event.seq);
@@ -220,6 +233,9 @@ export function buildEvent(state:ThinkTankState,input:ThinkTankEventInput):Think
     assignmentScore:input.assignmentScore,
     assignmentReason:input.assignmentReason,
     assignmentOrigin:input.assignmentOrigin,
+    providerModel:input.providerModel,
+    providerLatencyMs:input.providerLatencyMs,
+    providerRequestId:input.providerRequestId,
     message:input.message,
     gateScore:input.gateScore,
     override:input.override,
