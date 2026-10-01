@@ -8,6 +8,7 @@ import "./crane-fly.css";
 import "./providers.css";
 import "./evidence.css";
 import "./claims.css";
+import "./research.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode><App/></React.StrictMode>

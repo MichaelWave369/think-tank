@@ -14,6 +14,8 @@ export const createInitialState=():ThinkTankState=>({
   evidenceRefs:[],
   claims:[],
   claimBindings:[],
+  researchSearches:[],
+  researchCandidates:[],
   synthesisWithheld:false,
   assignments:[
     {roleId:"vessie",seatId:"local"},

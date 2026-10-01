@@ -4,7 +4,10 @@ import type {
   ProviderInvokeResponse,
   ProviderStatusResponse,
   EvidenceFetchReceipt,
-  EvidenceFetchError
+  EvidenceFetchError,
+  ResearchBackendStatusResponse,
+  ResearchSearchResponse,
+  ResearchSearchError
 } from "./types";
 
 const DEFAULT_BRIDGE="http://127.0.0.1:3691";
@@ -76,6 +79,37 @@ export async function fetchMachineEvidence(
   if(!response.ok||!body.ok){
     const errorBody=body as EvidenceFetchError;
     throw new Error(errorBody.error?.message||("Evidence fetch returned HTTP "+response.status+"."));
+  }
+
+  return body;
+}
+
+
+export async function fetchResearchStatus():Promise<ResearchBackendStatusResponse>{
+  const response=await fetchWithTimeout(providerBridgeUrl+"/research/status",{},4000);
+  if(!response.ok)throw new Error("Research bridge status returned HTTP "+response.status+".");
+  return response.json() as Promise<ResearchBackendStatusResponse>;
+}
+
+export async function searchResearch(
+  query:string,
+  signal?:AbortSignal
+):Promise<ResearchSearchResponse>{
+  const response=await fetchWithTimeout(
+    providerBridgeUrl+"/research/search",
+    {
+      method:"POST",
+      headers:{"content-type":"application/json"},
+      body:JSON.stringify({query}),
+      signal
+    },
+    30000
+  );
+
+  const body=await response.json() as ResearchSearchResponse|ResearchSearchError;
+  if(!response.ok||!body.ok){
+    const errorBody=body as ResearchSearchError;
+    throw new Error(errorBody.error?.message||("Research search returned HTTP "+response.status+"."));
   }
 
   return body;

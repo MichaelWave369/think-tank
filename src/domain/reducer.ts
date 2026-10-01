@@ -97,6 +97,14 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
     next.governanceReason="Claim graph changed; rerun required.";
   }
 
+  if(event.kind==="research.search.completed"&&event.researchReceipt){
+    next.researchSearches=[...state.researchSearches,event.researchReceipt];
+    next.researchCandidates=[
+      ...state.researchCandidates,
+      ...event.researchReceipt.candidates
+    ];
+  }
+
   if(event.kind==="evidence.added"&&event.evidenceRef){
     next.evidenceRefs=[
       ...state.evidenceRefs.filter(ref=>ref.id!==event.evidenceRef?.id),

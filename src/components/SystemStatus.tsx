@@ -42,6 +42,8 @@ export function SystemStatus({
     <span>Claims: {claimSummary.total} · {claimSummary.bindings} bindings</span>
     <span>Claims Unbound: {claimSummary.unbound}</span>
     <span>Claims Contested: {claimSummary.contested}</span>
+    <span>Research: {state.researchSearches.length} searches</span>
+    <span>Candidates: {state.researchCandidates.length}</span>
     <span>Output: {state.outputLabel??"PENDING"}</span>
     <span>Action: {state.actionAllowed?"AUTHORIZED":"LOCKED"}</span>
     <span>Event Kernel: <b className={kernelOk?"kernel-ok":"kernel-fault"}>{kernelOk?"REPLAY EXACT":"FAULT"}</b></span>

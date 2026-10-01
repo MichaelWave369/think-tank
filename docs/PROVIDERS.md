@@ -178,3 +178,30 @@ The status endpoint does not send billable remote inference probes.
 - LIVE sessions replay exactly
 - threshold modes fail closed without a real evidence scorer
 - frontend source contains no API secrets
+
+
+## Governed research search
+
+PR 11 adds optional local-first SearXNG endpoints:
+
+- `GET /research/status`
+- `POST /research/search`
+
+The search endpoint accepts only a query. The SearXNG backend URL is administrator-controlled through `SEARXNG_URL`; operators cannot turn the bridge into an arbitrary fetch proxy.
+
+Search results are normalized, deduplicated, capped, and hashed before returning to the browser.
+
+They enter canonical state as quarantined candidates, not evidence.
+
+Repeated searches retain their search receipt/digest but only create new candidate records for URLs not already quarantined for that claim.
+
+See [GOVERNED_RESEARCH.md](GOVERNED_RESEARCH.md).
+
+### Bridge runtime validation
+
+PR 11 also restores and tests the provider bridge helpers used by provider status/chat:
+
+- `fetchJson`
+- `normalizeMessages`
+
+Provider message input now has explicit role, count, and content-size validation.

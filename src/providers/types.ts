@@ -66,3 +66,35 @@ export interface EvidenceFetchError{
   ok:false;
   error:{code:string;message:string};
 }
+
+
+export interface ResearchBackendStatusResponse{
+  ok:true;
+  provider:"SearXNG";
+  state:"configured"|"disabled";
+  maxResults:number;
+  detail:string;
+}
+
+export interface ResearchSearchResult{
+  title:string;
+  uri:string;
+  snippet:string;
+  engine:string;
+  rank:number;
+}
+
+export interface ResearchSearchResponse{
+  ok:true;
+  tool:"searxng-search";
+  provider:"searxng";
+  query:string;
+  searchedAt:string;
+  resultDigest:string;
+  results:ResearchSearchResult[];
+}
+
+export interface ResearchSearchError{
+  ok:false;
+  error:{code:string;message:string};
+}

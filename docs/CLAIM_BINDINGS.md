@@ -125,9 +125,11 @@ Claim graph mutation invalidates a prior Gate authorization because the interpre
 
 A new governed run is required afterward.
 
-Future research/gate rungs may use claim coverage and relation structure explicitly.
+PR 11 builds governed search directly on this graph.
 
-They must build on this graph rather than creating a parallel research state.
+Research is always scoped to an existing claim. Search candidates remain quarantined until machine retrieval creates an evidence receipt, after which the operator may bind the receipt here.
+
+Future gate rungs may use claim coverage and relation structure explicitly. They must continue to build on this graph rather than creating parallel research state.
 
 ## UI
 
