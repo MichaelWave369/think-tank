@@ -1,4 +1,7 @@
 import http from "node:http";
+import {createHash} from "node:crypto";
+import {lookup} from "node:dns/promises";
+import {isIP} from "node:net";
 
 try{process.loadEnvFile(".env");}catch{}
 
@@ -8,6 +11,8 @@ const OLLAMA_BASE_URL=(process.env.OLLAMA_BASE_URL||"http://127.0.0.1:11434").re
 const KIMI_BASE_URL=(process.env.KIMI_BASE_URL||"https://api.moonshot.ai/v1").replace(/\/$/,"");
 const MAX_BODY_BYTES=512_000;
 const MAX_OUTPUT_TOKENS=Math.max(64,Number(process.env.PROVIDER_MAX_OUTPUT_TOKENS||1200));
+const EVIDENCE_MAX_BYTES=Math.max(1024,Number(process.env.EVIDENCE_MAX_BYTES||2_000_000));
+const EVIDENCE_MAX_REDIRECTS=Math.max(0,Math.min(5,Number(process.env.EVIDENCE_MAX_REDIRECTS||3)));
 
 const explicitOrigins=(process.env.THINK_TANK_ORIGIN||"")
   .split(",").map(value=>value.trim()).filter(Boolean);
@@ -56,6 +61,138 @@ const readJson=(req)=>new Promise((resolve,reject)=>{
   });
   req.on("error",reject);
 });
+
+const isBlockedIpv4=(address)=>{
+  const parts=address.split(".").map(Number);
+  if(parts.length!==4||parts.some(value=>!Number.isInteger(value)||value<0||value>255))return true;
+  const [a,b]=parts;
+  return (
+    a===0||
+    a===10||
+    a===127||
+    (a===100&&b>=64&&b<=127)||
+    (a===169&&b===254)||
+    (a===172&&b>=16&&b<=31)||
+    (a===192&&b===168)||
+    (a===198&&(b===18||b===19))||
+    a>=224
+  );
+};
+
+const isBlockedIpv6=(address)=>{
+  const value=address.toLowerCase();
+  if(value==="::"||value==="::1")return true;
+  if(value.startsWith("fe8")||value.startsWith("fe9")||value.startsWith("fea")||value.startsWith("feb"))return true;
+  if(value.startsWith("fc")||value.startsWith("fd")||value.startsWith("ff"))return true;
+  if(value.startsWith("::ffff:")){
+    const mapped=value.slice(7);
+    return isIP(mapped)===4?isBlockedIpv4(mapped):true;
+  }
+  return false;
+};
+
+const assertPublicHttpUrl=async(raw)=>{
+  let url;
+  try{url=new URL(raw);}catch{throw new Error("Evidence URI must be a valid absolute URL.");}
+  if(url.protocol!=="https:"&&url.protocol!=="http:")throw new Error("Evidence URI must use http or https.");
+  if(url.username||url.password)throw new Error("Evidence URI must not contain credentials.");
+  if(url.port&&url.port!=="80"&&url.port!=="443")throw new Error("Evidence URI may only use ports 80 or 443.");
+
+  const host=url.hostname;
+  const direct=isIP(host);
+  const addresses=direct
+    ?[{address:host,family:direct}]
+    :await lookup(host,{all:true,verbatim:true});
+
+  if(!addresses.length)throw new Error("Evidence host did not resolve.");
+
+  for(const entry of addresses){
+    const blocked=entry.family===4?isBlockedIpv4(entry.address):isBlockedIpv6(entry.address);
+    if(blocked)throw new Error("Evidence host resolves to a private, local, multicast, or reserved address.");
+  }
+
+  return url;
+};
+
+const readBodyLimited=async(response,maxBytes)=>{
+  if(!response.body)return Buffer.alloc(0);
+  const reader=response.body.getReader();
+  const chunks=[];
+  let total=0;
+
+  while(true){
+    const {done,value}=await reader.read();
+    if(done)break;
+    total+=value.byteLength;
+    if(total>maxBytes){
+      try{await reader.cancel();}catch{}
+      throw new Error("Evidence response exceeds the configured byte limit.");
+    }
+    chunks.push(Buffer.from(value));
+  }
+
+  return Buffer.concat(chunks,total);
+};
+
+const allowedEvidenceType=(contentType)=>{
+  const type=(contentType||"").split(";")[0].trim().toLowerCase();
+  return (
+    type.startsWith("text/")||
+    type==="application/json"||
+    type==="application/xml"||
+    type==="application/xhtml+xml"||
+    type==="application/pdf"
+  );
+};
+
+const fetchEvidenceReceipt=async(requestedUri)=>{
+  let current=await assertPublicHttpUrl(requestedUri);
+  let redirects=0;
+
+  while(true){
+    const response=await fetch(current,{
+      method:"GET",
+      redirect:"manual",
+      headers:{
+        "accept":"text/html,text/plain,application/json,application/xml,application/pdf;q=0.8,*/*;q=0.2",
+        "user-agent":"PhiThinkTank-EvidenceVerifier/0.1"
+      },
+      signal:AbortSignal.timeout(20_000)
+    });
+
+    if([301,302,303,307,308].includes(response.status)){
+      if(redirects>=EVIDENCE_MAX_REDIRECTS)throw new Error("Evidence redirect limit exceeded.");
+      const location=response.headers.get("location");
+      if(!location)throw new Error("Evidence redirect did not include a Location header.");
+      current=await assertPublicHttpUrl(new URL(location,current).toString());
+      redirects+=1;
+      continue;
+    }
+
+    if(!response.ok)throw new Error("Evidence fetch returned HTTP "+response.status+".");
+
+    const contentType=response.headers.get("content-type")||"application/octet-stream";
+    if(!allowedEvidenceType(contentType)){
+      throw new Error("Evidence content type is not allowed: "+contentType+".");
+    }
+
+    const body=await readBodyLimited(response,EVIDENCE_MAX_BYTES);
+    const sha256=createHash("sha256").update(body).digest("hex");
+
+    return {
+      ok:true,
+      tool:"url-fetch",
+      requestedUri,
+      finalUri:current.toString(),
+      httpStatus:response.status,
+      contentType,
+      bytes:body.length,
+      sha256,
+      redirects,
+      retrievedAt:new Date().toISOString()
+    };
+  }
+};
 
 const normalizeMessages=(messages)=>{
   if(!Array.isArray(messages)||messages.length===0)throw new Error("messages must be a non-empty array.");
@@ -242,6 +379,14 @@ const server=http.createServer(async(req,res)=>{
 
     if(req.method==="GET"&&req.url==="/providers/status"){
       send(res,200,await statusPayload(),origin);
+      return;
+    }
+
+    if(req.method==="POST"&&req.url==="/evidence/fetch"){
+      const raw=await readJson(req);
+      if(typeof raw.uri!=="string"||!raw.uri.trim())throw new Error("Evidence fetch requires a URI.");
+      const receipt=await fetchEvidenceReceipt(raw.uri.trim());
+      send(res,200,receipt,origin);
       return;
     }
 
