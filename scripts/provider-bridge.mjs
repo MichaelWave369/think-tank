@@ -15,6 +15,8 @@ const MAX_BODY_BYTES=512_000;
 const MAX_OUTPUT_TOKENS=Math.max(64,Number(process.env.PROVIDER_MAX_OUTPUT_TOKENS||1200));
 const EVIDENCE_MAX_BYTES=Math.max(1024,Number(process.env.EVIDENCE_MAX_BYTES||2_000_000));
 const EVIDENCE_MAX_REDIRECTS=Math.max(0,Math.min(5,Number(process.env.EVIDENCE_MAX_REDIRECTS||3)));
+const SEARXNG_URL=(process.env.SEARXNG_URL||"").replace(/\/$/,"");
+const RESEARCH_MAX_RESULTS=Math.max(1,Math.min(10,Number(process.env.RESEARCH_MAX_RESULTS||5)));
 
 const explicitOrigins=(process.env.THINK_TANK_ORIGIN||"")
   .split(",").map(value=>value.trim()).filter(Boolean);
@@ -63,6 +65,136 @@ const readJson=(req)=>new Promise((resolve,reject)=>{
   });
   req.on("error",reject);
 });
+
+const bridgeError=(message,status=500)=>{
+  const error=new Error(message);
+  error.status=status;
+  return error;
+};
+
+export const normalizeMessages=(raw)=>{
+  if(!Array.isArray(raw)||raw.length===0)throw bridgeError("Provider messages must be a non-empty array.",400);
+  if(raw.length>24)throw bridgeError("Provider message count exceeds the bridge limit.",400);
+
+  let total=0;
+  return raw.map((item,index)=>{
+    if(!item||!["system","user","assistant"].includes(item.role)){
+      throw bridgeError("Provider message "+index+" has an invalid role.",400);
+    }
+    if(typeof item.content!=="string"||!item.content.trim()){
+      throw bridgeError("Provider message "+index+" requires text content.",400);
+    }
+    const content=item.content.trim();
+    total+=content.length;
+    if(total>60_000)throw bridgeError("Provider message content exceeds the bridge limit.",400);
+    return {role:item.role,content};
+  });
+};
+
+export const fetchJson=async(url,init={},timeoutMs=5000)=>{
+  let response;
+  try{
+    response=await fetch(url,{...init,signal:init.signal||AbortSignal.timeout(timeoutMs)});
+  }catch(error){
+    throw bridgeError("Upstream request failed: "+(error instanceof Error?error.message:String(error)),502);
+  }
+
+  const text=await response.text();
+  let body={};
+  if(text){
+    try{body=JSON.parse(text);}
+    catch{throw bridgeError("Upstream returned non-JSON content.",502);}
+  }
+
+  if(!response.ok){
+    const message=
+      body?.error?.message||
+      body?.message||
+      ("Upstream returned HTTP "+response.status+".");
+    throw bridgeError(message,response.status);
+  }
+
+  return {body,response};
+};
+
+export const normalizeSearchResults=(raw,maxResults=RESEARCH_MAX_RESULTS)=>{
+  const source=Array.isArray(raw?.results)?raw.results:[];
+  const seen=new Set();
+  const results=[];
+
+  for(const item of source){
+    if(results.length>=maxResults)break;
+    const rawUri=typeof item?.url==="string"?item.url.trim():"";
+    const title=typeof item?.title==="string"?item.title.trim():"";
+    if(!rawUri||!title)continue;
+
+    let url;
+    try{url=new URL(rawUri);}catch{continue;}
+    if((url.protocol!=="http:"&&url.protocol!=="https:")||url.username||url.password)continue;
+
+    const uri=url.toString();
+    if(seen.has(uri))continue;
+    seen.add(uri);
+
+    const engine=
+      typeof item?.engine==="string"&&item.engine.trim()
+        ?item.engine.trim()
+        :Array.isArray(item?.engines)&&typeof item.engines[0]==="string"
+          ?item.engines[0]
+          :"searxng";
+
+    const snippet=typeof item?.content==="string"
+      ?item.content.trim().slice(0,800)
+      :"";
+
+    results.push({
+      title:title.slice(0,400),
+      uri,
+      snippet,
+      engine:String(engine).slice(0,120),
+      rank:results.length+1
+    });
+  }
+
+  return results;
+};
+
+export const buildSearxngSearchUrl=(base,query)=>{
+  if(!base)throw bridgeError("SearXNG research backend is not configured.",503);
+  const url=new URL(base.replace(/\/$/,"")+"/search");
+  url.searchParams.set("q",query);
+  url.searchParams.set("format","json");
+  url.searchParams.set("safesearch","1");
+  return url.toString();
+};
+
+const searchSearxng=async(query)=>{
+  if(!SEARXNG_URL)throw bridgeError("SearXNG research backend is not configured. Set SEARXNG_URL.",503);
+  const normalizedQuery=query.trim();
+  if(!normalizedQuery)throw bridgeError("Research search requires a query.",400);
+  if(normalizedQuery.length>300)throw bridgeError("Research query exceeds the 300 character limit.",400);
+
+  const {body}=await fetchJson(
+    buildSearxngSearchUrl(SEARXNG_URL,normalizedQuery),
+    {headers:{"accept":"application/json","user-agent":"PhiThinkTank-Research/0.1"}},
+    20_000
+  );
+
+  const results=normalizeSearchResults(body,RESEARCH_MAX_RESULTS);
+  const searchedAt=new Date().toISOString();
+  const resultDigest=createHash("sha256").update(JSON.stringify(results)).digest("hex");
+
+  return {
+    ok:true,
+    tool:"searxng-search",
+    provider:"searxng",
+    query:normalizedQuery,
+    searchedAt,
+    resultDigest,
+    results
+  };
+};
+
 
 export const isBlockedIpv4=(address)=>{
   const parts=address.split(".").map(Number);
@@ -263,7 +395,7 @@ const remoteStatus=(seatId,provider,key,model)=>({
 
 const statusPayload=async()=>({
   ok:true,
-  bridgeVersion:"0.2.0",
+  bridgeVersion:"0.3.0",
   seats:[
     await ollamaStatus(),
     remoteStatus("openai","OpenAI",process.env.OPENAI_API_KEY,process.env.OPENAI_MODEL),
@@ -376,12 +508,32 @@ const server=http.createServer(async(req,res)=>{
 
   try{
     if(req.method==="GET"&&req.url==="/health"){
-      send(res,200,{ok:true,service:"phi-think-tank-provider-bridge",version:"0.2.0"},origin);
+      send(res,200,{ok:true,service:"phi-think-tank-provider-bridge",version:"0.3.0"},origin);
       return;
     }
 
     if(req.method==="GET"&&req.url==="/providers/status"){
       send(res,200,await statusPayload(),origin);
+      return;
+    }
+
+    if(req.method==="GET"&&req.url==="/research/status"){
+      send(res,200,{
+        ok:true,
+        provider:"SearXNG",
+        state:SEARXNG_URL?"configured":"disabled",
+        maxResults:RESEARCH_MAX_RESULTS,
+        detail:SEARXNG_URL
+          ?"Local/admin-configured SearXNG search adapter is enabled."
+          :"Set SEARXNG_URL to enable governed research search."
+      },origin);
+      return;
+    }
+
+    if(req.method==="POST"&&req.url==="/research/search"){
+      const raw=await readJson(req);
+      if(typeof raw.query!=="string")throw bridgeError("Research search requires a query.",400);
+      send(res,200,await searchSearxng(raw.query),origin);
       return;
     }
 
