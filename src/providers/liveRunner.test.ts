@@ -69,7 +69,7 @@ describe("LIVE provider runner",()=>{
     expect(result.error).toMatch(/Local model unavailable/);
     expect(events.some(event=>event.kind==="provider.failed")).toBe(true);
     expect(events.some(event=>event.kind==="governance.fault")).toBe(true);
-    expect(events.at(-1)?.kind).toBe("synthesis.withheld");
+    expect(events[events.length-1]?.kind).toBe("synthesis.withheld");
     expect(result.state.synthesisWithheld).toBe(true);
     expect(result.state.faultCode).toBe("PROVIDER_FAILED");
   });
