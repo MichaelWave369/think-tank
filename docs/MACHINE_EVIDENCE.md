@@ -155,3 +155,16 @@ PR 9 adds Node-level network policy tests for:
 - public direct-IP URL acceptance without fetching
 
 The existing TypeScript/Vitest suite covers receipt provenance and deterministic replay.
+
+
+## Hash-locked source excerpts
+
+PR 14 can derive exact text excerpts from machine-verified evidence.
+
+The bridge re-fetches the source and requires the new SHA-256 to equal the original retrieval receipt before text projection is allowed.
+
+Full projected text remains transient. Only the selected bounded excerpt enters canonical state.
+
+Pinned excerpts carry source, projection, and excerpt SHA-256 lineage.
+
+See [SOURCE_EXCERPTS.md](SOURCE_EXCERPTS.md).
