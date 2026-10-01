@@ -3,6 +3,7 @@ import { MODE_MATRIX } from "./modes";
 import { createInitialState } from "./state";
 import { evaluateGovernance,initialTurnPlan } from "./scheduler";
 import { projectEvent } from "./reducer";
+import type { ThinkTankState } from "./types";
 import { buildEvent,buildEventBatch,replayEvents } from "../kernel/eventKernel";
 import { scenarioEventInputs } from "../sim/demo";
 
@@ -56,7 +57,7 @@ describe("mode laws",()=>{
 
   it("executes and exactly replays the happy path for every mode",()=>{
     for(const law of MODE_MATRIX){
-      const initial={...createInitialState(),mode:law.id,routerPolicy:law.router};
+      const initial:ThinkTankState={...createInitialState(),mode:law.id,routerPolicy:law.router};
       const events=buildEventBatch(initial,scenarioEventInputs("Mode law test.",law.id,"happy"));
       const final=events.reduce(projectEvent,initial);
       const replayed=replayEvents(initial,events);
@@ -112,7 +113,7 @@ describe("scheduler enforcement",()=>{
   });
 
   it("rejects rounds beyond the selected mode cap",()=>{
-    let state={...createInitialState(),mode:"solo" as const,routerPolicy:"manual" as const};
+    let state:ThinkTankState={...createInitialState(),mode:"solo",routerPolicy:"manual"};
 
     const prefix=[
       {source:"system" as const,kind:"session.started" as const,phase:"routing" as const,message:"start"},
