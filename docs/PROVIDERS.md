@@ -230,3 +230,23 @@ The endpoint returns deterministic text projection v1. Preview bodies are transi
 PDF text projection is explicitly unsupported in PR 14.
 
 See [SOURCE_EXCERPTS.md](SOURCE_EXCERPTS.md).
+
+
+## Challenger argument-review prompt boundary
+
+PR 15 reuses the existing provider invocation transport for the assigned Challenger seat.
+
+No new server secret or billable endpoint is introduced.
+
+The browser constructs a constrained Challenger prompt from:
+- one registered claim
+- its current operator bindings
+- pinned exact excerpts on bound evidence
+
+Excerpt content is explicitly marked UNTRUSTED SOURCE DATA.
+
+The provider must return raw JSON and is not allowed to supply canonical quotation text.
+
+The browser validates the structured payload before it can enter the event kernel; the kernel independently validates the cited excerpt set, basis fingerprint, Challenger seat, and field limits.
+
+See [ARGUMENT_REVIEW.md](ARGUMENT_REVIEW.md).
