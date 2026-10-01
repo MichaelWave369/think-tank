@@ -9,6 +9,7 @@ export function SourceExcerptPanel({
   excerpts,
   busy,
   toolError,
+  lockedExcerptIds,
   onPreview,
   onPin,
   onRemove
@@ -17,6 +18,7 @@ export function SourceExcerptPanel({
   excerpts:EvidenceExcerpt[];
   busy:boolean;
   toolError:string;
+  lockedExcerptIds:string[];
   onPreview:(evidenceId:string)=>Promise<EvidenceProjectionResponse>;
   onPin:(evidenceId:string,start:number,end:number)=>Promise<void>;
   onRemove:(excerptId:string)=>void;
@@ -122,7 +124,9 @@ export function SourceExcerptPanel({
           <blockquote>{excerpt.text}</blockquote>
           <small>PROJECTION {short(excerpt.projectionSha256)} · {excerpt.extractedAt}</small>
         </div>
-        <button type="button" onClick={()=>onRemove(excerpt.id)} disabled={busy}>REMOVE</button>
+        <button type="button" onClick={()=>onRemove(excerpt.id)} disabled={busy||lockedExcerptIds.includes(excerpt.id)}>
+          {lockedExcerptIds.includes(excerpt.id)?"DISMISS REVIEW FIRST":"REMOVE"}
+        </button>
       </article>)}
     </div>
 
