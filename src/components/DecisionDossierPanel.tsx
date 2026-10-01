@@ -66,6 +66,10 @@ export function DecisionDossierPanel({
       .reverse()
       .find(item=>item.sealId===latestSeal.id)??null
     :null;
+  const configuredSignerAlreadySealed=Boolean(
+    sealStatus?.keyFingerprint&&
+    seals.some(item=>item.publicKeyFingerprintSha256===sealStatus.keyFingerprint)
+  );
   const sealState=!latestSeal
     ?"UNSEALED"
     :!latestVerification
@@ -167,9 +171,13 @@ export function DecisionDossierPanel({
         <button
           type="button"
           onClick={()=>onSeal(dossier.id)}
-          disabled={busy||sealStatus?.state!=="configured"}
+          disabled={busy||sealStatus?.state!=="configured"||configuredSignerAlreadySealed}
         >
-          {sealBusy?"WORKING…":"SEAL DOSSIER"}
+          {sealBusy
+            ?"WORKING…"
+            :configuredSignerAlreadySealed
+              ?"CURRENT SIGNER ALREADY SEALED"
+              :"SEAL DOSSIER"}
         </button>
         <button
           type="button"
