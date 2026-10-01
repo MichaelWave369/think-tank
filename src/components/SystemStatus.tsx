@@ -43,6 +43,7 @@ export function SystemStatus({
     <span>Reality Gate: {gate} / {state.gateThreshold.toFixed(2)}</span>
     <span>Gate Cap: {state.gateBreakdown?.cap.toFixed(2)??"—"}</span>
     <span>Evidence: {state.evidenceRefs.length} refs</span>
+    <span>Excerpts: {state.evidenceExcerpts.length} pinned</span>
     <span>Claims: {claimSummary.total} · {claimSummary.bindings} bindings</span>
     <span>Claims Unbound: {claimSummary.unbound}</span>
     <span>Claims Contested: {claimSummary.contested}</span>
