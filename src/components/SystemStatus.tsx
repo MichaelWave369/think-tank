@@ -7,19 +7,29 @@ export function SystemStatus({
   state,
   replayReport,
   motionMode,
-  playing
+  playing,
+  routeReady,
+  unresolvedCount
 }:{
   state:ThinkTankState;
   replayReport:ReplayReport;
   motionMode:MotionMode;
   playing:boolean;
+  routeReady:boolean;
+  unresolvedCount:number;
 }){
   const gate=state.gateScore===null?"WAITING":state.gateScore.toFixed(2);
   const kernelOk=replayReport.valid&&replayReport.exact;
+  const pinCount=Object.keys(state.pinnedAssignments).length;
+  const onlineCount=Object.values(state.seatStatus).filter(status=>status!=="offline").length;
 
   return <section className="system-status">
     <strong>SYSTEM STATUS</strong>
     <span>Crane Fly: {state.routerPolicy.toUpperCase()}</span>
+    <span>Route: <b className={routeReady?"kernel-ok":"kernel-fault"}>{routeReady?"READY":"BLOCKED"}</b></span>
+    <span>Unresolved: {unresolvedCount}</span>
+    <span>Operator Pins: {pinCount}</span>
+    <span>Seats Available: {onlineCount} / 3</span>
     <span>Scheduler: {schedulerStatus(state)}</span>
     <span>Playback: {playing?"ACTIVE":"IDLE"}</span>
     <span>Motion FX: {motionMode.toUpperCase()}</span>
