@@ -4,17 +4,45 @@
 
 **If a light changes, a sequenced event explains why.**
 
-The UI is a projection of one event-sourced session state. Simulation and future providers emit the same event shape.
+The UI is a projection of one event-sourced session state. Simulation and future providers emit the same canonical event shape.
+
+## Event kernel
+
+PR 3 makes the event seam enforceable.
+
+Every event carries:
+- session id
+- sequence
+- seed
+- source
+- mode
+- phase
+- pre-state projection fingerprint
+- post-state projection fingerprint
+
+Replay validates each transition before applying it. The same ledger from the same initial state must reconstruct the same visible room.
+
+See [EVENT_KERNEL.md](EVENT_KERNEL.md).
 
 ## Human operator authority
 
-The Operator Rail is permanent UI. It owns prompt submission, abort, pin/unpin, and force-synthesis. Reality Gate overrides must be ledgered.
+The Operator Rail is permanent UI. Prompt submission, mode selection, abort, pin/unpin, and force-synthesis belong to the operator surface.
+
+Operational controls do not bypass the ledger. Operator actions are canonical events.
 
 ## Roles are not seats
 
-Cognitive roles: Vessie Prime, Dreamer, Builder, Challenger, Archivist.
+Cognitive roles:
+- Vessie Prime
+- Dreamer
+- Builder
+- Challenger
+- Archivist
 
-Provider/model seats: OpenAI seat, Kimi seat, Local Brain.
+Provider/model seats:
+- OpenAI seat
+- Kimi seat
+- Local Brain
 
 An Assignment binds a seat to a role for the current session. Crane Fly routes assignments; UI identity does not depend on provider identity.
 
@@ -42,12 +70,12 @@ The scheduler will own phase, speaker queue, round cap, timeout, and synthesis t
 
 ## PR ladder
 
-1. Room shell + operator authority
-2. Terminal identity + speech viewport
+1. ✅ Room shell + operator authority
+2. ✅ Terminal identity + speech viewport
 3. Event kernel + deterministic replay
 4. Modes + scheduler + governance
 5. Motion layer
 6. Crane Fly role-seat assignment engine
 7. Provider adapters
 
-Provider adapters must not bypass the reducer or directly animate the UI.
+Provider adapters must emit kernel events. They must not bypass the reducer or directly animate the UI.
