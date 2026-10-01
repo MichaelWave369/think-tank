@@ -21,6 +21,150 @@ export interface ReplayReport{
   error?:string;
 }
 
+function assertResearchEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
+  const researchAction=
+    event.kind==="research.search.requested"||
+    event.kind==="research.search.completed"||
+    event.kind==="research.search.failed";
+
+  if(researchAction&&state.phase!=="intake"&&state.phase!=="complete"&&state.phase!=="aborted"){
+    throw new KernelIntegrityError("Research search cannot run during an active governed session.",event.seq);
+  }
+
+  const assertClaimAndQuery=()=>{
+    if(!event.claimId||!state.claims.some(claim=>claim.id===event.claimId)){
+      throw new KernelIntegrityError("Research search requires an existing claim.",event.seq);
+    }
+    if(!event.researchQuery?.trim()){
+      throw new KernelIntegrityError("Research search requires a query.",event.seq);
+    }
+    if(event.researchQuery.trim().length>300){
+      throw new KernelIntegrityError("Research query exceeds the 300 character limit.",event.seq);
+    }
+  };
+
+  if(event.kind==="research.search.requested"){
+    if(event.source!=="operator"){
+      throw new KernelIntegrityError("Research search requests are operator-authorized.",event.seq);
+    }
+    assertClaimAndQuery();
+    return true;
+  }
+
+  if(event.kind==="research.search.failed"){
+    if(event.source!=="tool"){
+      throw new KernelIntegrityError("Research search failure must be tool-originated.",event.seq);
+    }
+    assertClaimAndQuery();
+
+    const request=[...state.events].reverse().find(item=>
+      item.kind==="research.search.requested"&&
+      item.claimId===event.claimId&&
+      item.researchQuery===event.researchQuery
+    );
+    if(!request){
+      throw new KernelIntegrityError("Research failure has no matching operator request.",event.seq);
+    }
+    const terminal=[...state.events].reverse().find(item=>
+      (item.kind==="research.search.completed"||item.kind==="research.search.failed")&&
+      item.claimId===event.claimId&&
+      item.researchQuery===event.researchQuery
+    );
+    if(terminal&&terminal.seq>request.seq){
+      throw new KernelIntegrityError("Research request is already resolved.",event.seq);
+    }
+    return true;
+  }
+
+  if(event.kind==="research.search.completed"){
+    if(event.source!=="tool"){
+      throw new KernelIntegrityError("Research search completion must be tool-originated.",event.seq);
+    }
+
+    const receipt=event.researchReceipt;
+    if(!receipt){
+      throw new KernelIntegrityError("Research completion requires a search receipt.",event.seq);
+    }
+    if(receipt.tool!=="searxng-search"||receipt.provider!=="searxng"){
+      throw new KernelIntegrityError("Research receipt must originate from the SearXNG search adapter.",event.seq);
+    }
+    if(!state.claims.some(claim=>claim.id===receipt.claimId)){
+      throw new KernelIntegrityError("Research receipt references an unknown claim.",event.seq);
+    }
+    if(!receipt.query.trim()||receipt.query.length>300){
+      throw new KernelIntegrityError("Research receipt query is invalid.",event.seq);
+    }
+    if(Number.isNaN(Date.parse(receipt.searchedAt))){
+      throw new KernelIntegrityError("Research receipt timestamp is invalid.",event.seq);
+    }
+    if(!/^[a-f0-9]{64}$/.test(receipt.resultDigest)){
+      throw new KernelIntegrityError("Research receipt requires a lowercase SHA-256 result digest.",event.seq);
+    }
+    if(receipt.candidates.length>10){
+      throw new KernelIntegrityError("Research receipt exceeds the 10 candidate kernel cap.",event.seq);
+    }
+
+    const request=[...state.events].reverse().find(item=>
+      item.kind==="research.search.requested"&&
+      item.claimId===receipt.claimId&&
+      item.researchQuery===receipt.query
+    );
+    if(!request){
+      throw new KernelIntegrityError("Research completion has no matching operator request.",event.seq);
+    }
+    const terminal=[...state.events].reverse().find(item=>
+      (item.kind==="research.search.completed"||item.kind==="research.search.failed")&&
+      item.claimId===receipt.claimId&&
+      item.researchQuery===receipt.query
+    );
+    if(terminal&&terminal.seq>request.seq){
+      throw new KernelIntegrityError("Research request is already resolved.",event.seq);
+    }
+
+    const ids=new Set<string>();
+    const uris=new Set<string>();
+    for(let index=0;index<receipt.candidates.length;index++){
+      const candidate=receipt.candidates[index];
+      if(!candidate.id.trim()||ids.has(candidate.id)||state.researchCandidates.some(item=>item.id===candidate.id)){
+        throw new KernelIntegrityError("Research candidate id is missing or duplicated.",event.seq);
+      }
+      ids.add(candidate.id);
+
+      if(candidate.claimId!==receipt.claimId||candidate.query!==receipt.query){
+        throw new KernelIntegrityError("Research candidate does not match its receipt claim/query.",event.seq);
+      }
+      if(candidate.discoveredAt!==receipt.searchedAt){
+        throw new KernelIntegrityError("Research candidate timestamp must match the receipt.",event.seq);
+      }
+      if(candidate.rank!==index+1){
+        throw new KernelIntegrityError("Research candidate ranks must be contiguous from 1.",event.seq);
+      }
+      if(!candidate.title.trim()||!candidate.engine.trim()){
+        throw new KernelIntegrityError("Research candidate requires title and engine.",event.seq);
+      }
+
+      let url:URL;
+      try{url=new URL(candidate.uri);}catch{
+        throw new KernelIntegrityError("Research candidate URI is invalid.",event.seq);
+      }
+      if((url.protocol!=="http:"&&url.protocol!=="https:")||url.username||url.password){
+        throw new KernelIntegrityError("Research candidate URI must be credential-free HTTP/S.",event.seq);
+      }
+
+      const normalized=url.toString();
+      if(uris.has(normalized)||state.researchCandidates.some(item=>
+        item.claimId===candidate.claimId&&item.uri===normalized
+      )){
+        throw new KernelIntegrityError("Research candidate URI is duplicated for this claim.",event.seq);
+      }
+      uris.add(normalized);
+    }
+    return true;
+  }
+
+  return false;
+}
+
 function assertClaimEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
   const claimAction=
     event.kind==="claim.added"||
@@ -163,6 +307,18 @@ function assertEvidenceEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
       if(ref.verification!=="machine-verified"){
         throw new KernelIntegrityError("Tool evidence must declare machine verification.",event.seq);
       }
+      if(ref.researchCandidateId){
+        const candidate=state.researchCandidates.find(item=>item.id===ref.researchCandidateId);
+        if(!candidate){
+          throw new KernelIntegrityError("Machine evidence references an unknown research candidate.",event.seq);
+        }
+        if(state.evidenceRefs.some(existing=>existing.researchCandidateId===ref.researchCandidateId)){
+          throw new KernelIntegrityError("Research candidate has already been promoted to evidence.",event.seq);
+        }
+        if(ref.retrieval?.requestedUri!==candidate.uri){
+          throw new KernelIntegrityError("Research candidate URI must match the evidence retrieval request.",event.seq);
+        }
+      }
       if(ref.kind!=="external-source"){
         throw new KernelIntegrityError("Machine-retrieved evidence must use external-source kind.",event.seq);
       }
@@ -294,6 +450,7 @@ function assertRoutingEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
 }
 
 function assertPolicyEvent(state:ThinkTankState,event:ThinkTankEvent):void{
+  if(assertResearchEvent(state,event))return;
   if(assertClaimEvent(state,event))return;
   if(assertEvidenceEvent(state,event))return;
   if(assertRoutingEvent(state,event))return;
@@ -462,6 +619,9 @@ export function buildEvent(state:ThinkTankState,input:ThinkTankEventInput):Think
     claimId:input.claimId,
     claimBinding:input.claimBinding,
     claimBindingId:input.claimBindingId,
+    researchQuery:input.researchQuery,
+    researchReceipt:input.researchReceipt,
+    researchCandidateId:input.researchCandidateId,
     evidenceRef:input.evidenceRef,
     evidenceId:input.evidenceId,
     evidenceUri:input.evidenceUri,
