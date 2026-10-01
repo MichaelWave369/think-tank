@@ -135,6 +135,22 @@ This proves retrieval provenance, not factual truth.
 
 See [MACHINE_EVIDENCE.md](MACHINE_EVIDENCE.md).
 
+## Claim registry + source bindings
+
+PR 10 adds a canonical semantic graph:
+
+`CLAIM ← SUPPORTS / CONTRADICTS / CONTEXT ← EVIDENCE`
+
+Claims and bindings are operator-authorized, fingerprinted, and replayable.
+
+Claim status is derived from current bindings rather than directly assigned.
+
+Bound evidence and bound claims cannot be silently deleted. Relation changes require explicit unbind/rebind events.
+
+PR 10 does not change Reality Gate scoring. It establishes the graph that future governed research/search can populate and analyze.
+
+See [CLAIM_BINDINGS.md](CLAIM_BINDINGS.md).
+
 ## PR ladder
 
 1. ✅ Room shell + operator authority
@@ -145,6 +161,7 @@ See [MACHINE_EVIDENCE.md](MACHINE_EVIDENCE.md).
 6. ✅ Crane Fly role-seat assignment engine
 7. ✅ Provider adapters + LIVE execution
 8. ✅ Reality Gate evidence engine
-9. Machine-verified evidence retrieval
+9. ✅ Machine-verified evidence retrieval
+10. Claim registry + claim-to-source binding
 
-Future work can add governed search/research tools, claim-to-source binding, authenticated remote deployment, richer provider discovery, streaming, tool execution, and voice without changing the core event contract.
+Future work can add governed search/research tools, claim discovery, claim-aware gate policy, authenticated remote deployment, richer provider discovery, streaming, tool execution, and voice without changing the core event contract.
