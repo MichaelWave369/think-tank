@@ -45,6 +45,8 @@ export function SourceExcerptPanel({
       const next=await onPreview(evidenceId);
       setProjection(next);
       setSelection({start:0,end:0});
+    }catch{
+      setProjection(null);
     }finally{
       setPreviewBusy(false);
     }
