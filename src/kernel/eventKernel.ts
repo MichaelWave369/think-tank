@@ -131,6 +131,13 @@ function assertDossierSealEvent(state:ThinkTankState,event:ThinkTankEvent):boole
     if(!request){
       throw new KernelIntegrityError("Dossier seal failure has no matching operator request.",event.seq);
     }
+    const terminal=[...state.events].reverse().find(item=>
+      (item.kind==="dossier.seal.completed"||item.kind==="dossier.seal.failed")&&
+      item.decisionDossierId===dossier.id
+    );
+    if(terminal&&terminal.seq>request.seq){
+      throw new KernelIntegrityError("Dossier seal request is already resolved.",event.seq);
+    }
     return true;
   }
 
@@ -193,6 +200,13 @@ function assertDossierSealEvent(state:ThinkTankState,event:ThinkTankEvent):boole
     );
     if(!request){
       throw new KernelIntegrityError("Dossier verification failure has no matching operator request.",event.seq);
+    }
+    const terminal=[...state.events].reverse().find(item=>
+      (item.kind==="dossier.verify.completed"||item.kind==="dossier.verify.failed")&&
+      item.dossierSealId===seal.id
+    );
+    if(terminal&&terminal.seq>request.seq){
+      throw new KernelIntegrityError("Dossier verification request is already resolved.",event.seq);
     }
     return true;
   }
