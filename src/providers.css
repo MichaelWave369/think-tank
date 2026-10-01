@@ -1,0 +1,19 @@
+.provider-panel{border:1px solid #374d68;background:linear-gradient(180deg,#0b1018,#04070b);box-shadow:0 0 0 4px #10131a inset;padding:12px;color:#bcd8ff}
+.provider-panel header{display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid #374d68;padding-bottom:8px}
+.provider-panel header>div{display:grid;gap:3px}.provider-panel header span{font-size:.62rem;opacity:.68}
+.provider-panel header>b{font-size:.66rem;border:1px solid currentColor;padding:4px 8px;letter-spacing:.08em}
+.provider-good{color:#8cffc3}.provider-bad{color:#ff8d76}
+.provider-meta{display:flex;justify-content:space-between;gap:10px;margin-top:8px;font-size:.56rem;opacity:.58}
+.provider-error{margin-top:8px;padding:8px;border:1px solid #8d4038;background:#2a0d0b;color:#ffad9e;font-size:.64rem;line-height:1.35}
+.provider-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.provider-card{border:1px solid #2c4058;background:#070a0f;padding:9px;display:grid;gap:4px;min-height:118px}
+.provider-card>span{font-size:.58rem;letter-spacing:.08em}.provider-card>small{opacity:.65}.provider-card>p{margin:3px 0 0;font-size:.62rem;line-height:1.35;opacity:.72}
+.provider-connected{border-color:#3d7b62}.provider-configured{border-color:#5d668c}.provider-disconnected,.provider-error{border-color:#7d4038}
+.provider-controls{display:grid;grid-template-columns:minmax(220px,1fr) auto auto auto;gap:8px;align-items:end;margin-top:10px}
+.provider-controls label{display:grid;gap:4px}.provider-controls label>span{font-size:.55rem;opacity:.62;letter-spacing:.08em}
+.provider-controls select,.provider-controls button{background:#090d14;color:#d7e8ff;border:1px solid #405675;padding:7px;font-size:.65rem}
+.provider-controls .live-run{color:#a5ffd0;border-color:#4f8d70}
+.provider-controls button:disabled,.provider-controls select:disabled{opacity:.35;cursor:not-allowed}
+.provider-panel footer{margin-top:9px;border-top:1px dashed #374d68;padding-top:8px;font-size:.58rem;line-height:1.4;opacity:.65}
+@media(max-width:950px){.provider-grid{grid-template-columns:1fr}.provider-controls{grid-template-columns:1fr 1fr}}
+@media(max-width:700px){.provider-panel header{align-items:flex-start;flex-direction:column}.provider-controls{grid-template-columns:1fr}.provider-meta{flex-direction:column}}
