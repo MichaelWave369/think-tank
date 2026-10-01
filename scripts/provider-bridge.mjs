@@ -1,5 +1,7 @@
 import http from "node:http";
 
+try{process.loadEnvFile(".env");}catch{}
+
 const HOST=process.env.THINK_TANK_BRIDGE_HOST||"127.0.0.1";
 const PORT=Number(process.env.THINK_TANK_BRIDGE_PORT||3691);
 const OLLAMA_BASE_URL=(process.env.OLLAMA_BASE_URL||"http://127.0.0.1:11434").replace(/\/$/,"");
