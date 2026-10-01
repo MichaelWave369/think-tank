@@ -7,6 +7,7 @@ function ClaimCard({
   bindings,
   evidence,
   busy,
+  reviewLocked,
   onRemove,
   onBind,
   onUnbind
@@ -15,6 +16,7 @@ function ClaimCard({
   bindings:ClaimBinding[];
   evidence:EvidenceRef[];
   busy:boolean;
+  reviewLocked:boolean;
   onRemove:(claimId:string)=>void;
   onBind:(claimId:string,evidenceId:string,relation:ClaimRelation,note:string)=>void;
   onUnbind:(bindingId:string)=>void;
@@ -42,7 +44,9 @@ function ClaimCard({
       </div>
       <div className="claim-head-actions">
         <b>{status.toUpperCase().replace("-"," ")}</b>
-        <button type="button" onClick={()=>onRemove(claim.id)} disabled={busy||bindings.length>0}>REMOVE</button>
+        <button type="button" onClick={()=>onRemove(claim.id)} disabled={busy||bindings.length>0||reviewLocked}>
+          {bindings.length>0?"UNBIND FIRST":reviewLocked?"DISMISS REVIEW FIRST":"REMOVE"}
+        </button>
       </div>
     </header>
 
@@ -83,6 +87,7 @@ export function ClaimBoard({
   bindings,
   evidence,
   busy,
+  reviewLockedClaimIds,
   onAdd,
   onRemove,
   onBind,
@@ -92,6 +97,7 @@ export function ClaimBoard({
   bindings:ClaimBinding[];
   evidence:EvidenceRef[];
   busy:boolean;
+  reviewLockedClaimIds:string[];
   onAdd:(text:string)=>void;
   onRemove:(claimId:string)=>void;
   onBind:(claimId:string,evidenceId:string,relation:ClaimRelation,note:string)=>void;
@@ -128,6 +134,7 @@ export function ClaimBoard({
         bindings={bindings.filter(binding=>binding.claimId===claim.id)}
         evidence={evidence}
         busy={busy}
+        reviewLocked={reviewLockedClaimIds.includes(claim.id)}
         onRemove={onRemove}
         onBind={onBind}
         onUnbind={onUnbind}
