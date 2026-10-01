@@ -12,7 +12,7 @@ interface Props{
 export function Commonline({assignments,activeRole,seats,cue,motionMode}:Props){
   const seatName=seats.find(seat=>seat.id===cue.seatId)?.name??"SYSTEM";
   const roleName=cue.roleId?.toUpperCase()??"ROOM";
-  const routed=cue.kind==="route"||cue.kind==="speak"||cue.kind==="challenge";
+  const routed=["assign","route","speak","challenge"].includes(cue.kind);
 
   return <section className={"commonline commonline-"+cue.kind} data-motion={motionMode}>
     <header>
