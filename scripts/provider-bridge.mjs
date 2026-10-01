@@ -5,6 +5,7 @@ const PORT=Number(process.env.THINK_TANK_BRIDGE_PORT||3691);
 const OLLAMA_BASE_URL=(process.env.OLLAMA_BASE_URL||"http://127.0.0.1:11434").replace(/\/$/,"");
 const KIMI_BASE_URL=(process.env.KIMI_BASE_URL||"https://api.moonshot.ai/v1").replace(/\/$/,"");
 const MAX_BODY_BYTES=512_000;
+const MAX_OUTPUT_TOKENS=Math.max(64,Number(process.env.PROVIDER_MAX_OUTPUT_TOKENS||1200));
 
 const explicitOrigins=(process.env.THINK_TANK_ORIGIN||"")
   .split(",").map(value=>value.trim()).filter(Boolean);
@@ -152,7 +153,7 @@ const invokeOllama=async(request)=>{
     {
       method:"POST",
       headers:{"content-type":"application/json"},
-      body:JSON.stringify({model,messages:request.messages,stream:false})
+      body:JSON.stringify({model,messages:request.messages,stream:false,options:{num_predict:MAX_OUTPUT_TOKENS}})
     },
     180_000
   );
@@ -178,7 +179,7 @@ const invokeOpenAI=async(request)=>{
     {
       method:"POST",
       headers:{"authorization":"Bearer "+key,"content-type":"application/json"},
-      body:JSON.stringify({model,input:request.messages,store:false})
+      body:JSON.stringify({model,input:request.messages,store:false,max_output_tokens:MAX_OUTPUT_TOKENS})
     },
     180_000
   );
@@ -203,7 +204,7 @@ const invokeKimi=async(request)=>{
     {
       method:"POST",
       headers:{"authorization":"Bearer "+key,"content-type":"application/json"},
-      body:JSON.stringify({model,messages:request.messages,stream:false})
+      body:JSON.stringify({model,messages:request.messages,stream:false,max_tokens:MAX_OUTPUT_TOKENS})
     },
     180_000
   );
