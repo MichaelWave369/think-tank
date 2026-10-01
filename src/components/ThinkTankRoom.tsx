@@ -162,6 +162,19 @@ export function ThinkTankRoom(){
     [state.events]
   );
 
+  const activeArgumentReviews=useMemo(
+    ()=>state.argumentReviews.filter(review=>review.status!=="dismissed"),
+    [state.argumentReviews]
+  );
+  const reviewLockedClaimIds=useMemo(
+    ()=>[...new Set(activeArgumentReviews.map(review=>review.claimId))],
+    [activeArgumentReviews]
+  );
+  const reviewLockedExcerptIds=useMemo(
+    ()=>[...new Set(activeArgumentReviews.flatMap(review=>review.points.map(point=>point.excerptId)))],
+    [activeArgumentReviews]
+  );
+
   const replayReport=useMemo(
     ()=>verifyReplay(createInitialState(),state.events,state),
     [state]
@@ -388,7 +401,7 @@ export function ThinkTankRoom(){
   };
 
   const removeEvidenceExcerpt=(evidenceExcerptId:string)=>{
-    if(busy)return;
+    if(busy||reviewLockedExcerptIds.includes(evidenceExcerptId))return;
     emitInput({
       source:"operator",
       kind:"evidence.excerpt.removed",
@@ -655,7 +668,11 @@ export function ThinkTankRoom(){
   };
 
   const removeClaim=(claimId:string)=>{
-    if(busy||stateRef.current.claimBindings.some(binding=>binding.claimId===claimId))return;
+    if(
+      busy||
+      stateRef.current.claimBindings.some(binding=>binding.claimId===claimId)||
+      stateRef.current.argumentReviews.some(review=>review.claimId===claimId&&review.status!=="dismissed")
+    )return;
     emitInput({
       source:"operator",
       kind:"claim.removed",
@@ -951,6 +968,7 @@ export function ThinkTankRoom(){
           excerpts={state.evidenceExcerpts}
           busy={busy}
           toolError={excerptError}
+          lockedExcerptIds={reviewLockedExcerptIds}
           onPreview={previewEvidenceSource}
           onPin={pinEvidenceExcerpt}
           onRemove={removeEvidenceExcerpt}
@@ -961,6 +979,7 @@ export function ThinkTankRoom(){
           bindings={state.claimBindings}
           evidence={state.evidenceRefs}
           busy={busy}
+          reviewLockedClaimIds={reviewLockedClaimIds}
           onAdd={addClaim}
           onRemove={removeClaim}
           onBind={bindEvidence}
