@@ -6,31 +6,36 @@ A governed, event-sourced multi-mind control room. Cognitive roles are staffed b
 
 ## Current rung
 
-**PR 16 — Argument-Map Governance**
+**PR 17 — Synthesis Decision Dossier**
 
-The Think Tank now composes fresh human-accepted Challenger argument maps into synthesis authorization for rigorous modes without turning provider reasoning into a truth score.
+The Think Tank now freezes every normal synthesis decision into one deterministic dossier that captures the exact governance/provenance basis without inventing new authority.
 
-PR 16 adds:
-- per-mode argument policy
-- informational vs fresh-accepted-on-excerpts laws
-- deterministic ArgumentGovernanceReport receipts
-- applicability only for claims with pinned excerpts on bound evidence
-- fresh accepted / missing / stale / draft-only classification
-- kernel recomputation of argument policy at synthesis
-- forged argument-policy PASS rejection
-- COUNCIL argument-map requirement
-- DEBATE argument-map requirement
-- AUDIT argument-map requirement
-- LIVE + SIM policy composition
-- current vs last argument-policy telemetry
-- preserved FORCE SYNTHESIS override
-- isolated LIVE regression where evidence + structural audit pass but argument policy blocks
+PR 17 adds:
+- canonical SynthesisDecisionDossier receipts
+- deterministic decision-basis fingerprints
+- normal outcome / label / action authority
+- Reality Gate snapshot
+- Claim Policy receipt
+- Argument Policy receipt
+- claim / binding / evidence / excerpt basis
+- structural-review basis fingerprints
+- provider argument-map basis fingerprints
+- current-run provider turn provenance
+- immutable dossier history
+- automatic dossier minting for LIVE and SIM synthesis
+- governance-reason integrity checks
+- separate linked DecisionOverrideReceipt for FORCE SYNTHESIS
+- one-override-per-withheld-dossier law
+- completed-dossier override rejection
+- Decision Dossier UI
+- JSON dossier export
+- ledger DOS / OVR linkage
 
 ### Important semantic rule
 
-**FRESH + ACCEPTED ≠ TRUE.**
+**DOSSIER ≠ NEW AUTHORITY.**
 
-Acceptance records human approval of a current reasoning artifact. Reality Gate, deterministic structural audit, and argument-map governance remain separate checks.
+The dossier records why a decision existed. It does not make that decision more true, more evidenced, or more authorized.
 
 See:
 - [Architecture](docs/ARCHITECTURE.md)
@@ -49,6 +54,7 @@ See:
 - [Hash-Locked Source Excerpts](docs/SOURCE_EXCERPTS.md)
 - [Excerpt-Aware Argument Review](docs/ARGUMENT_REVIEW.md)
 - [Argument-Map Governance](docs/ARGUMENT_GOVERNANCE.md)
+- [Synthesis Decision Dossier](docs/DECISION_DOSSIER.md)
 
 ## Local-first setup
 
@@ -71,7 +77,7 @@ Verification:
 
 > **If a light changes, a sequenced event explains why.**
 
-If rigorous synthesis depends on an argument map, the ledger preserves both the current deterministic policy and the exact argument-policy receipt used by that run.
+Every normal synthesis now carries a deterministic decision dossier; any FORCE SYNTHESIS action is a separate linked operator override receipt.
 
 ## Build ladder
 
@@ -90,6 +96,7 @@ If rigorous synthesis depends on an argument map, the ledger preserves both the 
 13. ✅ Claim-aware governance policy
 14. ✅ Hash-locked source excerpts
 15. ✅ Excerpt-aware Challenger argument review
-16. **Argument-map governance**
+16. ✅ Argument-map governance
+17. **Synthesis decision dossier**
 
 **Φ THINK TANK is a control room, not eight chat cards.**
