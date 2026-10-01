@@ -10,6 +10,7 @@ import "./evidence.css";
 import "./claims.css";
 import "./research.css";
 import "./coverage.css";
+import "./excerpts.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode><App/></React.StrictMode>
