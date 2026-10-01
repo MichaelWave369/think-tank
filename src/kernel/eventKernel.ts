@@ -3,6 +3,7 @@ import { projectEvent } from "../domain/reducer";
 import { evaluateEvidence } from "../domain/evidence";
 import { evaluateGovernance,initialTurnPlan } from "../domain/scheduler";
 import { evaluateClaimCoverage } from "../domain/claimCoverage";
+import { evaluateClaimGovernance } from "../domain/claimGovernance";
 import { fingerprintProjection } from "./fingerprint";
 import { stableStringify } from "./stable";
 
@@ -680,12 +681,21 @@ function assertPolicyEvent(state:ThinkTankState,event:ThinkTankEvent):void{
   if(event.kind==="synthesis.completed"||event.kind==="synthesis.withheld"){
     if(!state.turnPlan)throw new KernelIntegrityError("Synthesis resolved before a schedule was planned.",event.seq);
 
+    const expectedClaimGovernance=evaluateClaimGovernance(state,state.mode);
+    if(!event.claimGovernance){
+      throw new KernelIntegrityError("Synthesis resolution requires a claim governance receipt.",event.seq);
+    }
+    if(stableStringify(event.claimGovernance)!==stableStringify(expectedClaimGovernance)){
+      throw new KernelIntegrityError("Claim governance receipt does not match deterministic recomputation.",event.seq);
+    }
+
     const decision=evaluateGovernance(
       state.mode,
       state.gateScore??0,
       state.gateThreshold,
       state.objectionCount,
-      Boolean(state.faultCode)
+      Boolean(state.faultCode),
+      expectedClaimGovernance
     );
 
     const expectedKind=decision.synthesisAllowed?"synthesis.completed":"synthesis.withheld";
@@ -744,6 +754,7 @@ export function buildEvent(state:ThinkTankState,input:ThinkTankEventInput):Think
     evidenceId:input.evidenceId,
     evidenceUri:input.evidenceUri,
     gateBreakdown:input.gateBreakdown,
+    claimGovernance:input.claimGovernance,
     message:input.message,
     gateScore:input.gateScore,
     override:input.override,
