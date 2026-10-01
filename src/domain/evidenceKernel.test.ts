@@ -23,6 +23,26 @@ const addAttested=(state:ThinkTankState,id="EV-1")=>{
   return projectEvent(state,event);
 };
 
+const machineRef=()=>({
+  id:"EV-MACHINE",
+  kind:"external-source" as const,
+  verification:"machine-verified" as const,
+  label:"Machine retrieved source",
+  uri:"https://example.com/final",
+  addedBy:"tool" as const,
+  retrieval:{
+    tool:"url-fetch" as const,
+    requestedUri:"https://example.com/start",
+    finalUri:"https://example.com/final",
+    httpStatus:200,
+    contentType:"text/html; charset=utf-8",
+    bytes:1234,
+    sha256:"a".repeat(64),
+    redirects:1,
+    retrievedAt:"2026-10-01T12:00:00.000Z"
+  }
+});
+
 describe("evidence kernel",()=>{
   it("rejects operator evidence that claims machine verification",()=>{
     const state=createInitialState();
@@ -40,6 +60,79 @@ describe("evidence kernel",()=>{
       },
       message:"bad"
     })).toThrow(/cannot self-declare machine verification/i);
+  });
+
+  it("accepts a complete tool-originated machine verification receipt",()=>{
+    const state=createInitialState();
+    const event=buildEvent(state,{
+      source:"tool",
+      kind:"evidence.added",
+      phase:"intake",
+      evidenceRef:machineRef(),
+      message:"verified"
+    });
+    const next=projectEvent(state,event);
+
+    expect(next.evidenceRefs[0]?.verification).toBe("machine-verified");
+    expect(next.evidenceRefs[0]?.retrieval?.sha256).toHaveLength(64);
+  });
+
+  it("rejects system-originated machine verification",()=>{
+    const ref={...machineRef(),addedBy:"system" as const};
+
+    expect(()=>buildEvent(createInitialState(),{
+      source:"system",
+      kind:"evidence.added",
+      phase:"intake",
+      evidenceRef:ref,
+      message:"forged system verification"
+    })).toThrow(/reserved for governed tool receipts/i);
+  });
+
+  it("rejects machine verification without a retrieval receipt",()=>{
+    const ref=machineRef();
+    const {retrieval:_,...withoutReceipt}=ref;
+
+    expect(()=>buildEvent(createInitialState(),{
+      source:"tool",
+      kind:"evidence.added",
+      phase:"intake",
+      evidenceRef:withoutReceipt,
+      message:"missing receipt"
+    })).toThrow(/requires a retrieval receipt/i);
+  });
+
+  it("rejects malformed retrieval hashes",()=>{
+    const ref=machineRef();
+    ref.retrieval.sha256="not-a-sha";
+
+    expect(()=>buildEvent(createInitialState(),{
+      source:"tool",
+      kind:"evidence.added",
+      phase:"intake",
+      evidenceRef:ref,
+      message:"bad digest"
+    })).toThrow(/SHA-256/i);
+  });
+
+  it("requires operator authority to request a machine fetch",()=>{
+    expect(()=>buildEvent(createInitialState(),{
+      source:"system",
+      kind:"evidence.fetch.requested",
+      phase:"intake",
+      evidenceUri:"https://example.com",
+      message:"bad request"
+    })).toThrow(/operator-authorized/i);
+  });
+
+  it("requires tool provenance for fetch failure receipts",()=>{
+    expect(()=>buildEvent(createInitialState(),{
+      source:"operator",
+      kind:"evidence.fetch.failed",
+      phase:"intake",
+      evidenceUri:"https://example.com",
+      message:"bad failure source"
+    })).toThrow(/tool-originated/i);
   });
 
   it("rejects duplicate evidence ids",()=>{
