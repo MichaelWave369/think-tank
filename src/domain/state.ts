@@ -12,6 +12,8 @@ export const createInitialState=():ThinkTankState=>({
   gateScore:null,
   gateBreakdown:null,
   evidenceRefs:[],
+  claims:[],
+  claimBindings:[],
   synthesisWithheld:false,
   assignments:[
     {roleId:"vessie",seatId:"local"},
