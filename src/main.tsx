@@ -5,6 +5,7 @@ import "./styles.css";
 import "./terminal-states.css";
 import "./motion.css";
 import "./crane-fly.css";
+import "./providers.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode><App/></React.StrictMode>
