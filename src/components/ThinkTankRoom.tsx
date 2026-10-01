@@ -5,6 +5,7 @@ import { projectEvent,thinkTankReducer } from "../domain/reducer";
 import { createInitialState } from "../domain/state";
 import type {
   CollaborationMode,
+  EvidenceRef,
   RoleId,
   SeatAvailability,
   SeatId,
@@ -24,6 +25,7 @@ import { scenarioEventInputs,type DemoScenario } from "../sim/demo";
 import { TerminalPanel } from "./TerminalPanel";
 import { Commonline } from "./Commonline";
 import { CraneFlyPanel } from "./CraneFlyPanel";
+import { EvidencePanel } from "./EvidencePanel";
 import { GovernancePanel } from "./GovernancePanel";
 import { OperatorRail } from "./OperatorRail";
 import { ModeBar } from "./ModeBar";
@@ -146,6 +148,37 @@ export function ThinkTankRoom(){
     if(busy)return;
     const events=buildEventBatch(stateRef.current,inputs);
     playback.play(events);
+  };
+
+  const addEvidence=(label:string,uri:string,note:string)=>{
+    if(busy)return;
+    const evidenceRef:EvidenceRef={
+      id:"EV-"+String(stateRef.current.seq+1).padStart(4,"0"),
+      kind:"operator-reference",
+      verification:"operator-attested",
+      label,
+      uri:uri||undefined,
+      note:note||undefined,
+      addedBy:"operator"
+    };
+    emitInput({
+      source:"operator",
+      kind:"evidence.added",
+      phase:"intake",
+      evidenceRef,
+      message:"Operator attested evidence "+evidenceRef.id+": "+label+"."
+    });
+  };
+
+  const removeEvidence=(evidenceId:string)=>{
+    if(busy)return;
+    emitInput({
+      source:"operator",
+      kind:"evidence.removed",
+      phase:"intake",
+      evidenceId,
+      message:"Operator removed evidence "+evidenceId+"."
+    });
   };
 
   const runAutoRoute=()=>playInputs(routingEventInputs(routingPreview));
@@ -362,6 +395,15 @@ export function ThinkTankRoom(){
           onRefresh={()=>void refreshProviders()}
           onSync={syncProviderHealth}
           onRunLive={()=>void runLive()}
+        />
+
+        <EvidencePanel
+          refs={state.evidenceRefs}
+          breakdown={state.gateBreakdown}
+          threshold={state.gateThreshold}
+          busy={busy}
+          onAdd={addEvidence}
+          onRemove={removeEvidence}
         />
 
         <GovernancePanel

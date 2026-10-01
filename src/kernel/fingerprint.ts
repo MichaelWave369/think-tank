@@ -12,6 +12,8 @@ export function projectionSnapshot(state:ThinkTankState){
     operatorPrompt:state.operatorPrompt,
     gateThreshold:state.gateThreshold,
     gateScore:state.gateScore,
+    gateBreakdown:state.gateBreakdown,
+    evidenceRefs:state.evidenceRefs,
     synthesisWithheld:state.synthesisWithheld,
     assignments:state.assignments,
     pinnedAssignments:state.pinnedAssignments,

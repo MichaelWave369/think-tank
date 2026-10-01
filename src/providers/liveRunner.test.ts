@@ -37,7 +37,7 @@ describe("LIVE provider runner",()=>{
 
     expect(result.completed).toBe(true);
     expect(result.aborted).toBe(false);
-    expect(result.state.gateScore).toBe(0);
+    expect(result.state.gateScore).toBe(.65);
     expect(result.state.outputLabel).toBe("STANDARD");
 
     const providerEvent=events.find(event=>event.source==="provider");
@@ -49,7 +49,7 @@ describe("LIVE provider runner",()=>{
     const replayed=replayEvents(localSoloState(),events);
     expect(replayed.events).toHaveLength(events.length);
     expect(replayed.lastUtterance.vessie).toBe(result.state.lastUtterance.vessie);
-    expect(replayed.gateScore).toBe(0);
+    expect(replayed.gateScore).toBe(.65);
   });
 
   it("turns provider transport failure into a governed withheld state",async()=>{
@@ -95,10 +95,55 @@ describe("LIVE provider runner",()=>{
     });
 
     expect(result.completed).toBe(true);
-    expect(result.state.gateScore).toBe(0);
+    expect(result.state.gateScore).toBe(.65);
     expect(result.state.synthesisWithheld).toBe(true);
     expect(result.state.outputLabel).toBe("WITHHELD");
+    expect(result.state.gateBreakdown?.cap).toBe(.65);
     expect(events.filter(event=>event.source==="provider")).toHaveLength(5);
+  });
+
+  it("lets healthy Council cross the gate with two operator-attested external references",async()=>{
+    const initial=createInitialState();
+    initial.evidenceRefs=[
+      {
+        id:"EV-1",
+        kind:"operator-reference",
+        verification:"operator-attested",
+        label:"Primary reference",
+        uri:"https://example.com/primary",
+        addedBy:"operator"
+      },
+      {
+        id:"EV-2",
+        kind:"operator-reference",
+        verification:"operator-attested",
+        label:"Independent reference",
+        uri:"https://example.com/independent",
+        addedBy:"operator"
+      }
+    ];
+    const events=[] as Parameters<typeof replayEvents>[1];
+
+    const result=await runLiveProviderSession({
+      initialState:initial,
+      seats,
+      prompt:"Run an evidenced council.",
+      localModel:"local-test",
+      invoke:async request=>({
+        ok:true,
+        seatId:request.seatId,
+        provider:request.seatId==="local"?"Ollama":request.seatId==="openai"?"OpenAI":"Kimi",
+        model:request.model||"remote-test",
+        text:request.roleId.toUpperCase()+" evidenced output.",
+        latencyMs:5
+      }),
+      apply:event=>events.push(event)
+    });
+
+    expect(result.state.gateScore).toBe(.8775);
+    expect(result.state.gateBreakdown?.attestedEvidenceCount).toBe(2);
+    expect(result.state.synthesisWithheld).toBe(false);
+    expect(result.state.actionAllowed).toBe(true);
   });
 });
 

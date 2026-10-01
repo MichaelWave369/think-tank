@@ -33,6 +33,7 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
     routerPolicy:routerForMode(event.mode),
     phase:event.phase,
     gateScore:event.gateScore??state.gateScore,
+    gateBreakdown:event.gateBreakdown??state.gateBreakdown,
     events:[...state.events,event]
   };
 
@@ -43,6 +44,7 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
     next.currentSpeaker=null;
     next.objectionCount=0;
     next.gateScore=null;
+    next.gateBreakdown=null;
     next.synthesisWithheld=false;
     next.outputLabel=null;
     next.actionAllowed=false;
@@ -53,6 +55,29 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
 
   if(event.kind==="operator.prompt"){
     next.operatorPrompt=event.message??"";
+  }
+
+  if(event.kind==="evidence.added"&&event.evidenceRef){
+    next.evidenceRefs=[
+      ...state.evidenceRefs.filter(ref=>ref.id!==event.evidenceRef?.id),
+      event.evidenceRef
+    ];
+    next.gateScore=null;
+    next.gateBreakdown=null;
+    next.outputLabel=null;
+    next.actionAllowed=false;
+    next.synthesisWithheld=false;
+    next.governanceReason="Evidence packet changed; rerun required.";
+  }
+
+  if(event.kind==="evidence.removed"&&event.evidenceId){
+    next.evidenceRefs=state.evidenceRefs.filter(ref=>ref.id!==event.evidenceId);
+    next.gateScore=null;
+    next.gateBreakdown=null;
+    next.outputLabel=null;
+    next.actionAllowed=false;
+    next.synthesisWithheld=false;
+    next.governanceReason="Evidence packet changed; rerun required.";
   }
 
   if(event.kind==="seat.status"&&event.seatId&&event.seatStatus){
@@ -90,6 +115,7 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
     next.currentSpeaker=null;
     next.objectionCount=0;
     next.gateScore=null;
+    next.gateBreakdown=null;
     next.synthesisWithheld=false;
     next.outputLabel=null;
     next.actionAllowed=false;
@@ -145,6 +171,7 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
 
   if(event.kind==="gate.scored"){
     next.gateScore=event.gateScore??state.gateScore;
+    next.gateBreakdown=event.gateBreakdown??state.gateBreakdown;
   }
 
   if(event.kind==="governance.fault"){

@@ -35,6 +35,8 @@ export function SystemStatus({
     <span>Motion FX: {motionMode.toUpperCase()}</span>
     <span>Round: {state.currentRound} / {state.turnPlan?.maxRounds??0}</span>
     <span>Reality Gate: {gate} / {state.gateThreshold.toFixed(2)}</span>
+    <span>Gate Cap: {state.gateBreakdown?.cap.toFixed(2)??"—"}</span>
+    <span>Evidence: {state.evidenceRefs.length} refs</span>
     <span>Output: {state.outputLabel??"PENDING"}</span>
     <span>Action: {state.actionAllowed?"AUTHORIZED":"LOCKED"}</span>
     <span>Event Kernel: <b className={kernelOk?"kernel-ok":"kernel-fault"}>{kernelOk?"REPLAY EXACT":"FAULT"}</b></span>

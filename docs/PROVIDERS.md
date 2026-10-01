@@ -121,16 +121,13 @@ ABORT remains available during live requests.
 
 ## Reality Gate behavior
 
-PR 7 does not invent an evidence score.
+PR 8 adds deterministic LIVE evidence scoring.
 
-After successful LIVE provider turns, Reality Gate is explicitly recorded as `0.00` because no production evidence scorer exists yet.
+Provider completion alone cannot pass the normal threshold: model output without external evidence is capped at `0.65`.
 
-Consequences follow existing mode law:
+Operator-attested and future machine-verified evidence receipts can raise the authorized scoring range according to [EVIDENCE_GATE.md](EVIDENCE_GATE.md).
 
-- SOLO: gate informational
-- DREAM: speculative, non-actionable
-- BUILD: DRAFT, non-actionable
-- TRIO / COUNCIL / DEBATE / AUDIT: withheld until an evidence scorer or explicit operator override permits progression
+The selected mode law still decides whether the resulting score produces informational completion, speculative output, draft output, or withheld synthesis.
 
 ## Cost guardrails
 

@@ -97,13 +97,23 @@ Hidden tabs pause FX. Reduced motion preserves semantic state.
 
 See [MOTION_LAYER.md](MOTION_LAYER.md).
 
-## Reality Gate
+## Reality Gate evidence engine
 
 Initial evidence threshold: 0.75.
 
-PR 7 deliberately fails LIVE evidence scoring closed at `0.00` because a production evidence scorer is not yet connected.
+LIVE sessions now compute a deterministic evidence packet across provider provenance, role coverage, seat diversity, challenge coverage, and explicit external support.
 
-The selected mode law decides whether that means informational completion, speculative output, draft output, or withheld synthesis.
+Model output alone is capped at 0.65.
+
+A single operator-attested external reference is capped at 0.74.
+
+Operator-created evidence cannot self-declare machine verification.
+
+The event kernel recomputes scored LIVE gate receipts and rejects mismatched scores or breakdowns.
+
+Reality Gate is a provenance/support governance mechanism, not a factual truth oracle.
+
+See [EVIDENCE_GATE.md](EVIDENCE_GATE.md).
 
 ## PR ladder
 
@@ -113,6 +123,7 @@ The selected mode law decides whether that means informational completion, specu
 4. ✅ Modes + scheduler + governance
 5. ✅ Semantic motion layer
 6. ✅ Crane Fly role-seat assignment engine
-7. Provider adapters + LIVE execution
+7. ✅ Provider adapters + LIVE execution
+8. Reality Gate evidence engine
 
-Future work can add authenticated remote deployment, richer provider discovery, streaming, tools, evidence scoring, and voice without changing the core event contract.
+Future work can add machine-verified retrieval/tool evidence, authenticated remote deployment, richer provider discovery, streaming, tool execution, and voice without changing the core event contract.
