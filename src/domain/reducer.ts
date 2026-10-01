@@ -63,7 +63,13 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
   }
 
   if(event.kind==="session.started"){
+    next.turnPlan=null;
+    next.currentRound=0;
+    next.speakerIndex=0;
+    next.currentSpeaker=null;
     next.objectionCount=0;
+    next.gateScore=null;
+    next.synthesisWithheld=false;
     next.outputLabel=null;
     next.actionAllowed=false;
     next.governanceReason="";
@@ -88,10 +94,7 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
   if(event.kind==="turn.started"&&event.roleId){
     next.currentSpeaker=event.roleId;
     next.speakerIndex=state.speakerIndex+1;
-    next.terminalStates={
-      ...state.terminalStates,
-      [event.roleId]:"speaking"
-    };
+    next.terminalStates={...state.terminalStates,[event.roleId]:"speaking"};
   }
 
   if(event.kind==="turn.timeout"){
@@ -143,6 +146,7 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
   if(event.kind==="operator.override"){
     next.synthesisWithheld=false;
     next.actionAllowed=true;
+    next.outputLabel=event.outputLabel??(state.mode==="audit"?"AUDIT":"STANDARD");
     next.governanceReason=event.governanceReason??"Operator override authorized synthesis.";
     next.faultCode=null;
   }
