@@ -139,6 +139,31 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
     next.governanceReason="Evidence packet changed; rerun required.";
   }
 
+  if(event.kind==="evidence.excerpt.added"&&event.evidenceExcerpt){
+    next.evidenceExcerpts=[
+      ...state.evidenceExcerpts.filter(excerpt=>excerpt.id!==event.evidenceExcerpt?.id),
+      event.evidenceExcerpt
+    ];
+    next.gateScore=null;
+    next.gateBreakdown=null;
+    next.claimGovernance=null;
+    next.outputLabel=null;
+    next.actionAllowed=false;
+    next.synthesisWithheld=false;
+    next.governanceReason="Evidence excerpt changed; rerun required.";
+  }
+
+  if(event.kind==="evidence.excerpt.removed"&&event.evidenceExcerptId){
+    next.evidenceExcerpts=state.evidenceExcerpts.filter(excerpt=>excerpt.id!==event.evidenceExcerptId);
+    next.gateScore=null;
+    next.gateBreakdown=null;
+    next.claimGovernance=null;
+    next.outputLabel=null;
+    next.actionAllowed=false;
+    next.synthesisWithheld=false;
+    next.governanceReason="Evidence excerpt changed; rerun required.";
+  }
+
   if(event.kind==="seat.status"&&event.seatId&&event.seatStatus){
     next.seatStatus={...state.seatStatus,[event.seatId]:event.seatStatus};
   }
