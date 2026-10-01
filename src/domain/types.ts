@@ -125,7 +125,6 @@ export interface ThinkTankEvent{
   evidenceRef?:EvidenceRef;
   evidenceId?:string;
   evidenceUri?:string;
-  evidenceUri?:string;
   gateBreakdown?:GateBreakdown;
   message?:string;
   gateScore?:number;
@@ -156,6 +155,7 @@ export interface ThinkTankEventInput{
   providerRequestId?:string;
   evidenceRef?:EvidenceRef;
   evidenceId?:string;
+  evidenceUri?:string;
   gateBreakdown?:GateBreakdown;
   message?:string;
   gateScore?:number;
