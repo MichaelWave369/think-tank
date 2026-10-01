@@ -62,10 +62,22 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
       ...state.evidenceRefs.filter(ref=>ref.id!==event.evidenceRef?.id),
       event.evidenceRef
     ];
+    next.gateScore=null;
+    next.gateBreakdown=null;
+    next.outputLabel=null;
+    next.actionAllowed=false;
+    next.synthesisWithheld=false;
+    next.governanceReason="Evidence packet changed; rerun required.";
   }
 
   if(event.kind==="evidence.removed"&&event.evidenceId){
     next.evidenceRefs=state.evidenceRefs.filter(ref=>ref.id!==event.evidenceId);
+    next.gateScore=null;
+    next.gateBreakdown=null;
+    next.outputLabel=null;
+    next.actionAllowed=false;
+    next.synthesisWithheld=false;
+    next.governanceReason="Evidence packet changed; rerun required.";
   }
 
   if(event.kind==="seat.status"&&event.seatId&&event.seatStatus){
