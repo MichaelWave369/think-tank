@@ -12,6 +12,8 @@ export type CapabilityKey="REASON"|"CONTEXT"|"TOOLS"|"WEB"|"MEMORY"|"PRIVATE"|"O
 export type SeatAvailability="online"|"degraded"|"offline";
 export type SeatLocality="local"|"remote";
 export type AssignmentOrigin="bootstrap"|"auto"|"operator-pin";
+export type EvidenceKind="operator-reference"|"tool-result"|"external-source"|"provider-output";
+export type EvidenceVerification="unverified"|"operator-attested"|"machine-verified";
 
 export interface RoleTerminal{ id:RoleId; name:string; accent:string; verbs:string[]; motif:string; }
 export interface Seat{
@@ -24,6 +26,31 @@ export interface Seat{
   capabilities:Record<CapabilityKey,number>;
 }
 export interface Assignment{ roleId:RoleId; seatId:SeatId; }
+
+export interface EvidenceRef{
+  id:string;
+  kind:EvidenceKind;
+  verification:EvidenceVerification;
+  label:string;
+  uri?:string;
+  note?:string;
+  addedBy:"operator"|"system";
+}
+
+export interface GateBreakdown{
+  provenance:number;
+  roleCoverage:number;
+  seatDiversity:number;
+  challengeCoverage:number;
+  externalSupport:number;
+  rawScore:number;
+  finalScore:number;
+  cap:number;
+  capReason:string;
+  evidenceCount:number;
+  verifiedEvidenceCount:number;
+  attestedEvidenceCount:number;
+}
 
 export interface TurnPlan{
   activeRoles:RoleId[];
@@ -46,6 +73,8 @@ export type ThinkTankEventKind=
   |"role.unpinned"
   |"role.assigned"
   |"routing.completed"
+  |"evidence.added"
+  |"evidence.removed"
   |"provider.failed"
   |"schedule.planned"
   |"round.started"
@@ -78,6 +107,9 @@ export interface ThinkTankEvent{
   providerModel?:string;
   providerLatencyMs?:number;
   providerRequestId?:string;
+  evidenceRef?:EvidenceRef;
+  evidenceId?:string;
+  gateBreakdown?:GateBreakdown;
   message?:string;
   gateScore?:number;
   override?:boolean;
@@ -105,6 +137,9 @@ export interface ThinkTankEventInput{
   providerModel?:string;
   providerLatencyMs?:number;
   providerRequestId?:string;
+  evidenceRef?:EvidenceRef;
+  evidenceId?:string;
+  gateBreakdown?:GateBreakdown;
   message?:string;
   gateScore?:number;
   override?:boolean;
@@ -126,6 +161,8 @@ export interface ThinkTankState{
   operatorPrompt:string;
   gateThreshold:number;
   gateScore:number|null;
+  gateBreakdown:GateBreakdown|null;
+  evidenceRefs:EvidenceRef[];
   synthesisWithheld:boolean;
   assignments:Assignment[];
   pinnedAssignments:Partial<Record<RoleId,SeatId>>;
