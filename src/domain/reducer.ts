@@ -106,6 +106,22 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
     next.claimReviews=[...state.claimReviews,event.claimReview];
   }
 
+  if(event.kind==="argument.review.completed"&&event.argumentReview){
+    next.argumentReviews=[...state.argumentReviews,event.argumentReview];
+  }
+
+  if(event.kind==="argument.review.accepted"&&event.argumentReviewId){
+    next.argumentReviews=state.argumentReviews.map(review=>
+      review.id===event.argumentReviewId?{...review,status:"accepted"}:review
+    );
+  }
+
+  if(event.kind==="argument.review.dismissed"&&event.argumentReviewId){
+    next.argumentReviews=state.argumentReviews.map(review=>
+      review.id===event.argumentReviewId?{...review,status:"dismissed"}:review
+    );
+  }
+
   if(event.kind==="research.search.completed"&&event.researchReceipt){
     next.researchSearches=[...state.researchSearches,event.researchReceipt];
     next.researchCandidates=[
