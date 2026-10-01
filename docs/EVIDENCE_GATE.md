@@ -217,3 +217,16 @@ A session can therefore score above threshold and still be withheld because rele
 BUILD retains failed claim-policy output only as DRAFT.
 
 See [CLAIM_GOVERNANCE.md](CLAIM_GOVERNANCE.md).
+
+
+## Argument Policy remains separate
+
+PR 16 adds Argument Policy as a third synthesis check.
+
+A fresh accepted Challenger argument map contributes zero numeric Reality Gate points.
+
+The Gate continues to score evidence/provenance only.
+
+COUNCIL, DEBATE, and AUDIT may therefore have a passing numeric Gate and still withhold because Argument Policy is not satisfied.
+
+See [ARGUMENT_GOVERNANCE.md](ARGUMENT_GOVERNANCE.md).
