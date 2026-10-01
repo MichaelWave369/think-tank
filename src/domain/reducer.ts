@@ -189,6 +189,14 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
     next.governanceReason="Evidence excerpt changed; rerun required.";
   }
 
+  if(event.kind==="dossier.seal.completed"&&event.dossierSeal){
+    next.dossierSeals=[...state.dossierSeals,event.dossierSeal];
+  }
+
+  if(event.kind==="dossier.verify.completed"&&event.dossierVerification){
+    next.dossierSealVerifications=[...state.dossierSealVerifications,event.dossierVerification];
+  }
+
   if(event.kind==="seat.status"&&event.seatId&&event.seatStatus){
     next.seatStatus={...state.seatStatus,[event.seatId]:event.seatStatus};
   }
