@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import {generateKeyPairSync} from "node:crypto";
 import {
   assertEvidenceSourceDigest,
   assertPublicHttpUrl,
@@ -8,7 +9,11 @@ import {
   isBlockedIpv6,
   normalizeMessages,
   normalizeSearchResults,
-  projectEvidenceText
+  projectEvidenceText,
+  dossierDigestSha256,
+  sealDossierWithPrivateKey,
+  stableCanonicalJson,
+  verifyDossierSealReceipt
 } from "./provider-bridge.mjs";
 
 test("blocks private and local IPv4 ranges",()=>{
@@ -153,5 +158,95 @@ test("refuses to pretend PDFs are text-projectable",()=>{
   assert.throws(
     ()=>projectEvidenceText(Buffer.from("%PDF-1.7"),"application/pdf"),
     /PDF text projection is not supported/i
+  );
+});
+
+
+test("canonicalizes dossier JSON independent of object key order",()=>{
+  const a={z:1,a:{y:2,x:3},list:[{b:2,a:1}]};
+  const b={list:[{a:1,b:2}],a:{x:3,y:2},z:1};
+
+  assert.equal(stableCanonicalJson(a),stableCanonicalJson(b));
+  assert.equal(dossierDigestSha256(a),dossierDigestSha256(b));
+});
+
+test("signs and verifies a dossier with Ed25519",()=>{
+  const {privateKey}=generateKeyPairSync("ed25519");
+  const privatePem=privateKey.export({type:"pkcs8",format:"pem"});
+  const dossier={id:"DOS-0042",mode:"council",outcome:"withheld",basisFingerprint:"fnv1a32:12345678"};
+
+  const seal=sealDossierWithPrivateKey(
+    dossier,
+    privatePem,
+    "test-signer",
+    "2026-10-01T22:00:00.000Z"
+  );
+  const verification=verifyDossierSealReceipt(dossier,seal);
+
+  assert.equal(verification.verified,true);
+  assert.match(seal.digestSha256,/^[a-f0-9]{64}$/);
+  assert.match(seal.publicKeyFingerprintSha256,/^[a-f0-9]{64}$/);
+  assert.match(seal.id,new RegExp("^SEAL-DOS-0042-"+seal.publicKeyFingerprintSha256.slice(0,12)+"$"));
+  assert.match(seal.publicKeyPem,/BEGIN PUBLIC KEY/);
+  assert.doesNotMatch(seal.publicKeyPem,/PRIVATE KEY/);
+  assert.ok(seal.signatureBase64.length>40);
+});
+
+test("detects a dossier changed after signing",()=>{
+  const {privateKey}=generateKeyPairSync("ed25519");
+  const privatePem=privateKey.export({type:"pkcs8",format:"pem"});
+  const dossier={id:"DOS-0007",value:"original"};
+  const seal=sealDossierWithPrivateKey(
+    dossier,privatePem,"test","2026-10-01T22:00:00.000Z"
+  );
+
+  const verification=verifyDossierSealReceipt({...dossier,value:"changed"},seal);
+  assert.equal(verification.verified,false);
+  assert.match(verification.reason,/SHA-256 does not match/i);
+});
+
+test("detects a forged public-key fingerprint",()=>{
+  const {privateKey}=generateKeyPairSync("ed25519");
+  const privatePem=privateKey.export({type:"pkcs8",format:"pem"});
+  const dossier={id:"DOS-0008",value:"alpha"};
+  const seal=sealDossierWithPrivateKey(
+    dossier,privatePem,"test","2026-10-01T22:00:00.000Z"
+  );
+
+  const verification=verifyDossierSealReceipt(dossier,{
+    ...seal,
+    publicKeyFingerprintSha256:"0".repeat(64)
+  });
+  assert.equal(verification.verified,false);
+  assert.match(verification.reason,/fingerprint does not match/i);
+});
+
+test("detects a modified Ed25519 signature",()=>{
+  const {privateKey}=generateKeyPairSync("ed25519");
+  const privatePem=privateKey.export({type:"pkcs8",format:"pem"});
+  const dossier={id:"DOS-0009",value:"alpha"};
+  const seal=sealDossierWithPrivateKey(
+    dossier,privatePem,"test","2026-10-01T22:00:00.000Z"
+  );
+  const bytes=Buffer.from(seal.signatureBase64,"base64");
+  bytes[0]^=0xff;
+
+  const verification=verifyDossierSealReceipt(dossier,{
+    ...seal,
+    signatureBase64:bytes.toString("base64")
+  });
+  assert.equal(verification.verified,false);
+  assert.match(verification.reason,/verification failed/i);
+});
+
+test("rejects non-Ed25519 dossier signing keys",()=>{
+  const {privateKey}=generateKeyPairSync("rsa",{modulusLength:2048});
+  const privatePem=privateKey.export({type:"pkcs8",format:"pem"});
+
+  assert.throws(
+    ()=>sealDossierWithPrivateKey(
+      {id:"DOS-0010"},privatePem,"wrong-key","2026-10-01T22:00:00.000Z"
+    ),
+    /must be Ed25519/i
   );
 });
