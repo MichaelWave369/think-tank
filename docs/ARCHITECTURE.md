@@ -167,6 +167,20 @@ Duplicate evidence URIs and duplicate machine-content SHA-256 digests are reject
 
 See [GOVERNED_RESEARCH.md](GOVERNED_RESEARCH.md).
 
+## Challenger claim coverage audits
+
+PR 12 adds immutable deterministic structural reviews of the claim/evidence graph.
+
+The operator requests review; the system recomputes coverage from canonical evidence/bindings; the kernel independently verifies the receipt.
+
+Coverage snapshots record provenance counts, directional relation counts, research lineage, structural flags, and a basis fingerprint.
+
+Current graph state can therefore be compared with the latest immutable review and shown as FRESH or STALE.
+
+PR 12 does not alter Reality Gate policy.
+
+See [CHALLENGER_COVERAGE.md](CHALLENGER_COVERAGE.md).
+
 ## PR ladder
 
 1. ✅ Room shell + operator authority
@@ -179,6 +193,7 @@ See [GOVERNED_RESEARCH.md](GOVERNED_RESEARCH.md).
 8. ✅ Reality Gate evidence engine
 9. ✅ Machine-verified evidence retrieval
 10. ✅ Claim registry + claim-to-source binding
-11. Governed research / search
+11. ✅ Governed research / search
+12. Challenger claim coverage audits
 
-Future work can add claim discovery, Challenger-assisted source assessment, claim-aware gate policy, authenticated remote deployment, richer provider discovery, streaming, tool execution, and voice without changing the core event contract.
+Future work can add claim-aware gate policy, source-content extraction, provider-assisted argument review, authenticated remote deployment, richer provider discovery, streaming, tool execution, and voice without changing the core event contract.
