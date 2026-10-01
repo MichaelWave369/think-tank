@@ -1,9 +1,8 @@
-import type { CollaborationMode,ThinkTankEvent,ThinkTankState,TerminalState } from "./types";
+import type { ThinkTankEvent,ThinkTankState,TerminalState } from "./types";
 import { routerForMode } from "./modes";
 
 export type ThinkTankAction=
-  |{type:"SET_MODE";mode:CollaborationMode}
-  |{type:"APPEND_EVENT";event:ThinkTankEvent}
+  |{type:"APPLY_EVENT";event:ThinkTankEvent}
   |{type:"RESET";state:ThinkTankState};
 
 const listeningWall=(state:ThinkTankState):Record<keyof ThinkTankState["terminalStates"],TerminalState>=>({
@@ -14,18 +13,27 @@ const listeningWall=(state:ThinkTankState):Record<keyof ThinkTankState["terminal
   archivist:state.terminalStates.archivist==="offline"?"offline":"listening"
 });
 
-export function thinkTankReducer(state:ThinkTankState,action:ThinkTankAction):ThinkTankState{
-  if(action.type==="RESET")return action.state;
-  if(action.type==="SET_MODE")return {...state,mode:action.mode,routerPolicy:routerForMode(action.mode)};
-
-  const event=action.event;
+export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTankState{
   const next:ThinkTankState={
     ...state,
     seq:event.seq,
+    mode:event.mode,
+    routerPolicy:routerForMode(event.mode),
     phase:event.phase,
     gateScore:event.gateScore??state.gateScore,
     events:[...state.events,event]
   };
+
+  if(event.kind==="operator.prompt"){
+    next.operatorPrompt=event.message??"";
+  }
+
+  if(event.kind==="role.assigned"&&event.roleId&&event.seatId){
+    next.assignments=[
+      ...state.assignments.filter(assignment=>assignment.roleId!==event.roleId),
+      {roleId:event.roleId,seatId:event.seatId}
+    ];
+  }
 
   if(event.kind==="session.started"){
     next.terminalStates=listeningWall(state);
@@ -53,4 +61,9 @@ export function thinkTankReducer(state:ThinkTankState,action:ThinkTankAction):Th
   }
 
   return next;
+}
+
+export function thinkTankReducer(state:ThinkTankState,action:ThinkTankAction):ThinkTankState{
+  if(action.type==="RESET")return action.state;
+  return projectEvent(state,action.event);
 }
