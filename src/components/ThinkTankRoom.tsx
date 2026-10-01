@@ -278,6 +278,12 @@ export function ThinkTankRoom(){
       const response=await searchResearch(normalized,controller.signal);
       const receiptSeq=stateRef.current.seq+1;
       const receiptId="RS-"+String(receiptSeq).padStart(4,"0");
+      const existingUris=new Set(
+        stateRef.current.researchCandidates
+          .filter(candidate=>candidate.claimId===claimId)
+          .map(candidate=>candidate.uri)
+      );
+      const novelResults=response.results.filter(result=>!existingUris.has(result.uri));
       const researchReceipt={
         id:receiptId,
         tool:"searxng-search" as const,
@@ -286,15 +292,15 @@ export function ThinkTankRoom(){
         query:response.query,
         searchedAt:response.searchedAt,
         resultDigest:response.resultDigest,
-        candidates:response.results.map(result=>({
-          id:"RC-"+String(receiptSeq).padStart(4,"0")+"-"+String(result.rank).padStart(2,"0"),
+        candidates:novelResults.map((result,index)=>({
+          id:"RC-"+String(receiptSeq).padStart(4,"0")+"-"+String(index+1).padStart(2,"0"),
           claimId,
           query:response.query,
           title:result.title,
           uri:result.uri,
           snippet:result.snippet,
           engine:result.engine,
-          rank:result.rank,
+          rank:index+1,
           discoveredAt:response.searchedAt
         }))
       };
