@@ -7,7 +7,10 @@ import type {
   EvidenceFetchError,
   ResearchBackendStatusResponse,
   ResearchSearchResponse,
-  ResearchSearchError
+  ResearchSearchError,
+  EvidenceProjectionResponse,
+  EvidenceExcerptResponse,
+  EvidenceProjectionError
 } from "./types";
 
 const DEFAULT_BRIDGE="http://127.0.0.1:3691";
@@ -112,5 +115,56 @@ export async function searchResearch(
     throw new Error(errorBody.error?.message||("Research search returned HTTP "+response.status+"."));
   }
 
+  return body;
+}
+
+
+export async function projectMachineEvidence(
+  uri:string,
+  expectedSha256:string,
+  signal?:AbortSignal
+):Promise<EvidenceProjectionResponse>{
+  const response=await fetchWithTimeout(
+    providerBridgeUrl+"/evidence/extract",
+    {
+      method:"POST",
+      headers:{"content-type":"application/json"},
+      body:JSON.stringify({uri,expectedSha256}),
+      signal
+    },
+    30000
+  );
+
+  const body=await response.json() as EvidenceProjectionResponse|EvidenceProjectionError;
+  if(!response.ok||!body.ok){
+    const errorBody=body as EvidenceProjectionError;
+    throw new Error(errorBody.error?.message||("Evidence projection returned HTTP "+response.status+"."));
+  }
+  return body;
+}
+
+export async function pinMachineEvidenceExcerpt(
+  uri:string,
+  expectedSha256:string,
+  startChar:number,
+  endChar:number,
+  signal?:AbortSignal
+):Promise<EvidenceExcerptResponse>{
+  const response=await fetchWithTimeout(
+    providerBridgeUrl+"/evidence/extract",
+    {
+      method:"POST",
+      headers:{"content-type":"application/json"},
+      body:JSON.stringify({uri,expectedSha256,startChar,endChar}),
+      signal
+    },
+    30000
+  );
+
+  const body=await response.json() as EvidenceExcerptResponse|EvidenceProjectionError;
+  if(!response.ok||!body.ok){
+    const errorBody=body as EvidenceProjectionError;
+    throw new Error(errorBody.error?.message||("Evidence excerpt returned HTTP "+response.status+"."));
+  }
   return body;
 }
