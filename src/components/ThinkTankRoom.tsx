@@ -2,8 +2,9 @@ import { useMemo,useReducer,useState } from "react";
 import { roles,seats } from "../data/terminals";
 import { createInitialState } from "../domain/state";
 import { thinkTankReducer } from "../domain/reducer";
-import type { RoleId,TerminalState,ThinkTankEvent } from "../domain/types";
-import { demoEvents } from "../sim/demo";
+import type { CollaborationMode,RoleId,TerminalState,ThinkTankEventInput } from "../domain/types";
+import { buildEvent,buildEventBatch,replayEvents,verifyReplay } from "../kernel/eventKernel";
+import { demoEventInputs } from "../sim/demo";
 import { TerminalPanel } from "./TerminalPanel";
 import { Commonline } from "./Commonline";
 import { OperatorRail } from "./OperatorRail";
@@ -17,11 +18,19 @@ export function ThinkTankRoom(){
   const [state,dispatch]=useReducer(thinkTankReducer,createInitialState());
   const [prompt,setPrompt]=useState("");
 
-  const activeRole=useMemo(()=>[...state.events].reverse().find(e=>e.roleId)?.roleId,[state.events]);
+  const activeRole=useMemo(
+    ()=>[...state.events].reverse().find(event=>event.roleId)?.roleId,
+    [state.events]
+  );
+
+  const replayReport=useMemo(
+    ()=>verifyReplay(createInitialState(),state.events,state),
+    [state]
+  );
 
   const seatName=(roleId:string)=>{
-    const assignment=state.assignments.find(x=>x.roleId===roleId);
-    return seats.find(s=>s.id===assignment?.seatId)?.name??"UNASSIGNED";
+    const assignment=state.assignments.find(item=>item.roleId===roleId);
+    return seats.find(seat=>seat.id===assignment?.seatId)?.name??"UNASSIGNED";
   };
 
   const phaseForRole=(roleId:RoleId)=>{
@@ -29,29 +38,55 @@ export function ThinkTankRoom(){
   };
 
   const assignedRolesForSeat=(seatId:string)=>{
-    return state.assignments.filter(a=>a.seatId===seatId).map(a=>a.roleId.toUpperCase());
+    return state.assignments.filter(item=>item.seatId===seatId).map(item=>item.roleId.toUpperCase());
   };
 
   const stateForSeat=(seatId:string):TerminalState=>{
-    const roleIds=state.assignments.filter(a=>a.seatId===seatId).map(a=>a.roleId);
+    const roleIds=state.assignments.filter(item=>item.seatId===seatId).map(item=>item.roleId);
     if(roleIds.length===0)return "idle";
     const states=roleIds.map(roleId=>state.terminalStates[roleId]);
     return seatStatePriority.find(candidate=>states.includes(candidate))??"idle";
   };
 
-  const emit=(event:ThinkTankEvent)=>dispatch({type:"APPEND_EVENT",event});
-  const runDemo=()=>{demoEvents(state.sessionId,state.seed,state.mode,state.seq).forEach(emit);setPrompt("");};
+  const emitInput=(input:ThinkTankEventInput)=>{
+    dispatch({type:"APPLY_EVENT",event:buildEvent(state,input)});
+  };
 
-  const abort=()=>emit({
-    sessionId:state.sessionId,seed:state.seed,mode:state.mode,seq:state.seq+1,
-    kind:"session.aborted",phase:"aborted",message:"Operator abort. Session halted."
+  const runDemo=()=>{
+    const events=buildEventBatch(state,demoEventInputs(prompt));
+    for(const event of events)dispatch({type:"APPLY_EVENT",event});
+    setPrompt("");
+  };
+
+  const selectMode=(mode:CollaborationMode)=>{
+    emitInput({
+      source:"operator",
+      kind:"mode.selected",
+      mode,
+      phase:state.phase,
+      message:"Operator selected "+mode.toUpperCase()+" mode."
+    });
+  };
+
+  const abort=()=>emitInput({
+    source:"operator",
+    kind:"session.aborted",
+    phase:"aborted",
+    message:"Operator abort. Session halted."
   });
 
-  const force=()=>emit({
-    sessionId:state.sessionId,seed:state.seed,mode:state.mode,seq:state.seq+1,
-    kind:"operator.override",phase:"synthesis",override:true,
+  const force=()=>emitInput({
+    source:"operator",
+    kind:"operator.override",
+    phase:"synthesis",
+    override:true,
     message:"Operator override recorded: FORCE SYNTHESIS."
   });
+
+  const replayExact=()=>{
+    const restored=replayEvents(createInitialState(),state.events);
+    dispatch({type:"RESET",state:restored});
+  };
 
   return <main className="room-shell">
     <div className="scanlines" aria-hidden="true"/>
@@ -94,13 +129,22 @@ export function ThinkTankRoom(){
           <span>Reality Gate {state.gateScore?.toFixed(2)} is below {state.gateThreshold.toFixed(2)}. Operator may force synthesis; override will be ledgered.</span>
         </div>}
 
-        <OperatorRail sessionId={state.sessionId} seed={state.seed} prompt={prompt} onPrompt={setPrompt} onSend={runDemo} onAbort={abort} onForce={force}/>
-        <ModeBar mode={state.mode} onChange={mode=>dispatch({type:"SET_MODE",mode})}/>
+        <OperatorRail
+          sessionId={state.sessionId}
+          seed={state.seed}
+          prompt={prompt}
+          onPrompt={setPrompt}
+          onSend={runDemo}
+          onAbort={abort}
+          onForce={force}
+        />
+
+        <ModeBar mode={state.mode} onChange={selectMode}/>
       </div>
 
-      <SystemStatus state={state}/>
+      <SystemStatus state={state} replayReport={replayReport}/>
     </section>
 
-    <LedgerRoll events={state.events}/>
+    <LedgerRoll events={state.events} replayReport={replayReport} onReplay={replayExact}/>
   </main>;
 }
