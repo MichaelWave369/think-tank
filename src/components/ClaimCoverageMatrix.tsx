@@ -53,13 +53,13 @@ export function ClaimCoverageMatrix({
             <strong>{claim.id}</strong>
             <span>{claim.text}</span>
             <div className="coverage-flags">
-              {live.flags.map(flag=><small key={flag}>{flag.toUpperCase().replaceAll("-"," ")}</small>)}
+              {live.flags.map(flag=><small key={flag}>{flag.toUpperCase().split("-").join(" ")}</small>)}
             </div>
           </div>
 
           <div className="coverage-cell">
             <small>LIVE</small>
-            <b>{live.coverageState.toUpperCase().replaceAll("-"," ")}</b>
+            <b>{live.coverageState.toUpperCase().split("-").join(" ")}</b>
             <span>{live.boundEvidenceCount} BOUND</span>
           </div>
 
