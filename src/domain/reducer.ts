@@ -103,6 +103,7 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
     next.currentSpeaker=null;
     next.objectionCount=0;
     next.gateScore=null;
+    next.gateBreakdown=null;
     next.synthesisWithheld=false;
     next.outputLabel=null;
     next.actionAllowed=false;
