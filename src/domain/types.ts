@@ -18,6 +18,7 @@ export type ClaimRelation="supports"|"contradicts"|"context";
 export type ClaimStatus="unbound"|"supported"|"challenged"|"contested"|"context-only";
 export type ClaimCoverageState="unbound"|"thin"|"directional"|"contested"|"context-only";
 export type ClaimPolicyKind="informational"|"bound-fresh"|"all-fresh"|"audit-ready";
+export type ArgumentReviewStatus="draft"|"accepted"|"dismissed";
 export type ClaimCoverageFlag=
   |"no-evidence"
   |"single-source"
@@ -124,6 +125,28 @@ export interface EvidenceExcerpt{
   addedBy:"tool";
 }
 
+export interface ArgumentReviewPoint{
+  excerptId:string;
+  premise:string;
+  inference:string;
+  objection:string;
+}
+
+export interface ArgumentReview{
+  id:string;
+  claimId:string;
+  roleId:"challenger";
+  seatId:SeatId;
+  providerModel:string;
+  providerRequestId?:string;
+  createdAt:string;
+  basisFingerprint:string;
+  points:ArgumentReviewPoint[];
+  unresolvedGaps:string[];
+  summary:string;
+  status:ArgumentReviewStatus;
+}
+
 export interface EvidenceRef{
   id:string;
   kind:EvidenceKind;
@@ -188,6 +211,11 @@ export type ThinkTankEventKind=
   |"claim.removed"
   |"claim.review.requested"
   |"claim.review.completed"
+  |"argument.review.requested"
+  |"argument.review.completed"
+  |"argument.review.failed"
+  |"argument.review.accepted"
+  |"argument.review.dismissed"
   |"evidence.bound"
   |"evidence.unbound"
   |"research.search.requested"
@@ -238,6 +266,8 @@ export interface ThinkTankEvent{
   claimBinding?:ClaimBinding;
   claimBindingId?:string;
   claimReview?:ClaimReviewReceipt;
+  argumentReview?:ArgumentReview;
+  argumentReviewId?:string;
   researchQuery?:string;
   researchReceipt?:ResearchSearchReceipt;
   researchCandidateId?:string;
@@ -282,6 +312,8 @@ export interface ThinkTankEventInput{
   claimBinding?:ClaimBinding;
   claimBindingId?:string;
   claimReview?:ClaimReviewReceipt;
+  argumentReview?:ArgumentReview;
+  argumentReviewId?:string;
   researchQuery?:string;
   researchReceipt?:ResearchSearchReceipt;
   researchCandidateId?:string;
@@ -322,6 +354,7 @@ export interface ThinkTankState{
   claims:Claim[];
   claimBindings:ClaimBinding[];
   claimReviews:ClaimReviewReceipt[];
+  argumentReviews:ArgumentReview[];
   researchSearches:ResearchSearchReceipt[];
   researchCandidates:ResearchCandidate[];
   synthesisWithheld:boolean;

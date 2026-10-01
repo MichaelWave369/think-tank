@@ -19,6 +19,7 @@ export function projectionSnapshot(state:ThinkTankState){
     claims:state.claims,
     claimBindings:state.claimBindings,
     claimReviews:state.claimReviews,
+    argumentReviews:state.argumentReviews,
     researchSearches:state.researchSearches,
     researchCandidates:state.researchCandidates,
     synthesisWithheld:state.synthesisWithheld,

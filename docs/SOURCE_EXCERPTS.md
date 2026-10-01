@@ -160,3 +160,16 @@ PR 14 does not:
 - support PDF text extraction
 - archive complete source bodies in canonical state
 - change Reality Gate weights
+
+
+## Challenger argument review
+
+PR 15 can pass pinned exact excerpts to the currently assigned Challenger provider for structured argument analysis.
+
+The provider receives excerpt text as untrusted data and returns only excerpt ids plus premise/inference/objection analysis.
+
+Canonical quotation text is never taken from provider output.
+
+Non-dismissed argument reviews protect cited excerpts from deletion.
+
+See [ARGUMENT_REVIEW.md](ARGUMENT_REVIEW.md).

@@ -209,6 +209,20 @@ PDF remains verifiable evidence but is explicitly not text-projectable in this r
 
 See [SOURCE_EXCERPTS.md](SOURCE_EXCERPTS.md).
 
+## Excerpt-aware Challenger argument review
+
+PR 15 adds a provider-generated reasoning layer above exact source excerpts.
+
+The review basis is deterministic and fingerprinted, while the reasoning content remains explicitly provider-authored.
+
+The provider must account for every eligible excerpt exactly once and may not supply quotation text. Canonical quotes are resolved from EvidenceExcerpt state.
+
+Reviews enter as DRAFT and require explicit operator acceptance or dismissal.
+
+Argument reviews do not alter Reality Gate scoring or Claim Policy in PR 15.
+
+See [ARGUMENT_REVIEW.md](ARGUMENT_REVIEW.md).
+
 ## PR ladder
 
 1. ✅ Room shell + operator authority
@@ -224,6 +238,7 @@ See [SOURCE_EXCERPTS.md](SOURCE_EXCERPTS.md).
 11. ✅ Governed research / search
 12. ✅ Challenger claim coverage audits
 13. ✅ Claim-aware governance policy
-14. Hash-locked source excerpts
+14. ✅ Hash-locked source excerpts
+15. Excerpt-aware Challenger argument review
 
-Future work can add excerpt-aware provider argument review, proper PDF extraction, authenticated remote deployment, richer provider discovery, streaming, tool execution, and voice without changing the core event contract.
+Future work can add argument-map governance, proper PDF extraction, authenticated remote deployment, richer provider discovery, streaming, tool execution, and voice without changing the core event contract.

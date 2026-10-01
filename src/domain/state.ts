@@ -17,6 +17,7 @@ export const createInitialState=():ThinkTankState=>({
   claims:[],
   claimBindings:[],
   claimReviews:[],
+  argumentReviews:[],
   researchSearches:[],
   researchCandidates:[],
   synthesisWithheld:false,
