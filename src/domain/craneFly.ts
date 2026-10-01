@@ -5,7 +5,9 @@ import type {
   CollaborationMode,
   RoleId,
   Seat,
+  SeatAvailability,
   SeatId,
+  ThinkTankEventInput,
   ThinkTankState
 } from "./types";
 
@@ -36,7 +38,7 @@ export const ROLE_REQUIREMENTS:Record<RoleId,RoleRequirement>={
   archivist:{weights:{ARCHIVE:5,MEMORY:5,CONTEXT:4,PRIVATE:1},localBonus:.2}
 };
 
-const statusMultiplier=(status:ThinkTankState["seatStatus"][SeatId])=>{
+const statusMultiplier=(status:SeatAvailability)=>{
   if(status==="offline")return 0;
   if(status==="degraded")return .78;
   return 1;
@@ -64,11 +66,8 @@ export function scoreSeatForRole(
   score*=statusMultiplier(status);
 
   if(seat.locality==="local")score+=requirement.localBonus;
-
-  // Prefer diversity when capability fit is otherwise close.
   score-=currentLoad*.18;
 
-  // Stable, tiny deterministic tie-break toward seat id order.
   const tieBreak:Record<SeatId,number>={local:.003,openai:.002,kimi:.001};
   score+=tieBreak[seat.id];
 
@@ -144,4 +143,34 @@ export function planAssignments(
   }
 
   return {mode,decisions,unresolved};
+}
+
+export function routingEventInputs(plan:AssignmentPlan):ThinkTankEventInput[]{
+  const inputs:ThinkTankEventInput[]=plan.decisions.map(decision=>({
+    source:"system",
+    mode:plan.mode,
+    kind:"role.assigned",
+    phase:"routing",
+    roleId:decision.roleId,
+    seatId:decision.seatId,
+    assignmentScore:decision.score,
+    assignmentReason:decision.reason,
+    assignmentOrigin:decision.origin,
+    message:
+      "Crane Fly staffed "+decision.roleId.toUpperCase()+
+      " with "+decision.seatId.toUpperCase()+
+      " at score "+decision.score.toFixed(3)+"."
+  }));
+
+  inputs.push({
+    source:"system",
+    mode:plan.mode,
+    kind:"routing.completed",
+    phase:"routing",
+    message:plan.unresolved.length
+      ?"Routing incomplete; unresolved roles: "+plan.unresolved.map(role=>role.toUpperCase()).join(", ")+"."
+      :"Crane Fly routing complete for "+plan.mode.toUpperCase()+"."
+  });
+
+  return inputs;
 }
