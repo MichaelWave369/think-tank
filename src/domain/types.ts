@@ -149,12 +149,26 @@ export interface ArgumentReview{
   status:ArgumentReviewStatus;
 }
 
+export interface DecisionClaimRef{
+  id:string;
+  text:string;
+}
+
+export interface DecisionBindingRef{
+  id:string;
+  claimId:string;
+  evidenceId:string;
+  relation:ClaimRelation;
+  note:string;
+}
+
 export interface DecisionEvidenceRef{
   id:string;
   verification:EvidenceVerification;
   kind:EvidenceKind;
   uri:string;
   retrievalSha256:string;
+  researchCandidateId:string;
 }
 
 export interface DecisionExcerptRef{
@@ -209,6 +223,8 @@ export interface SynthesisDecisionDossier{
   objectionCount:number;
   faultCode:string;
   assignments:Assignment[];
+  claims:DecisionClaimRef[];
+  bindings:DecisionBindingRef[];
   evidence:DecisionEvidenceRef[];
   excerpts:DecisionExcerptRef[];
   claimReviews:DecisionClaimReviewRef[];
