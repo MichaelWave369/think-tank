@@ -1,5 +1,6 @@
 import type { ThinkTankEvent,ThinkTankEventInput,ThinkTankState } from "../domain/types";
 import { projectEvent } from "../domain/reducer";
+import { evaluateEvidence } from "../domain/evidence";
 import { evaluateGovernance,initialTurnPlan } from "../domain/scheduler";
 import { fingerprintProjection } from "./fingerprint";
 import { stableStringify } from "./stable";
@@ -18,6 +19,46 @@ export interface ReplayReport{
   finalFingerprint:string;
   expectedFingerprint?:string;
   error?:string;
+}
+
+function assertEvidenceEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
+  if(event.kind==="evidence.added"){
+    const ref=event.evidenceRef;
+    if(!ref)throw new KernelIntegrityError("Evidence add event requires an evidence reference.",event.seq);
+    if(!ref.id.trim()||!ref.label.trim()){
+      throw new KernelIntegrityError("Evidence reference requires id and label.",event.seq);
+    }
+    if(state.evidenceRefs.some(existing=>existing.id===ref.id)){
+      throw new KernelIntegrityError("Evidence id already exists: "+ref.id+".",event.seq);
+    }
+    if(event.source==="operator"){
+      if(ref.addedBy!=="operator"){
+        throw new KernelIntegrityError("Operator evidence must declare addedBy=operator.",event.seq);
+      }
+      if(ref.verification==="machine-verified"){
+        throw new KernelIntegrityError("Operator evidence cannot self-declare machine verification.",event.seq);
+      }
+    }else if(event.source==="system"){
+      if(ref.addedBy!=="system"){
+        throw new KernelIntegrityError("System evidence must declare addedBy=system.",event.seq);
+      }
+    }else{
+      throw new KernelIntegrityError("Evidence may only be added by operator or system.",event.seq);
+    }
+    return true;
+  }
+
+  if(event.kind==="evidence.removed"){
+    if(event.source!=="operator"){
+      throw new KernelIntegrityError("Evidence removal is operator-authorized.",event.seq);
+    }
+    if(!event.evidenceId||!state.evidenceRefs.some(ref=>ref.id===event.evidenceId)){
+      throw new KernelIntegrityError("Evidence removal requires an existing evidence id.",event.seq);
+    }
+    return true;
+  }
+
+  return false;
 }
 
 function assertRoutingEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
@@ -87,6 +128,7 @@ function assertRoutingEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
 }
 
 function assertPolicyEvent(state:ThinkTankState,event:ThinkTankEvent):void{
+  if(assertEvidenceEvent(state,event))return;
   if(assertRoutingEvent(state,event))return;
 
   if(event.kind==="schedule.planned"){
@@ -178,6 +220,19 @@ function assertPolicyEvent(state:ThinkTankState,event:ThinkTankEvent):void{
     if(event.gateScore===undefined||event.gateScore<0||event.gateScore>1){
       throw new KernelIntegrityError("Reality Gate score must be between 0 and 1.",event.seq);
     }
+
+    if(event.gateBreakdown){
+      const expected=evaluateEvidence(state);
+      if(stableStringify(event.gateBreakdown)!==stableStringify(expected)){
+        throw new KernelIntegrityError("Reality Gate breakdown does not match deterministic evidence evaluation.",event.seq);
+      }
+      if(event.gateScore!==expected.finalScore){
+        throw new KernelIntegrityError(
+          "Reality Gate score mismatch: expected "+expected.finalScore+", received "+event.gateScore+".",
+          event.seq
+        );
+      }
+    }
     return;
   }
 
@@ -236,6 +291,9 @@ export function buildEvent(state:ThinkTankState,input:ThinkTankEventInput):Think
     providerModel:input.providerModel,
     providerLatencyMs:input.providerLatencyMs,
     providerRequestId:input.providerRequestId,
+    evidenceRef:input.evidenceRef,
+    evidenceId:input.evidenceId,
+    gateBreakdown:input.gateBreakdown,
     message:input.message,
     gateScore:input.gateScore,
     override:input.override,
