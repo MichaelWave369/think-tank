@@ -127,7 +127,7 @@ export const sealDossierWithPrivateKey=(dossier,privateKeyPem,signerLabel="local
   const digestSha256=dossierDigestSha256(dossier);
 
   const unsigned={
-    id:"SEAL-"+dossier.id,
+    id:"SEAL-"+dossier.id+"-"+keyFingerprint.slice(0,12),
     dossierId:dossier.id,
     tool:"ed25519-dossier-sealer",
     algorithm:"Ed25519",
