@@ -262,7 +262,7 @@ const remoteStatus=(seatId,provider,key,model)=>({
 
 const statusPayload=async()=>({
   ok:true,
-  bridgeVersion:"0.1.0",
+  bridgeVersion:"0.2.0",
   seats:[
     await ollamaStatus(),
     remoteStatus("openai","OpenAI",process.env.OPENAI_API_KEY,process.env.OPENAI_MODEL),
@@ -375,7 +375,7 @@ const server=http.createServer(async(req,res)=>{
 
   try{
     if(req.method==="GET"&&req.url==="/health"){
-      send(res,200,{ok:true,service:"phi-think-tank-provider-bridge",version:"0.1.0"},origin);
+      send(res,200,{ok:true,service:"phi-think-tank-provider-bridge",version:"0.2.0"},origin);
       return;
     }
 
