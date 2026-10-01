@@ -2,6 +2,7 @@ import type { ThinkTankEvent,ThinkTankEventInput,ThinkTankState } from "../domai
 import { projectEvent } from "../domain/reducer";
 import { evaluateEvidence } from "../domain/evidence";
 import { evaluateGovernance,initialTurnPlan } from "../domain/scheduler";
+import { evaluateClaimCoverage } from "../domain/claimCoverage";
 import { fingerprintProjection } from "./fingerprint";
 import { stableStringify } from "./stable";
 
@@ -19,6 +20,98 @@ export interface ReplayReport{
   finalFingerprint:string;
   expectedFingerprint?:string;
   error?:string;
+}
+
+function assertClaimReviewEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
+  const reviewAction=
+    event.kind==="claim.review.requested"||
+    event.kind==="claim.review.completed";
+
+  if(reviewAction&&state.phase!=="intake"&&state.phase!=="complete"&&state.phase!=="aborted"){
+    throw new KernelIntegrityError("Claim review cannot run during an active governed session.",event.seq);
+  }
+
+  if(event.kind==="claim.review.requested"){
+    if(event.source!=="operator"){
+      throw new KernelIntegrityError("Claim review requests are operator-authorized.",event.seq);
+    }
+    if(event.roleId!=="challenger"){
+      throw new KernelIntegrityError("Claim review must be scoped to Challenger.",event.seq);
+    }
+    if(!event.claimId||!state.claims.some(claim=>claim.id===event.claimId)){
+      throw new KernelIntegrityError("Claim review requires an existing claim.",event.seq);
+    }
+    return true;
+  }
+
+  if(event.kind==="claim.review.completed"){
+    if(event.source!=="system"){
+      throw new KernelIntegrityError("Claim review completion must be system-originated.",event.seq);
+    }
+    if(event.roleId!=="challenger"){
+      throw new KernelIntegrityError("Claim review completion must be Challenger-scoped.",event.seq);
+    }
+    const review=event.claimReview;
+    if(!review){
+      throw new KernelIntegrityError("Claim review completion requires a review receipt.",event.seq);
+    }
+    if(event.claimId!==review.claimId){
+      throw new KernelIntegrityError("Claim review event metadata does not match its receipt.",event.seq);
+    }
+    if(!state.claims.some(claim=>claim.id===review.claimId)){
+      throw new KernelIntegrityError("Claim review references an unknown claim.",event.seq);
+    }
+    if(!review.id.trim()){
+      throw new KernelIntegrityError("Claim review requires an id.",event.seq);
+    }
+    if(Number.isNaN(Date.parse(review.reviewedAt))){
+      throw new KernelIntegrityError("Claim review timestamp is invalid.",event.seq);
+    }
+    if(state.claimReviews.some(existing=>existing.id===review.id)){
+      throw new KernelIntegrityError("Claim review id already exists: "+review.id+".",event.seq);
+    }
+
+    const request=[...state.events].reverse().find(item=>
+      item.kind==="claim.review.requested"&&
+      item.claimId===review.claimId&&
+      item.roleId==="challenger"
+    );
+    if(!request){
+      throw new KernelIntegrityError("Claim review completion has no matching operator request.",event.seq);
+    }
+
+    const terminal=[...state.events].reverse().find(item=>
+      item.kind==="claim.review.completed"&&
+      item.claimId===review.claimId
+    );
+    if(terminal&&terminal.seq>request.seq){
+      throw new KernelIntegrityError("Claim review request is already resolved.",event.seq);
+    }
+
+    const graphMutations=new Set([
+      "claim.added","claim.removed","evidence.added","evidence.removed",
+      "evidence.bound","evidence.unbound"
+    ]);
+    const changedAfterRequest=state.events.some(item=>
+      item.seq>request.seq&&graphMutations.has(item.kind)
+    );
+    if(changedAfterRequest){
+      throw new KernelIntegrityError("Claim graph changed after review request; request a fresh Challenger audit.",event.seq);
+    }
+
+    const expected=evaluateClaimCoverage(
+      state,
+      review.claimId,
+      review.id,
+      review.reviewedAt
+    );
+    if(stableStringify(review)!==stableStringify(expected)){
+      throw new KernelIntegrityError("Claim review receipt does not match deterministic recomputation.",event.seq);
+    }
+    return true;
+  }
+
+  return false;
 }
 
 function assertResearchEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
@@ -473,6 +566,7 @@ function assertRoutingEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
 }
 
 function assertPolicyEvent(state:ThinkTankState,event:ThinkTankEvent):void{
+  if(assertClaimReviewEvent(state,event))return;
   if(assertResearchEvent(state,event))return;
   if(assertClaimEvent(state,event))return;
   if(assertEvidenceEvent(state,event))return;
@@ -642,6 +736,7 @@ export function buildEvent(state:ThinkTankState,input:ThinkTankEventInput):Think
     claimId:input.claimId,
     claimBinding:input.claimBinding,
     claimBindingId:input.claimBindingId,
+    claimReview:input.claimReview,
     researchQuery:input.researchQuery,
     researchReceipt:input.researchReceipt,
     researchCandidateId:input.researchCandidateId,
