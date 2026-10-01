@@ -137,6 +137,75 @@ describe("evidence kernel",()=>{
     })).toThrow(/tool-originated/i);
   });
 
+  it("rejects duplicate evidence URIs so one source cannot inflate breadth",()=>{
+    const state=addAttested(createInitialState());
+    state.evidenceRefs[0]!.uri="https://example.com/source";
+
+    expect(()=>buildEvent(state,{
+      source:"operator",
+      kind:"evidence.added",
+      phase:"intake",
+      evidenceRef:{
+        id:"EV-2",
+        kind:"operator-reference",
+        verification:"operator-attested",
+        label:"Same source again",
+        uri:"https://example.com/source",
+        addedBy:"operator"
+      },
+      message:"duplicate uri"
+    })).toThrow(/URI already exists/i);
+  });
+
+  it("rejects duplicate machine content digests even across different URLs",()=>{
+    const state=createInitialState();
+    state.evidenceRefs=[{
+      id:"EV-OLD",
+      kind:"external-source",
+      verification:"machine-verified",
+      label:"Original bytes",
+      uri:"https://example.com/a",
+      addedBy:"tool",
+      retrieval:{
+        tool:"url-fetch",
+        requestedUri:"https://example.com/a",
+        finalUri:"https://example.com/a",
+        httpStatus:200,
+        contentType:"text/plain",
+        bytes:100,
+        sha256:"f".repeat(64),
+        redirects:0,
+        retrievedAt:"2026-10-01T12:00:00.000Z"
+      }
+    }];
+
+    expect(()=>buildEvent(state,{
+      source:"tool",
+      kind:"evidence.added",
+      phase:"intake",
+      evidenceRef:{
+        id:"EV-NEW",
+        kind:"external-source",
+        verification:"machine-verified",
+        label:"Mirror bytes",
+        uri:"https://mirror.example.com/a",
+        addedBy:"tool",
+        retrieval:{
+          tool:"url-fetch",
+          requestedUri:"https://mirror.example.com/a",
+          finalUri:"https://mirror.example.com/a",
+          httpStatus:200,
+          contentType:"text/plain",
+          bytes:100,
+          sha256:"f".repeat(64),
+          redirects:0,
+          retrievedAt:"2026-10-01T12:01:00.000Z"
+        }
+      },
+      message:"duplicate digest"
+    })).toThrow(/duplicate provenance cannot increase breadth/i);
+  });
+
   it("rejects duplicate evidence ids",()=>{
     const state=addAttested(createInitialState());
 
