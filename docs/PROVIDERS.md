@@ -25,6 +25,7 @@ The local bridge:
 - caps generated output tokens
 - validates role and seat ids
 - uses fixed provider endpoints
+- provides governed public-URL evidence retrieval with SSRF/private-network defenses
 
 ## Current provider transports
 
@@ -129,6 +130,26 @@ Operator-attested and future machine-verified evidence receipts can raise the au
 
 The selected mode law still decides whether the resulting score produces informational completion, speculative output, draft output, or withheld synthesis.
 
+## Evidence retrieval
+
+PR 9 adds:
+
+`POST /evidence/fetch`
+
+The endpoint accepts an operator-authorized public HTTP/S URL and returns only a provenance receipt:
+
+- requested/final URI
+- status
+- content type
+- bytes
+- SHA-256
+- redirects
+- retrieval timestamp
+
+The fetched body is not returned to the browser.
+
+See [MACHINE_EVIDENCE.md](MACHINE_EVIDENCE.md).
+
 ## Cost guardrails
 
 Remote providers are disabled until both key and model are explicitly configured.
@@ -144,6 +165,8 @@ The status endpoint does not send billable remote inference probes.
 - do not bind the bridge to `0.0.0.0` unless you understand the network exposure
 - use an exact `THINK_TANK_ORIGIN` for a deployed UI
 - do not expose the provider bridge directly to the public internet
+- keep evidence byte/redirect limits conservative
+- machine-verified retrieval is not a factual-truth assertion
 
 ## Acceptance criteria
 
