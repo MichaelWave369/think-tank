@@ -101,3 +101,16 @@ The kernel recomputes both receipts from canonical state before accepting synthe
 A mismatch is an integrity failure.
 
 This keeps numeric evidence scoring, deterministic structural claim review, and human-accepted provider argument maps as separate replayable authorities.
+
+
+## Decision dossiers
+
+PR 17 requires every normal synthesis resolution to carry a deterministic SynthesisDecisionDossier.
+
+The kernel recomputes the dossier from pre-decision canonical state and rejects any mismatch.
+
+The dossier is historical and immutable.
+
+FORCE SYNTHESIS creates a separate DecisionOverrideReceipt linked to the latest withheld dossier; it does not mutate the normal decision receipt.
+
+See [DECISION_DOSSIER.md](DECISION_DOSSIER.md).
