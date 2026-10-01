@@ -1,4 +1,4 @@
-import type { ThinkTankEvent,ThinkTankState,TerminalState } from "./types";
+import type { RoleId,ThinkTankEvent,ThinkTankState,TerminalState } from "./types";
 import { routerForMode } from "./modes";
 
 export type ThinkTankAction=
@@ -13,6 +13,18 @@ const listeningWall=(state:ThinkTankState):Record<keyof ThinkTankState["terminal
   archivist:state.terminalStates.archivist==="offline"?"offline":"listening"
 });
 
+const scheduledWall=(state:ThinkTankState,activeRoles:RoleId[]):ThinkTankState["terminalStates"]=>{
+  const active=new Set(activeRoles);
+  const next={...state.terminalStates};
+
+  (Object.keys(next) as RoleId[]).forEach(roleId=>{
+    if(next[roleId]==="offline")return;
+    next[roleId]=active.has(roleId)?"listening":"dimmed";
+  });
+
+  return next;
+};
+
 export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTankState{
   const next:ThinkTankState={
     ...state,
@@ -23,6 +35,21 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
     gateScore:event.gateScore??state.gateScore,
     events:[...state.events,event]
   };
+
+  if(event.kind==="mode.selected"){
+    next.turnPlan=null;
+    next.currentRound=0;
+    next.speakerIndex=0;
+    next.currentSpeaker=null;
+    next.objectionCount=0;
+    next.gateScore=null;
+    next.synthesisWithheld=false;
+    next.outputLabel=null;
+    next.actionAllowed=false;
+    next.governanceReason="";
+    next.faultCode=null;
+    next.terminalStates={vessie:"idle",dreamer:"idle",builder:"idle",challenger:"idle",archivist:"idle"};
+  }
 
   if(event.kind==="operator.prompt"){
     next.operatorPrompt=event.message??"";
@@ -36,27 +63,94 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
   }
 
   if(event.kind==="session.started"){
+    next.objectionCount=0;
+    next.outputLabel=null;
+    next.actionAllowed=false;
+    next.governanceReason="";
+    next.faultCode=null;
     next.terminalStates=listeningWall(state);
   }
 
+  if(event.kind==="schedule.planned"&&event.turnPlan){
+    next.turnPlan=event.turnPlan;
+    next.currentRound=0;
+    next.speakerIndex=0;
+    next.currentSpeaker=null;
+    next.terminalStates=scheduledWall(state,event.turnPlan.activeRoles);
+  }
+
+  if(event.kind==="round.started"&&event.round!==undefined){
+    next.currentRound=event.round;
+    next.speakerIndex=0;
+    next.currentSpeaker=null;
+  }
+
   if(event.kind==="turn.started"&&event.roleId){
-    next.terminalStates={...listeningWall(state),[event.roleId]:"speaking"};
+    next.currentSpeaker=event.roleId;
+    next.speakerIndex=state.speakerIndex+1;
+    next.terminalStates={
+      ...state.terminalStates,
+      [event.roleId]:"speaking"
+    };
+  }
+
+  if(event.kind==="turn.timeout"){
+    next.currentSpeaker=null;
+    next.faultCode=event.faultCode??"TURN_TIMEOUT";
+    next.governanceReason=event.governanceReason??"Scheduled turn timed out.";
   }
 
   if(event.roleId&&event.message&&(event.kind==="utterance.complete"||event.kind==="challenge.raised")){
     next.lastUtterance={...state.lastUtterance,[event.roleId]:event.message};
+    next.currentSpeaker=null;
     next.terminalStates={
       ...next.terminalStates,
       [event.roleId]:event.kind==="challenge.raised"?"warning":"listening"
     };
   }
 
-  if(event.kind==="gate.scored")next.synthesisWithheld=(event.gateScore??0)<state.gateThreshold;
-  if(event.kind==="operator.override"||event.kind==="synthesis.completed")next.synthesisWithheld=false;
-  if(event.kind==="synthesis.withheld")next.synthesisWithheld=true;
+  if(event.kind==="challenge.raised"){
+    next.objectionCount=state.objectionCount+1;
+  }
+
+  if(event.kind==="gate.scored"){
+    next.gateScore=event.gateScore??state.gateScore;
+  }
+
+  if(event.kind==="governance.fault"){
+    next.faultCode=event.faultCode??"GOVERNANCE_FAULT";
+    next.governanceReason=event.governanceReason??event.message??"Governance fault.";
+    next.synthesisWithheld=true;
+    next.actionAllowed=false;
+    next.outputLabel="WITHHELD";
+  }
+
+  if(event.kind==="synthesis.withheld"){
+    next.synthesisWithheld=true;
+    next.actionAllowed=false;
+    next.outputLabel=event.outputLabel??"WITHHELD";
+    next.governanceReason=event.governanceReason??event.message??"Synthesis withheld.";
+  }
+
+  if(event.kind==="synthesis.completed"){
+    next.synthesisWithheld=false;
+    next.actionAllowed=event.actionAllowed??false;
+    next.outputLabel=event.outputLabel??"STANDARD";
+    next.governanceReason=event.governanceReason??event.message??"Synthesis completed.";
+    next.currentSpeaker=null;
+  }
+
+  if(event.kind==="operator.override"){
+    next.synthesisWithheld=false;
+    next.actionAllowed=true;
+    next.governanceReason=event.governanceReason??"Operator override authorized synthesis.";
+    next.faultCode=null;
+  }
 
   if(event.kind==="session.aborted"){
     next.phase="aborted";
+    next.currentSpeaker=null;
+    next.actionAllowed=false;
     next.terminalStates={vessie:"idle",dreamer:"idle",builder:"idle",challenger:"idle",archivist:"idle"};
   }
 
