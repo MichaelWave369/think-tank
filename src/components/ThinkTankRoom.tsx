@@ -166,8 +166,8 @@ export function ThinkTankRoom(){
     const hasModePrefix=scenarioInputs[0]?.kind==="mode.selected";
 
     const inputs=hasModePrefix
-      ?[scenarioInputs[0],...routeInputs,...scenarioInputs.slice(1)]
-      :[...routeInputs,...scenarioInputs];
+      ?[scenarioInputs[0],scenarioInputs[1],...routeInputs,...scenarioInputs.slice(2)]
+      :[scenarioInputs[0],...routeInputs,...scenarioInputs.slice(1)];
 
     playInputs(inputs);
     setPrompt("");
