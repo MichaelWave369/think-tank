@@ -4,6 +4,11 @@ import { evaluateEvidence } from "../domain/evidence";
 import { evaluateGovernance,initialTurnPlan } from "../domain/scheduler";
 import { evaluateClaimCoverage } from "../domain/claimCoverage";
 import { evaluateClaimGovernance } from "../domain/claimGovernance";
+import {
+  argumentReviewBasisFingerprint,
+  argumentReviewEligibility,
+  argumentReviewEligibleExcerpts
+} from "../domain/argumentReview";
 import { fingerprintProjection } from "./fingerprint";
 import { stableStringify } from "./stable";
 
@@ -21,6 +26,203 @@ export interface ReplayReport{
   finalFingerprint:string;
   expectedFingerprint?:string;
   error?:string;
+}
+
+function assertArgumentReviewEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
+  const action=[
+    "argument.review.requested",
+    "argument.review.completed",
+    "argument.review.failed",
+    "argument.review.accepted",
+    "argument.review.dismissed"
+  ].includes(event.kind);
+
+  if(action&&state.phase!=="intake"&&state.phase!=="complete"&&state.phase!=="aborted"){
+    throw new KernelIntegrityError("Argument review cannot run during an active governed session.",event.seq);
+  }
+
+  if(event.kind==="argument.review.requested"){
+    if(event.source!=="operator"){
+      throw new KernelIntegrityError("Argument review requests are operator-authorized.",event.seq);
+    }
+    if(event.roleId!=="challenger"){
+      throw new KernelIntegrityError("Argument review must be scoped to Challenger.",event.seq);
+    }
+    if(!event.claimId||!state.claims.some(claim=>claim.id===event.claimId)){
+      throw new KernelIntegrityError("Argument review requires an existing claim.",event.seq);
+    }
+    const assignment=state.assignments.find(item=>item.roleId==="challenger");
+    if(!assignment||event.seatId!==assignment.seatId){
+      throw new KernelIntegrityError("Argument review must route through the currently assigned Challenger seat.",event.seq);
+    }
+    const eligibility=argumentReviewEligibility(state,event.claimId);
+    if(!eligibility.allowed){
+      throw new KernelIntegrityError(eligibility.reason,event.seq);
+    }
+    return true;
+  }
+
+  if(event.kind==="argument.review.completed"){
+    if(event.source!=="provider"){
+      throw new KernelIntegrityError("Argument review completion must be provider-originated.",event.seq);
+    }
+    if(event.roleId!=="challenger"){
+      throw new KernelIntegrityError("Argument review completion must be Challenger-scoped.",event.seq);
+    }
+    const review=event.argumentReview;
+    if(!review){
+      throw new KernelIntegrityError("Argument review completion requires a review payload.",event.seq);
+    }
+    if(
+      event.claimId!==review.claimId||
+      event.seatId!==review.seatId||
+      event.providerModel!==review.providerModel||
+      event.providerRequestId!==review.providerRequestId
+    ){
+      throw new KernelIntegrityError("Argument review event metadata does not match its review payload.",event.seq);
+    }
+    if(review.roleId!=="challenger"||review.status!=="draft"){
+      throw new KernelIntegrityError("Provider argument reviews must enter as Challenger DRAFT artifacts.",event.seq);
+    }
+    if(!state.claims.some(claim=>claim.id===review.claimId)){
+      throw new KernelIntegrityError("Argument review references an unknown claim.",event.seq);
+    }
+    if(state.argumentReviews.some(existing=>existing.id===review.id)){
+      throw new KernelIntegrityError("Argument review id already exists: "+review.id+".",event.seq);
+    }
+    if(!review.id.trim()||!review.providerModel.trim()){
+      throw new KernelIntegrityError("Argument review requires id and provider model.",event.seq);
+    }
+    if(Number.isNaN(Date.parse(review.createdAt))){
+      throw new KernelIntegrityError("Argument review timestamp is invalid.",event.seq);
+    }
+
+    const assignment=state.assignments.find(item=>item.roleId==="challenger");
+    if(!assignment||review.seatId!==assignment.seatId){
+      throw new KernelIntegrityError("Argument review provider seat no longer matches Challenger assignment.",event.seq);
+    }
+
+    const expectedBasis=argumentReviewBasisFingerprint(state,review.claimId);
+    if(!expectedBasis||review.basisFingerprint!==expectedBasis){
+      throw new KernelIntegrityError("Argument review basis fingerprint does not match current claim excerpts.",event.seq);
+    }
+
+    const eligible=argumentReviewEligibleExcerpts(state,review.claimId).map(item=>item.id);
+    const eligibleSet=new Set(eligible);
+    if(review.points.length!==eligible.length||review.points.length<1||review.points.length>12){
+      throw new KernelIntegrityError("Argument review must account for every eligible excerpt exactly once.",event.seq);
+    }
+
+    const seen=new Set<string>();
+    for(const point of review.points){
+      if(!eligibleSet.has(point.excerptId)||seen.has(point.excerptId)){
+        throw new KernelIntegrityError("Argument review excerpt references are invalid or duplicated.",event.seq);
+      }
+      seen.add(point.excerptId);
+      if(!point.premise.trim()||point.premise.length>600){
+        throw new KernelIntegrityError("Argument review premise is invalid.",event.seq);
+      }
+      if(!point.inference.trim()||point.inference.length>800){
+        throw new KernelIntegrityError("Argument review inference is invalid.",event.seq);
+      }
+      if(!point.objection.trim()||point.objection.length>800){
+        throw new KernelIntegrityError("Argument review objection is invalid.",event.seq);
+      }
+    }
+    if(eligible.some(id=>!seen.has(id))){
+      throw new KernelIntegrityError("Argument review omitted an eligible excerpt.",event.seq);
+    }
+    if(!review.summary.trim()||review.summary.length>1000){
+      throw new KernelIntegrityError("Argument review summary is invalid.",event.seq);
+    }
+    if(review.unresolvedGaps.length>8||review.unresolvedGaps.some(gap=>!gap.trim()||gap.length>500)){
+      throw new KernelIntegrityError("Argument review unresolved gaps are invalid.",event.seq);
+    }
+
+    const request=[...state.events].reverse().find(item=>
+      item.kind==="argument.review.requested"&&
+      item.claimId===review.claimId&&
+      item.roleId==="challenger"&&
+      item.seatId===review.seatId
+    );
+    if(!request){
+      throw new KernelIntegrityError("Argument review completion has no matching operator request.",event.seq);
+    }
+
+    const terminal=[...state.events].reverse().find(item=>
+      (item.kind==="argument.review.completed"||item.kind==="argument.review.failed")&&
+      item.claimId===review.claimId&&
+      item.roleId==="challenger"&&
+      item.seatId===review.seatId
+    );
+    if(terminal&&terminal.seq>request.seq){
+      throw new KernelIntegrityError("Argument review request is already resolved.",event.seq);
+    }
+
+    const basisMutations=new Set([
+      "claim.added","claim.removed",
+      "evidence.added","evidence.removed",
+      "evidence.bound","evidence.unbound",
+      "evidence.excerpt.added","evidence.excerpt.removed"
+    ]);
+    if(state.events.some(item=>item.seq>request.seq&&basisMutations.has(item.kind))){
+      throw new KernelIntegrityError("Argument review basis changed after request; request a fresh review.",event.seq);
+    }
+
+    return true;
+  }
+
+  if(event.kind==="argument.review.failed"){
+    if(event.source!=="provider"){
+      throw new KernelIntegrityError("Argument review failure must be provider-originated.",event.seq);
+    }
+    if(event.roleId!=="challenger"||!event.claimId||!event.seatId){
+      throw new KernelIntegrityError("Argument review failure requires Challenger, claim, and seat metadata.",event.seq);
+    }
+    const request=[...state.events].reverse().find(item=>
+      item.kind==="argument.review.requested"&&
+      item.claimId===event.claimId&&
+      item.roleId==="challenger"&&
+      item.seatId===event.seatId
+    );
+    if(!request){
+      throw new KernelIntegrityError("Argument review failure has no matching operator request.",event.seq);
+    }
+    const terminal=[...state.events].reverse().find(item=>
+      (item.kind==="argument.review.completed"||item.kind==="argument.review.failed")&&
+      item.claimId===event.claimId&&
+      item.roleId==="challenger"&&
+      item.seatId===event.seatId
+    );
+    if(terminal&&terminal.seq>request.seq){
+      throw new KernelIntegrityError("Argument review request is already resolved.",event.seq);
+    }
+    return true;
+  }
+
+  if(event.kind==="argument.review.accepted"){
+    if(event.source!=="operator"){
+      throw new KernelIntegrityError("Argument review acceptance is operator-authorized.",event.seq);
+    }
+    const review=state.argumentReviews.find(item=>item.id===event.argumentReviewId);
+    if(!review||review.status!=="draft"){
+      throw new KernelIntegrityError("Only an existing DRAFT argument review may be accepted.",event.seq);
+    }
+    return true;
+  }
+
+  if(event.kind==="argument.review.dismissed"){
+    if(event.source!=="operator"){
+      throw new KernelIntegrityError("Argument review dismissal is operator-authorized.",event.seq);
+    }
+    const review=state.argumentReviews.find(item=>item.id===event.argumentReviewId);
+    if(!review||review.status==="dismissed"){
+      throw new KernelIntegrityError("Argument review dismissal requires an active review.",event.seq);
+    }
+    return true;
+  }
+
+  return false;
 }
 
 function assertClaimReviewEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
@@ -313,6 +515,9 @@ function assertClaimEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
     if(state.claimBindings.some(binding=>binding.claimId===event.claimId)){
       throw new KernelIntegrityError("Cannot remove a claim while evidence bindings still exist.",event.seq);
     }
+    if(state.argumentReviews.some(review=>review.claimId===event.claimId&&review.status!=="dismissed")){
+      throw new KernelIntegrityError("Cannot remove a claim while active argument reviews still exist.",event.seq);
+    }
     return true;
   }
 
@@ -474,6 +679,11 @@ function assertExcerptEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
     if(event.source!=="operator")throw new KernelIntegrityError("Excerpt removal is operator-authorized.",event.seq);
     if(!event.evidenceExcerptId||!state.evidenceExcerpts.some(excerpt=>excerpt.id===event.evidenceExcerptId)){
       throw new KernelIntegrityError("Excerpt removal requires an existing excerpt id.",event.seq);
+    }
+    if(state.argumentReviews.some(review=>
+      review.status!=="dismissed"&&review.points.some(point=>point.excerptId===event.evidenceExcerptId)
+    )){
+      throw new KernelIntegrityError("Cannot remove an excerpt while active argument reviews still cite it.",event.seq);
     }
     return true;
   }
@@ -692,6 +902,7 @@ function assertRoutingEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
 }
 
 function assertPolicyEvent(state:ThinkTankState,event:ThinkTankEvent):void{
+  if(assertArgumentReviewEvent(state,event))return;
   if(assertExcerptEvent(state,event))return;
   if(assertClaimReviewEvent(state,event))return;
   if(assertResearchEvent(state,event))return;
@@ -873,6 +1084,8 @@ export function buildEvent(state:ThinkTankState,input:ThinkTankEventInput):Think
     claimBinding:input.claimBinding,
     claimBindingId:input.claimBindingId,
     claimReview:input.claimReview,
+    argumentReview:input.argumentReview,
+    argumentReviewId:input.argumentReviewId,
     researchQuery:input.researchQuery,
     researchReceipt:input.researchReceipt,
     researchCandidateId:input.researchCandidateId,
