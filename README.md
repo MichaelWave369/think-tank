@@ -6,33 +6,33 @@ A governed, event-sourced multi-mind control room. Cognitive roles are staffed b
 
 ## Current rung
 
-**PR 14 — Hash-Locked Source Excerpts**
+**PR 15 — Excerpt-Aware Challenger Argument Review**
 
-The Think Tank can now pin exact quotations from machine-verified source bytes without storing entire webpages in canonical state.
+The Think Tank can now ask the assigned Challenger provider to build a structured argument map over exact, hash-locked excerpts while keeping provider reasoning separate from evidence and operator authority.
 
-PR 14 adds:
-- deterministic source text projection
-- source re-fetch with original SHA-256 lock
-- transient source preview
-- exact character-range selection
-- canonical EvidenceExcerpt receipts
-- source / projection / excerpt SHA-256 lineage
-- operator request → tool receipt event flow
-- one terminal result per excerpt request
-- source-change rejection
-- 1600-character kernel excerpt cap
-- evidence deletion protection while excerpts exist
-- excerpt-aware Challenger review freshness
-- authorization invalidation after excerpt mutation
-- Source Excerpt Console
-- explicit PDF extraction non-support
-- expanded bridge and kernel tests
+PR 15 adds:
+- deterministic argument-review basis fingerprints
+- max 12 excerpts / 12,000 characters per review
+- prompt-injection boundary for untrusted source excerpts
+- raw-JSON Challenger review contract
+- one analysis point per eligible excerpt
+- anti-cherry-picking exact excerpt coverage
+- provider provenance on every review
+- DRAFT → ACCEPTED / DISMISSED human lifecycle
+- stale-review detection
+- stale DRAFT acceptance rejection
+- offline Challenger seat rejection
+- claim/excerpt dependency protection
+- Argument Review Console
+- exact canonical quote display beside provider reasoning
+- argument-review telemetry
+- parser + kernel integrity tests
 
 ### Important semantic rule
 
-**EXACT EXCERPT ≠ CLAIM TRUE.**
+**PROVIDER ARGUMENT MAP ≠ EVIDENCE ≠ TRUTH.**
 
-The excerpt proves exact source text provenance. Claim interpretation remains a separate binding/audit/governance step.
+The provider analyzes the argument. Exact quotations, claim relations, evidence provenance, and operator acceptance remain separate authorities.
 
 See:
 - [Architecture](docs/ARCHITECTURE.md)
@@ -49,6 +49,7 @@ See:
 - [Challenger Claim Coverage](docs/CHALLENGER_COVERAGE.md)
 - [Claim-Aware Governance](docs/CLAIM_GOVERNANCE.md)
 - [Hash-Locked Source Excerpts](docs/SOURCE_EXCERPTS.md)
+- [Excerpt-Aware Argument Review](docs/ARGUMENT_REVIEW.md)
 
 ## Local-first setup
 
@@ -71,7 +72,7 @@ Verification:
 
 > **If a light changes, a sequenced event explains why.**
 
-If source text is quoted, a hash-locked excerpt receipt explains exactly which verified bytes and character range produced it.
+If Challenger analyzes an excerpt, the ledger preserves the exact excerpt basis, provider provenance, structured reasoning map, and human acceptance state.
 
 ## Build ladder
 
@@ -88,6 +89,7 @@ If source text is quoted, a hash-locked excerpt receipt explains exactly which v
 11. ✅ Governed research / search
 12. ✅ Challenger claim coverage audits
 13. ✅ Claim-aware governance policy
-14. **Hash-locked source excerpts**
+14. ✅ Hash-locked source excerpts
+15. **Excerpt-aware Challenger argument review**
 
 **Φ THINK TANK is a control room, not eight chat cards.**
