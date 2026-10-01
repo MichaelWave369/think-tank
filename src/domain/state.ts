@@ -13,6 +13,7 @@ export const createInitialState=():ThinkTankState=>({
   gateBreakdown:null,
   claimGovernance:null,
   evidenceRefs:[],
+  evidenceExcerpts:[],
   claims:[],
   claimBindings:[],
   claimReviews:[],
