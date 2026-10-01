@@ -1099,7 +1099,10 @@ function assertPolicyEvent(state:ThinkTankState,event:ThinkTankEvent):void{
     }
 
     const expectedReason=event.governanceReason??"Human operator explicitly overrode the withheld/faulted synthesis state.";
-    const expectedLabel=event.outputLabel??(state.mode==="audit"?"AUDIT":"STANDARD");
+    const expectedLabel=state.mode==="audit"?"AUDIT":"STANDARD";
+    if(event.outputLabel!==expectedLabel||event.actionAllowed!==true){
+      throw new KernelIntegrityError("Operator override output/action fields contradict the override law.",event.seq);
+    }
     let expectedOverride;
     try{
       expectedOverride=buildDecisionOverrideReceipt(state,event.seq,expectedLabel,expectedReason);
