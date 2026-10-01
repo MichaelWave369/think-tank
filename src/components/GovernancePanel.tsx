@@ -4,10 +4,12 @@ import type { ThinkTankState } from "../domain/types";
 
 export function GovernancePanel({
   state,
+  busy=false,
   onGateBlock,
   onTimeout
 }:{
   state:ThinkTankState;
+  busy?:boolean;
   onGateBlock:()=>void;
   onTimeout:()=>void;
 }){
@@ -42,8 +44,8 @@ export function GovernancePanel({
 
     <footer>
       <span>SIMULATION DRILLS</span>
-      <button type="button" onClick={onGateBlock}>COUNCIL GATE BLOCK</button>
-      <button type="button" onClick={onTimeout}>TURN TIMEOUT</button>
+      <button type="button" onClick={onGateBlock} disabled={busy}>COUNCIL GATE BLOCK</button>
+      <button type="button" onClick={onTimeout} disabled={busy}>TURN TIMEOUT</button>
     </footer>
   </section>;
 }
