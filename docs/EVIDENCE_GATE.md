@@ -177,4 +177,8 @@ The scoring law in this document is unchanged.
 
 A healthy Council with one machine-verified external source receives external-support breadth 0.50 and quality 1.00, producing a final score of 0.825 under the current weights.
 
-Future claim-level verification or search tools should add evidence receipts. They should not bypass this scorer.
+PR 10 adds claim-to-source bindings without changing these weights or caps.
+
+Claim graph edits invalidate prior Gate authorization, but the deterministic evidence score itself remains the PR 8 law.
+
+Future claim-aware verification or search tools should add evidence receipts and bindings. They should not bypass this scorer or silently reinterpret existing sources.

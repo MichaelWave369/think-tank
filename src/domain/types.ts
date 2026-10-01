@@ -14,6 +14,8 @@ export type SeatLocality="local"|"remote";
 export type AssignmentOrigin="bootstrap"|"auto"|"operator-pin";
 export type EvidenceKind="operator-reference"|"tool-result"|"external-source"|"provider-output";
 export type EvidenceVerification="unverified"|"operator-attested"|"machine-verified";
+export type ClaimRelation="supports"|"contradicts"|"context";
+export type ClaimStatus="unbound"|"supported"|"challenged"|"contested"|"context-only";
 
 export interface RetrievalReceipt{
   tool:"url-fetch";
@@ -38,6 +40,21 @@ export interface Seat{
   capabilities:Record<CapabilityKey,number>;
 }
 export interface Assignment{ roleId:RoleId; seatId:SeatId; }
+
+export interface Claim{
+  id:string;
+  text:string;
+  addedBy:"operator";
+}
+
+export interface ClaimBinding{
+  id:string;
+  claimId:string;
+  evidenceId:string;
+  relation:ClaimRelation;
+  note?:string;
+  addedBy:"operator";
+}
 
 export interface EvidenceRef{
   id:string;
@@ -86,6 +103,10 @@ export type ThinkTankEventKind=
   |"role.unpinned"
   |"role.assigned"
   |"routing.completed"
+  |"claim.added"
+  |"claim.removed"
+  |"evidence.bound"
+  |"evidence.unbound"
   |"evidence.fetch.requested"
   |"evidence.fetch.failed"
   |"evidence.added"
@@ -122,6 +143,10 @@ export interface ThinkTankEvent{
   providerModel?:string;
   providerLatencyMs?:number;
   providerRequestId?:string;
+  claim?:Claim;
+  claimId?:string;
+  claimBinding?:ClaimBinding;
+  claimBindingId?:string;
   evidenceRef?:EvidenceRef;
   evidenceId?:string;
   evidenceUri?:string;
@@ -153,6 +178,10 @@ export interface ThinkTankEventInput{
   providerModel?:string;
   providerLatencyMs?:number;
   providerRequestId?:string;
+  claim?:Claim;
+  claimId?:string;
+  claimBinding?:ClaimBinding;
+  claimBindingId?:string;
   evidenceRef?:EvidenceRef;
   evidenceId?:string;
   evidenceUri?:string;
@@ -180,6 +209,8 @@ export interface ThinkTankState{
   gateScore:number|null;
   gateBreakdown:GateBreakdown|null;
   evidenceRefs:EvidenceRef[];
+  claims:Claim[];
+  claimBindings:ClaimBinding[];
   synthesisWithheld:boolean;
   assignments:Assignment[];
   pinnedAssignments:Partial<Record<RoleId,SeatId>>;

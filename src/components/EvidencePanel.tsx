@@ -11,6 +11,7 @@ export function EvidencePanel({
   busy,
   verifyBusy,
   verifyError,
+  boundEvidenceIds,
   onAdd,
   onVerify,
   onRemove
@@ -21,6 +22,7 @@ export function EvidencePanel({
   busy:boolean;
   verifyBusy:boolean;
   verifyError:string;
+  boundEvidenceIds:string[];
   onAdd:(label:string,uri:string,note:string)=>void;
   onVerify:(label:string,uri:string,note:string)=>void;
   onRemove:(id:string)=>void;
@@ -72,10 +74,10 @@ export function EvidencePanel({
 
     <div className="evidence-list">
       {refs.length===0&&<p className="evidence-empty">No external evidence receipts. Model output alone is capped below the normal gate threshold.</p>}
-      {refs.map(ref=><article className={"evidence-ref verification-"+ref.verification} key={ref.id}>
+      {refs.map(ref=>{const bound=boundEvidenceIds.includes(ref.id);return <article className={"evidence-ref verification-"+ref.verification+(bound?" evidence-bound":"")} key={ref.id}>
         <div>
           <strong>{ref.label}</strong>
-          <span>{ref.id} · {ref.verification.toUpperCase()} · {ref.kind.toUpperCase()} · BY {ref.addedBy.toUpperCase()}</span>
+          <span>{ref.id} · {ref.verification.toUpperCase()} · {ref.kind.toUpperCase()} · BY {ref.addedBy.toUpperCase()}{bound?" · BOUND":""}</span>
           {ref.uri&&<small>{ref.uri}</small>}
           {ref.note&&<p>{ref.note}</p>}
           {ref.retrieval&&<div className="retrieval-receipt">
@@ -85,8 +87,8 @@ export function EvidencePanel({
             <span>{ref.retrieval.retrievedAt}</span>
           </div>}
         </div>
-        <button type="button" onClick={()=>onRemove(ref.id)} disabled={busy}>REMOVE</button>
-      </article>)}
+        <button type="button" onClick={()=>onRemove(ref.id)} disabled={busy||bound}>{bound?"UNBIND FIRST":"REMOVE"}</button>
+      </article>})}
     </div>
 
     {breakdown&&<div className="evidence-score-grid">

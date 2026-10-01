@@ -21,6 +21,94 @@ export interface ReplayReport{
   error?:string;
 }
 
+function assertClaimEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
+  const claimAction=
+    event.kind==="claim.added"||
+    event.kind==="claim.removed"||
+    event.kind==="evidence.bound"||
+    event.kind==="evidence.unbound";
+
+  if(claimAction&&state.phase!=="intake"&&state.phase!=="complete"&&state.phase!=="aborted"){
+    throw new KernelIntegrityError("Claim graph cannot mutate during an active governed session.",event.seq);
+  }
+
+  if(event.kind==="claim.added"){
+    if(event.source!=="operator"){
+      throw new KernelIntegrityError("Claim creation is operator-authorized.",event.seq);
+    }
+    const claim=event.claim;
+    if(!claim||!claim.id.trim()||!claim.text.trim()){
+      throw new KernelIntegrityError("Claim add event requires id and text.",event.seq);
+    }
+    if(claim.addedBy!=="operator"){
+      throw new KernelIntegrityError("Claim must declare addedBy=operator.",event.seq);
+    }
+    if(state.claims.some(existing=>existing.id===claim.id)){
+      throw new KernelIntegrityError("Claim id already exists: "+claim.id+".",event.seq);
+    }
+    if(state.claims.some(existing=>existing.text.trim().toLowerCase()===claim.text.trim().toLowerCase())){
+      throw new KernelIntegrityError("An equivalent claim already exists.",event.seq);
+    }
+    return true;
+  }
+
+  if(event.kind==="claim.removed"){
+    if(event.source!=="operator"){
+      throw new KernelIntegrityError("Claim removal is operator-authorized.",event.seq);
+    }
+    if(!event.claimId||!state.claims.some(claim=>claim.id===event.claimId)){
+      throw new KernelIntegrityError("Claim removal requires an existing claim id.",event.seq);
+    }
+    if(state.claimBindings.some(binding=>binding.claimId===event.claimId)){
+      throw new KernelIntegrityError("Cannot remove a claim while evidence bindings still exist.",event.seq);
+    }
+    return true;
+  }
+
+  if(event.kind==="evidence.bound"){
+    if(event.source!=="operator"){
+      throw new KernelIntegrityError("Evidence binding is operator-authorized.",event.seq);
+    }
+    const binding=event.claimBinding;
+    if(!binding||!binding.id.trim()||!binding.claimId.trim()||!binding.evidenceId.trim()){
+      throw new KernelIntegrityError("Evidence binding requires binding, claim, and evidence ids.",event.seq);
+    }
+    if(binding.addedBy!=="operator"){
+      throw new KernelIntegrityError("Evidence binding must declare addedBy=operator.",event.seq);
+    }
+    if(!["supports","contradicts","context"].includes(binding.relation)){
+      throw new KernelIntegrityError("Evidence binding relation is invalid.",event.seq);
+    }
+    if(!state.claims.some(claim=>claim.id===binding.claimId)){
+      throw new KernelIntegrityError("Evidence binding references an unknown claim.",event.seq);
+    }
+    if(!state.evidenceRefs.some(ref=>ref.id===binding.evidenceId)){
+      throw new KernelIntegrityError("Evidence binding references unknown evidence.",event.seq);
+    }
+    if(state.claimBindings.some(existing=>existing.id===binding.id)){
+      throw new KernelIntegrityError("Claim binding id already exists: "+binding.id+".",event.seq);
+    }
+    if(state.claimBindings.some(existing=>
+      existing.claimId===binding.claimId&&existing.evidenceId===binding.evidenceId
+    )){
+      throw new KernelIntegrityError("Evidence is already bound to this claim; unbind before changing relation.",event.seq);
+    }
+    return true;
+  }
+
+  if(event.kind==="evidence.unbound"){
+    if(event.source!=="operator"){
+      throw new KernelIntegrityError("Evidence unbinding is operator-authorized.",event.seq);
+    }
+    if(!event.claimBindingId||!state.claimBindings.some(binding=>binding.id===event.claimBindingId)){
+      throw new KernelIntegrityError("Evidence unbind requires an existing claim binding id.",event.seq);
+    }
+    return true;
+  }
+
+  return false;
+}
+
 function assertEvidenceEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
   const evidenceAction=
     event.kind==="evidence.fetch.requested"||
@@ -130,6 +218,9 @@ function assertEvidenceEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
     if(!event.evidenceId||!state.evidenceRefs.some(ref=>ref.id===event.evidenceId)){
       throw new KernelIntegrityError("Evidence removal requires an existing evidence id.",event.seq);
     }
+    if(state.claimBindings.some(binding=>binding.evidenceId===event.evidenceId)){
+      throw new KernelIntegrityError("Cannot remove evidence while claim bindings still exist.",event.seq);
+    }
     return true;
   }
 
@@ -203,6 +294,7 @@ function assertRoutingEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
 }
 
 function assertPolicyEvent(state:ThinkTankState,event:ThinkTankEvent):void{
+  if(assertClaimEvent(state,event))return;
   if(assertEvidenceEvent(state,event))return;
   if(assertRoutingEvent(state,event))return;
 
@@ -366,6 +458,10 @@ export function buildEvent(state:ThinkTankState,input:ThinkTankEventInput):Think
     providerModel:input.providerModel,
     providerLatencyMs:input.providerLatencyMs,
     providerRequestId:input.providerRequestId,
+    claim:input.claim,
+    claimId:input.claimId,
+    claimBinding:input.claimBinding,
+    claimBindingId:input.claimBindingId,
     evidenceRef:input.evidenceRef,
     evidenceId:input.evidenceId,
     evidenceUri:input.evidenceUri,
