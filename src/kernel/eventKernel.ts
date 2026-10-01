@@ -91,6 +91,9 @@ function assertResearchEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
     if(!state.claims.some(claim=>claim.id===receipt.claimId)){
       throw new KernelIntegrityError("Research receipt references an unknown claim.",event.seq);
     }
+    if(event.claimId!==receipt.claimId||event.researchQuery!==receipt.query){
+      throw new KernelIntegrityError("Research completion event metadata does not match its receipt.",event.seq);
+    }
     if(!receipt.query.trim()||receipt.query.length>300){
       throw new KernelIntegrityError("Research receipt query is invalid.",event.seq);
     }
@@ -152,6 +155,9 @@ function assertResearchEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
       }
 
       const normalized=url.toString();
+      if(candidate.uri!==normalized){
+        throw new KernelIntegrityError("Research candidate URI must already be canonicalized.",event.seq);
+      }
       if(uris.has(normalized)||state.researchCandidates.some(item=>
         item.claimId===candidate.claimId&&item.uri===normalized
       )){
@@ -292,6 +298,14 @@ function assertEvidenceEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
     }
     if(state.evidenceRefs.some(existing=>existing.id===ref.id)){
       throw new KernelIntegrityError("Evidence id already exists: "+ref.id+".",event.seq);
+    }
+    if(ref.uri&&state.evidenceRefs.some(existing=>existing.uri===ref.uri)){
+      throw new KernelIntegrityError("Evidence URI already exists; reuse the existing receipt across claims.",event.seq);
+    }
+    if(ref.retrieval&&state.evidenceRefs.some(existing=>
+      existing.retrieval?.sha256===ref.retrieval?.sha256
+    )){
+      throw new KernelIntegrityError("Evidence content digest already exists; duplicate provenance cannot increase breadth.",event.seq);
     }
     if(event.source==="operator"){
       if(ref.addedBy!=="operator"){
