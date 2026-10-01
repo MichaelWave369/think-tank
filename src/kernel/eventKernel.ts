@@ -153,6 +153,12 @@ function assertResearchEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
       if((url.protocol!=="http:"&&url.protocol!=="https:")||url.username||url.password){
         throw new KernelIntegrityError("Research candidate URI must be credential-free HTTP/S.",event.seq);
       }
+      if(url.protocol==="http:"&&url.port&&url.port!=="80"){
+        throw new KernelIntegrityError("HTTP research candidates may only use port 80.",event.seq);
+      }
+      if(url.protocol==="https:"&&url.port&&url.port!=="443"){
+        throw new KernelIntegrityError("HTTPS research candidates may only use port 443.",event.seq);
+      }
 
       const normalized=url.toString();
       if(candidate.uri!==normalized){
