@@ -1,5 +1,5 @@
 import { describe,expect,it } from "vitest";
-import { buildEvent } from "../kernel/eventKernel";
+import { buildEvent,replayEvents } from "../kernel/eventKernel";
 import { projectEvent } from "./reducer";
 import { createInitialState } from "./state";
 import { evaluateEvidence } from "./evidence";
@@ -72,9 +72,11 @@ describe("evidence kernel",()=>{
       message:"verified"
     });
     const next=projectEvent(state,event);
+    const replayed=replayEvents(createInitialState(),[event]);
 
     expect(next.evidenceRefs[0]?.verification).toBe("machine-verified");
     expect(next.evidenceRefs[0]?.retrieval?.sha256).toHaveLength(64);
+    expect(replayed.evidenceRefs).toEqual(next.evidenceRefs);
   });
 
   it("rejects system-originated machine verification",()=>{
