@@ -91,7 +91,8 @@ function assertClaimReviewEvent(state:ThinkTankState,event:ThinkTankEvent):boole
 
     const graphMutations=new Set([
       "claim.added","claim.removed","evidence.added","evidence.removed",
-      "evidence.bound","evidence.unbound"
+      "evidence.bound","evidence.unbound",
+      "evidence.excerpt.added","evidence.excerpt.removed"
     ]);
     const changedAfterRequest=state.events.some(item=>
       item.seq>request.seq&&graphMutations.has(item.kind)
