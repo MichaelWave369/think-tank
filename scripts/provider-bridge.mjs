@@ -131,6 +131,8 @@ export const normalizeSearchResults=(raw,maxResults=RESEARCH_MAX_RESULTS)=>{
     let url;
     try{url=new URL(rawUri);}catch{continue;}
     if((url.protocol!=="http:"&&url.protocol!=="https:")||url.username||url.password)continue;
+    if(url.protocol==="http:"&&url.port&&url.port!=="80")continue;
+    if(url.protocol==="https:"&&url.port&&url.port!=="443")continue;
 
     const uri=url.toString();
     if(seen.has(uri))continue;
