@@ -79,6 +79,7 @@ export function EvidencePanel({
           <strong>{ref.label}</strong>
           <span>{ref.id} · {ref.verification.toUpperCase()} · {ref.kind.toUpperCase()} · BY {ref.addedBy.toUpperCase()}{bound?" · BOUND":""}</span>
           {ref.uri&&<small>{ref.uri}</small>}
+          {ref.researchCandidateId&&<small>FROM CANDIDATE {ref.researchCandidateId}</small>}
           {ref.note&&<p>{ref.note}</p>}
           {ref.retrieval&&<div className="retrieval-receipt">
             <span>SHA-256 {shortHash(ref.retrieval.sha256)}</span>
