@@ -13,6 +13,7 @@ export function ResearchPanel({
   busy,
   searchBusy,
   promotedCandidateIds,
+  existingEvidenceUris,
   onSearch,
   onVerify
 }:{
@@ -24,6 +25,7 @@ export function ResearchPanel({
   busy:boolean;
   searchBusy:boolean;
   promotedCandidateIds:string[];
+  existingEvidenceUris:string[];
   onSearch:(claimId:string,query:string)=>void;
   onVerify:(candidate:ResearchCandidate)=>void;
 }){
@@ -98,6 +100,7 @@ export function ResearchPanel({
       {claimId&&visibleCandidates.length===0&&<p className="research-empty">No candidates recorded for this claim. Discovery results contribute zero to Reality Gate until machine verification creates an evidence receipt.</p>}
       {visibleCandidates.map(candidate=>{
         const promoted=promotedCandidateIds.includes(candidate.id);
+        const existingEvidence=existingEvidenceUris.includes(candidate.uri);
         return <article className={"research-candidate"+(promoted?" candidate-promoted":"")} key={candidate.id}>
           <div className="candidate-rank">#{candidate.rank}</div>
           <div className="candidate-body">
@@ -106,8 +109,8 @@ export function ResearchPanel({
             <small>{candidate.uri}</small>
             {candidate.snippet&&<p>{candidate.snippet}</p>}
           </div>
-          <button type="button" onClick={()=>onVerify(candidate)} disabled={busy||promoted}>
-            {promoted?"PROMOTED":"VERIFY → EVIDENCE"}
+          <button type="button" onClick={()=>onVerify(candidate)} disabled={busy||promoted||existingEvidence}>
+            {promoted?"PROMOTED":existingEvidence?"ALREADY EVIDENCE":"VERIFY → EVIDENCE"}
           </button>
         </article>;
       })}
