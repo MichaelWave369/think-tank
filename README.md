@@ -6,32 +6,35 @@ A governed, event-sourced multi-mind control room. Cognitive roles are staffed b
 
 ## Current rung
 
-**PR 2 — Terminal Identity + Speech Viewports**
+**PR 3 — Event Kernel + Deterministic Replay**
 
-The room now distinguishes cognitive roles from provider/model seats at the monitor level.
+The ledger is now becoming the source of truth instead of a decorative transcript.
 
-PR 2 adds:
-- explicit ROLE vs SEAT monitor labels
-- non-color terminal state signals for idle, listening, thinking, speaking, warning, dimmed, and offline
-- 2–4 line live/last-utterance viewports on Role Terminals
-- visible session phase per role
-- visible seat staffing per role
-- visible role assignments per provider/model seat
-- derived seat activity state from the roles it staffs
-- capability meter values instead of decorative bars alone
-- a fuller Council simulation so every role develops visible history
+PR 3 adds:
+- canonical event envelope with schema version, source, session, seed, sequence, mode, and phase
+- deterministic pre-state and post-state projection fingerprints
+- strict replay validation
+- exact ledger reconstruction from the initial room state
+- event-sourced operator mode selection
+- event-sourced operator prompts, aborts, and overrides
+- visible `REPLAY EXACT` / `REPLAY FAULT` status
+- paper-ledger before → after fingerprints
+- `REPLAY LEDGER` operator control
+- automated tests for sequence gaps, session mismatch, seed mismatch, payload tampering, exact replay, and mode replay
 
 See:
 - [Architecture](docs/ARCHITECTURE.md)
 - [Terminal Contract](docs/TERMINAL_CONTRACT.md)
+- [Event Kernel](docs/EVENT_KERNEL.md)
 
 ## Run locally
 
     npm install
     npm run dev
 
-Production build:
+Verification:
 
+    npm test
     npm run build
 
 ## Architectural law
@@ -43,8 +46,8 @@ The UI must not care whether an event came from the simulator, OpenAI, Kimi, Oll
 ## Build ladder
 
 1. ✅ Room shell + operator authority
-2. **Terminal identity + speech viewport**
-3. Event kernel + deterministic replay
+2. ✅ Terminal identity + speech viewport
+3. **Event kernel + deterministic replay**
 4. Modes + scheduler + governance
 5. Motion layer
 6. Crane Fly assignments
