@@ -34,6 +34,9 @@ export function GovernancePanel({
       <div><small>ROUND</small><span>{state.currentRound} / {plan?.maxRounds??law.maxRounds}</span></div>
       <div><small>TRIGGER</small><span>{plan?.synthesisTrigger??law.synthesisTrigger}</span></div>
       <div><small>GATE LAW</small><span>{law.gate}</span></div>
+      <div><small>GATE SCORE</small><span>{state.gateScore===null?"WAITING":state.gateScore.toFixed(2)}</span></div>
+      <div><small>GATE CAP</small><span>{state.gateBreakdown?.cap.toFixed(2)??"—"}</span></div>
+      <div><small>EVIDENCE</small><span>{state.evidenceRefs.length} REFS</span></div>
       <div><small>OBJECTIONS</small><span>{state.objectionCount}{law.objectionRequired?" · REQUIRED":""}</span></div>
       <div><small>ACTION</small><span>{state.actionAllowed?"AUTHORIZED":"LOCKED"}</span></div>
     </div>
