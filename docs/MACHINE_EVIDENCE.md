@@ -122,6 +122,10 @@ The event kernel rejects:
 
 The operator remains authorized to remove an evidence receipt afterward.
 
+PR 11 may attach a `researchCandidateId` to a machine-verified receipt. The kernel then requires the retrieval request URI to match the quarantined candidate URI.
+
+Evidence URIs are unique. Machine evidence with an already-recorded SHA-256 content digest is also rejected, even under a different URL. Reuse one receipt across multiple claims rather than duplicating provenance.
+
 ## Reality Gate effect
 
 The existing PR 8 scoring law is unchanged.
