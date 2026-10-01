@@ -287,6 +287,7 @@ export interface ThinkTankState{
   gateThreshold:number;
   gateScore:number|null;
   gateBreakdown:GateBreakdown|null;
+  claimGovernance:ClaimGovernanceReport|null;
   evidenceRefs:EvidenceRef[];
   claims:Claim[];
   claimBindings:ClaimBinding[];
