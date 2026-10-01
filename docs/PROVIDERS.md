@@ -205,3 +205,28 @@ PR 11 also restores and tests the provider bridge helpers used by provider statu
 - `normalizeMessages`
 
 Provider message input now has explicit role, count, and content-size validation.
+
+
+## Source text projection
+
+PR 14 adds:
+
+`POST /evidence/extract`
+
+Preview request:
+- uri
+- expectedSha256
+
+Excerpt request:
+- uri
+- expectedSha256
+- startChar
+- endChar
+
+The bridge reuses the governed evidence network policy, re-fetches the source, and rejects projection if the source digest differs from the original machine-verification digest.
+
+The endpoint returns deterministic text projection v1. Preview bodies are transient browser state.
+
+PDF text projection is explicitly unsupported in PR 14.
+
+See [SOURCE_EXCERPTS.md](SOURCE_EXCERPTS.md).
