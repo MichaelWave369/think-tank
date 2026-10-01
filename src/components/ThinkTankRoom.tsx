@@ -519,7 +519,7 @@ export function ThinkTankRoom(){
     const routePlan=planAssignments(state,seats,targetMode);
     if(routePlan.unresolved.length)return;
 
-    const scenarioInputs=scenarioEventInputs(prompt,state.mode,scenario);
+    const scenarioInputs=scenarioEventInputs(prompt,state.mode,scenario,stateRef.current);
     const routeInputs=routingEventInputs(routePlan);
     const hasModePrefix=scenarioInputs[0]?.kind==="mode.selected";
 
