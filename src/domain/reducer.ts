@@ -97,6 +97,10 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
     next.governanceReason="Claim graph changed; rerun required.";
   }
 
+  if(event.kind==="claim.review.completed"&&event.claimReview){
+    next.claimReviews=[...state.claimReviews,event.claimReview];
+  }
+
   if(event.kind==="research.search.completed"&&event.researchReceipt){
     next.researchSearches=[...state.researchSearches,event.researchReceipt];
     next.researchCandidates=[
