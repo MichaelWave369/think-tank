@@ -296,6 +296,9 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
   if(event.kind==="synthesis.withheld"){
     next.claimGovernance=event.claimGovernance??state.claimGovernance;
     next.argumentGovernance=event.argumentGovernance??state.argumentGovernance;
+    if(event.decisionDossier){
+      next.decisionDossiers=[...state.decisionDossiers,event.decisionDossier];
+    }
     next.synthesisWithheld=true;
     next.actionAllowed=false;
     next.outputLabel=event.outputLabel??"WITHHELD";
@@ -305,6 +308,9 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
   if(event.kind==="synthesis.completed"){
     next.claimGovernance=event.claimGovernance??state.claimGovernance;
     next.argumentGovernance=event.argumentGovernance??state.argumentGovernance;
+    if(event.decisionDossier){
+      next.decisionDossiers=[...state.decisionDossiers,event.decisionDossier];
+    }
     next.synthesisWithheld=false;
     next.actionAllowed=event.actionAllowed??false;
     next.outputLabel=event.outputLabel??"STANDARD";
@@ -313,6 +319,9 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
   }
 
   if(event.kind==="operator.override"){
+    if(event.decisionOverride){
+      next.decisionOverrides=[...state.decisionOverrides,event.decisionOverride];
+    }
     next.synthesisWithheld=false;
     next.actionAllowed=true;
     next.outputLabel=event.outputLabel??(state.mode==="audit"?"AUDIT":"STANDARD");
