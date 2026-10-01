@@ -145,3 +145,14 @@ PR 14 makes pinned excerpts part of the Challenger review basis.
 Adding or removing an excerpt can therefore make a review stale and cause a later rigorous-mode claim policy to block until a fresh audit is run.
 
 PR 14 does not change the claim-policy table or Reality Gate weights.
+
+
+## Argument review is observational in PR 15
+
+PR 15 adds provider-drafted, operator-accepted argument maps over exact excerpts.
+
+Claim Policy does not consume those maps in PR 15.
+
+A missing, draft, accepted, dismissed, or stale argument review does not alter current mode authorization.
+
+A later governance version may add an explicit fresh-accepted-map requirement for selected modes. That must be frozen and tested separately.
