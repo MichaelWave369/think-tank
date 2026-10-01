@@ -1,6 +1,6 @@
 import { describe,expect,it } from "vitest";
 import { createInitialState } from "../domain/state";
-import { buildEvent,buildEventBatch } from "../kernel/eventKernel";
+import { buildEventBatch } from "../kernel/eventKernel";
 import { scenarioEventInputs } from "../sim/demo";
 import { deriveMotionCue } from "./motion";
 
@@ -28,40 +28,30 @@ describe("motion cue projection",()=>{
 
   it("maps a passing Reality Gate score to gate-pass",()=>{
     const initial=createInitialState();
-    const event=buildEvent(initial,{
-      source:"system",
-      kind:"gate.scored",
-      phase:"synthesis",
-      gateScore:.88,
-      message:"pass"
-    });
-    const cue=deriveMotionCue(event,initial);
+    const events=buildEventBatch(initial,scenarioEventInputs("Motion test.","council","happy"));
+    const gate=events.find(event=>event.kind==="gate.scored");
+    const cue=deriveMotionCue(gate,initial);
+
+    expect(gate?.gateScore).toBe(.88);
     expect(cue.kind).toBe("gate-pass");
   });
 
   it("maps a below-threshold Reality Gate score to gate-block",()=>{
     const initial=createInitialState();
-    const event=buildEvent(initial,{
-      source:"system",
-      kind:"gate.scored",
-      phase:"synthesis",
-      gateScore:.52,
-      message:"block"
-    });
-    const cue=deriveMotionCue(event,initial);
+    const events=buildEventBatch(initial,scenarioEventInputs("Motion test.","council","council-gate-block"));
+    const gate=events.find(event=>event.kind==="gate.scored");
+    const cue=deriveMotionCue(gate,initial);
+
+    expect(gate?.gateScore).toBe(.52);
     expect(cue.kind).toBe("gate-block");
   });
 
   it("maps governance faults to fault cues",()=>{
     const initial=createInitialState();
-    const event=buildEvent(initial,{
-      source:"system",
-      kind:"governance.fault",
-      phase:"synthesis",
-      faultCode:"TURN_TIMEOUT",
-      message:"fault"
-    });
-    const cue=deriveMotionCue(event,initial);
+    const events=buildEventBatch(initial,scenarioEventInputs("Motion test.","council","timeout"));
+    const fault=events.find(event=>event.kind==="governance.fault");
+    const cue=deriveMotionCue(fault,initial);
+
     expect(cue.kind).toBe("fault");
     expect(cue.label).toBe("TURN_TIMEOUT");
   });
