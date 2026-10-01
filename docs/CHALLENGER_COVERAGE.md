@@ -221,3 +221,22 @@ Adding or removing an excerpt attached to evidence bound to a claim therefore ma
 The historical audit remains immutable.
 
 See [SOURCE_EXCERPTS.md](SOURCE_EXCERPTS.md).
+
+
+## Structural audit vs argument review
+
+PR 15 adds a second Challenger artifact with different authority.
+
+The PR 12 coverage audit remains:
+- deterministic
+- model-free
+- kernel-recomputed
+
+The PR 15 argument review is:
+- provider-generated
+- excerpt-basis constrained
+- operator accepted/dismissed
+
+Do not interpret provider argument analysis as a replacement for the deterministic coverage audit.
+
+See [ARGUMENT_REVIEW.md](ARGUMENT_REVIEW.md).
