@@ -2,6 +2,8 @@ import { describe,expect,it } from "vitest";
 import { MODE_MATRIX } from "./modes";
 import { createInitialState } from "./state";
 import { evaluateClaimGovernance } from "./claimGovernance";
+import { evaluateArgumentGovernance } from "./argumentGovernance";
+import { argumentReviewBasisFingerprint } from "./argumentReview";
 import { evaluateGovernance,initialTurnPlan } from "./scheduler";
 import { projectEvent } from "./reducer";
 import type { ThinkTankState } from "./types";
@@ -94,6 +96,96 @@ describe("mode laws",()=>{
     expect(decision.synthesisAllowed).toBe(true);
     expect(decision.outputLabel).toBe("DRAFT");
     expect(decision.actionAllowed).toBe(false);
+  });
+
+  it("withholds high-scoring COUNCIL when argument maps are required but missing",()=>{
+    const state=createInitialState();
+    state.claims=[{id:"CL-1",text:"Excerpt-bearing council claim.",addedBy:"operator"}];
+    state.evidenceRefs=[{
+      id:"EV-1",
+      kind:"external-source",
+      verification:"machine-verified",
+      label:"Verified source",
+      uri:"https://example.com/source",
+      addedBy:"tool",
+      retrieval:{
+        tool:"url-fetch",
+        requestedUri:"https://example.com/source",
+        finalUri:"https://example.com/source",
+        httpStatus:200,
+        contentType:"text/plain",
+        bytes:100,
+        sha256:"a".repeat(64),
+        redirects:0,
+        retrievedAt:"2026-10-01T12:00:00.000Z"
+      }
+    }];
+    state.claimBindings=[{
+      id:"CB-1",claimId:"CL-1",evidenceId:"EV-1",relation:"supports",addedBy:"operator"
+    }];
+    state.evidenceExcerpts=[{
+      id:"EX-1",
+      evidenceId:"EV-1",
+      tool:"text-projector",
+      extractor:"text-projection-v1",
+      sourceUri:"https://example.com/source",
+      sourceSha256:"a".repeat(64),
+      projectionSha256:"b".repeat(64),
+      excerptSha256:"c".repeat(64),
+      contentType:"text/plain",
+      startChar:0,
+      endChar:11,
+      text:"Exact quote",
+      extractedAt:"2026-10-01T12:01:00.000Z",
+      addedBy:"tool"
+    }];
+
+    const claimPolicy={...evaluateClaimGovernance(state,"council"),passed:true,missingReviewClaimIds:[],reason:"test claim pass"};
+    const argumentPolicy=evaluateArgumentGovernance(state,"council");
+    const decision=evaluateGovernance("council",.9,.75,1,false,claimPolicy,argumentPolicy);
+
+    expect(argumentPolicy.passed).toBe(false);
+    expect(argumentPolicy.missingAcceptedClaimIds).toEqual(["CL-1"]);
+    expect(decision.synthesisAllowed).toBe(false);
+    expect(decision.reason).toMatch(/missing accepted map/i);
+  });
+
+  it("allows strict-mode synthesis after a fresh argument map is accepted",()=>{
+    const state=createInitialState();
+    state.claims=[{id:"CL-1",text:"Reviewed claim.",addedBy:"operator"}];
+    state.evidenceRefs=[{
+      id:"EV-1",kind:"external-source",verification:"machine-verified",label:"Source",
+      uri:"https://example.com/source",addedBy:"tool",
+      retrieval:{
+        tool:"url-fetch",requestedUri:"https://example.com/source",finalUri:"https://example.com/source",
+        httpStatus:200,contentType:"text/plain",bytes:100,sha256:"a".repeat(64),redirects:0,
+        retrievedAt:"2026-10-01T12:00:00.000Z"
+      }
+    }];
+    state.claimBindings=[{id:"CB-1",claimId:"CL-1",evidenceId:"EV-1",relation:"supports",addedBy:"operator"}];
+    state.evidenceExcerpts=[{
+      id:"EX-1",evidenceId:"EV-1",tool:"text-projector",extractor:"text-projection-v1",
+      sourceUri:"https://example.com/source",sourceSha256:"a".repeat(64),projectionSha256:"b".repeat(64),
+      excerptSha256:"c".repeat(64),contentType:"text/plain",startChar:0,endChar:11,text:"Exact quote",
+      extractedAt:"2026-10-01T12:01:00.000Z",addedBy:"tool"
+    }];
+    state.argumentReviews=[{
+      id:"AR-1",claimId:"CL-1",roleId:"challenger",seatId:"openai",providerModel:"test-model",
+      createdAt:"2026-10-01T12:02:00.000Z",
+      basisFingerprint:argumentReviewBasisFingerprint(state,"CL-1")!,
+      points:[{
+        excerptId:"EX-1",premise:"Premise.",inference:"Inference.",objection:"Objection."
+      }],
+      unresolvedGaps:[],summary:"Accepted map.",status:"accepted"
+    }];
+
+    const claimPolicy={...evaluateClaimGovernance(state,"audit"),passed:true,missingReviewClaimIds:[],staleReviewClaimIds:[],coverageBlockedClaimIds:[],reason:"test claim pass"};
+    const argumentPolicy=evaluateArgumentGovernance(state,"audit");
+    const decision=evaluateGovernance("audit",.9,.75,1,false,claimPolicy,argumentPolicy);
+
+    expect(argumentPolicy.passed).toBe(true);
+    expect(decision.synthesisAllowed).toBe(true);
+    expect(decision.actionAllowed).toBe(true);
   });
 
   it("executes and exactly replays the happy path for every mode",()=>{
