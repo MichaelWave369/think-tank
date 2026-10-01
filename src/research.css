@@ -1,0 +1,13 @@
+.research-panel{border:1px solid #525066;background:linear-gradient(180deg,#11101a,#06060a);box-shadow:0 0 0 4px #0d0c12 inset;padding:12px;color:#ddd8ff}
+.research-header{display:flex;justify-content:space-between;gap:12px;align-items:center;border-bottom:1px solid #525066;padding-bottom:8px}.research-header>div{display:grid;gap:3px}.research-header span{font-size:.58rem;opacity:.62}.research-header>b{font-size:.6rem;border:1px solid currentColor;padding:5px 7px}
+.research-ready{color:#a9efca}.research-offline{color:#d8a5a5}
+.research-controls{display:grid;grid-template-columns:1fr 1.8fr auto;gap:8px;align-items:end;margin-top:10px}.research-controls label{display:grid;gap:4px}.research-controls label>span{font-size:.52rem;opacity:.6;letter-spacing:.08em}
+.research-controls input,.research-controls select,.research-controls button,.research-candidate button{background:#0a0910;color:#e6e0ff;border:1px solid #57546e;padding:7px;font-size:.61rem}.research-actions{display:grid;grid-template-columns:1fr 1.2fr;gap:5px}.research-actions .research-run{border-color:#696297;color:#ded4ff}
+.research-controls button:disabled,.research-candidate button:disabled{opacity:.35;cursor:not-allowed}
+.research-meta{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:8px;font-size:.54rem;opacity:.62}.research-error{margin-top:8px;border:1px solid #82454d;background:#250b0f;color:#ffb2ba;padding:7px;font-size:.62rem}
+.research-results{display:grid;gap:6px;margin-top:10px}.research-empty{margin:0;border:1px dashed #454259;padding:8px;font-size:.62rem;opacity:.68}
+.research-candidate{display:grid;grid-template-columns:auto 1fr auto;gap:9px;align-items:center;border:1px solid #3e3b50;background:#08070d;padding:8px}.research-candidate.candidate-promoted{box-shadow:3px 0 0 #72c89a inset;border-color:#436b57}.candidate-rank{font-size:.72rem;color:#a59bdb}
+.candidate-body{display:grid;gap:3px;min-width:0}.candidate-body strong{font-size:.68rem}.candidate-body span,.candidate-body small{font-size:.52rem;opacity:.58;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.candidate-body p{margin:2px 0 0;font-size:.61rem;line-height:1.35;opacity:.84}
+.research-panel footer{margin-top:9px;border-top:1px dashed #4c4960;padding-top:8px;font-size:.57rem}.research-panel footer p{margin:4px 0 0;opacity:.68;line-height:1.35}
+@media(max-width:1000px){.research-controls{grid-template-columns:1fr 1fr}.research-actions{grid-column:span 2}}
+@media(max-width:700px){.research-header{align-items:flex-start;flex-direction:column}.research-controls{grid-template-columns:1fr}.research-actions{grid-column:auto;grid-template-columns:1fr}.research-candidate{grid-template-columns:auto 1fr}.research-candidate button{grid-column:1 / -1}}
