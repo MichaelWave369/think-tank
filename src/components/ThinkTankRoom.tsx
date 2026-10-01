@@ -4,9 +4,10 @@ import { createInitialState } from "../domain/state";
 import { thinkTankReducer } from "../domain/reducer";
 import type { CollaborationMode,RoleId,TerminalState,ThinkTankEventInput } from "../domain/types";
 import { buildEvent,buildEventBatch,replayEvents,verifyReplay } from "../kernel/eventKernel";
-import { demoEventInputs } from "../sim/demo";
+import { scenarioEventInputs,type DemoScenario } from "../sim/demo";
 import { TerminalPanel } from "./TerminalPanel";
 import { Commonline } from "./Commonline";
+import { GovernancePanel } from "./GovernancePanel";
 import { OperatorRail } from "./OperatorRail";
 import { ModeBar } from "./ModeBar";
 import { SystemStatus } from "./SystemStatus";
@@ -52,8 +53,8 @@ export function ThinkTankRoom(){
     dispatch({type:"APPLY_EVENT",event:buildEvent(state,input)});
   };
 
-  const runDemo=()=>{
-    const events=buildEventBatch(state,demoEventInputs(prompt));
+  const runScenario=(scenario:DemoScenario)=>{
+    const events=buildEventBatch(state,scenarioEventInputs(prompt,state.mode,scenario));
     for(const event of events)dispatch({type:"APPLY_EVENT",event});
     setPrompt("");
   };
@@ -63,7 +64,7 @@ export function ThinkTankRoom(){
       source:"operator",
       kind:"mode.selected",
       mode,
-      phase:state.phase,
+      phase:"intake",
       message:"Operator selected "+mode.toUpperCase()+" mode."
     });
   };
@@ -75,13 +76,21 @@ export function ThinkTankRoom(){
     message:"Operator abort. Session halted."
   });
 
-  const force=()=>emitInput({
-    source:"operator",
-    kind:"operator.override",
-    phase:"synthesis",
-    override:true,
-    message:"Operator override recorded: FORCE SYNTHESIS."
-  });
+  const canForce=state.synthesisWithheld||Boolean(state.faultCode);
+
+  const force=()=>{
+    if(!canForce)return;
+    emitInput({
+      source:"operator",
+      kind:"operator.override",
+      phase:"synthesis",
+      override:true,
+      outputLabel:state.mode==="audit"?"AUDIT":"STANDARD",
+      actionAllowed:true,
+      governanceReason:"Human operator explicitly overrode the withheld/faulted synthesis state.",
+      message:"Operator override recorded: FORCE SYNTHESIS."
+    });
+  };
 
   const replayExact=()=>{
     const restored=replayEvents(createInitialState(),state.events);
@@ -124,17 +133,24 @@ export function ThinkTankRoom(){
       <div className="center-stack">
         <Commonline assignments={state.assignments} activeRole={activeRole} seats={seats}/>
 
+        <GovernancePanel
+          state={state}
+          onGateBlock={()=>runScenario("council-gate-block")}
+          onTimeout={()=>runScenario("timeout")}
+        />
+
         {state.synthesisWithheld&&<div className="gate-block">
           <strong>SYNTHESIS WITHHELD</strong>
-          <span>Reality Gate {state.gateScore?.toFixed(2)} is below {state.gateThreshold.toFixed(2)}. Operator may force synthesis; override will be ledgered.</span>
+          <span>{state.governanceReason||"The active mode law did not authorize synthesis."}</span>
         </div>}
 
         <OperatorRail
           sessionId={state.sessionId}
           seed={state.seed}
           prompt={prompt}
+          canForce={canForce}
           onPrompt={setPrompt}
-          onSend={runDemo}
+          onSend={()=>runScenario("happy")}
           onAbort={abort}
           onForce={force}
         />
