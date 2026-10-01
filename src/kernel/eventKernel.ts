@@ -22,6 +22,11 @@ export interface ReplayReport{
 }
 
 function assertEvidenceEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
+  const evidenceMutation=event.kind==="evidence.added"||event.kind==="evidence.removed";
+  if(evidenceMutation&&state.phase!=="intake"&&state.phase!=="complete"&&state.phase!=="aborted"){
+    throw new KernelIntegrityError("Evidence packet cannot mutate during an active governed session.",event.seq);
+  }
+
   if(event.kind==="evidence.added"){
     const ref=event.evidenceRef;
     if(!ref)throw new KernelIntegrityError("Evidence add event requires an evidence reference.",event.seq);
