@@ -81,10 +81,22 @@ describe("Reality Gate evidence scoring",()=>{
   it("weights machine-verified evidence above operator attestation",()=>{
     const verified:EvidenceRef={
       id:"EV-V",
-      kind:"tool-result",
+      kind:"external-source",
       verification:"machine-verified",
-      label:"Verified tool result",
-      addedBy:"system"
+      label:"Verified external source",
+      uri:"https://example.com/source",
+      addedBy:"tool",
+      retrieval:{
+        tool:"url-fetch",
+        requestedUri:"https://example.com/source",
+        finalUri:"https://example.com/source",
+        httpStatus:200,
+        contentType:"text/html",
+        bytes:2048,
+        sha256:"b".repeat(64),
+        redirects:0,
+        retrievedAt:"2026-10-01T12:00:00.000Z"
+      }
     };
 
     const oneVerified=evaluateEvidence(completedCouncilState([verified]));
@@ -92,6 +104,8 @@ describe("Reality Gate evidence scoring",()=>{
 
     expect(oneVerified.externalSupport).toBeGreaterThan(oneAttested.externalSupport);
     expect(oneVerified.cap).toBe(1);
+    expect(oneVerified.finalScore).toBe(.825);
+    expect(oneVerified.finalScore).toBeGreaterThan(.75);
   });
 
   it("does not mistake seat consensus for external evidence",()=>{
