@@ -7,6 +7,7 @@ import type {
   CollaborationMode,
   ClaimRelation,
   EvidenceRef,
+  ResearchCandidate,
   RoleId,
   SeatAvailability,
   SeatId,
@@ -19,9 +20,9 @@ import { buildEvent,buildEventBatch,replayEvents,verifyReplay } from "../kernel/
 import { deriveMotionCue } from "../motion/motion";
 import { useEventPlayback } from "../motion/useEventPlayback";
 import { useMotionPolicy } from "../motion/useMotionPolicy";
-import { fetchMachineEvidence,fetchProviderStatus,invokeProvider } from "../providers/client";
+import { fetchMachineEvidence,fetchProviderStatus,fetchResearchStatus,invokeProvider,searchResearch } from "../providers/client";
 import { runLiveProviderSession } from "../providers/liveRunner";
-import type { ProviderStatusResponse } from "../providers/types";
+import type { ProviderStatusResponse,ResearchBackendStatusResponse } from "../providers/types";
 import { scenarioEventInputs,type DemoScenario } from "../sim/demo";
 import { TerminalPanel } from "./TerminalPanel";
 import { Commonline } from "./Commonline";
@@ -33,6 +34,7 @@ import { OperatorRail } from "./OperatorRail";
 import { ModeBar } from "./ModeBar";
 import { MotionLayer } from "./MotionLayer";
 import { ProviderPanel } from "./ProviderPanel";
+import { ResearchPanel } from "./ResearchPanel";
 import { SystemStatus } from "./SystemStatus";
 import { LedgerRoll } from "./LedgerRoll";
 
@@ -50,8 +52,12 @@ export function ThinkTankRoom(){
   const [liveRunning,setLiveRunning]=useState(false);
   const [evidenceFetching,setEvidenceFetching]=useState(false);
   const [evidenceToolError,setEvidenceToolError]=useState("");
+  const [researchStatus,setResearchStatus]=useState<ResearchBackendStatusResponse|null>(null);
+  const [researchSearching,setResearchSearching]=useState(false);
+  const [researchError,setResearchError]=useState("");
   const liveAbortRef=useRef<AbortController|null>(null);
   const evidenceAbortRef=useRef<AbortController|null>(null);
+  const researchAbortRef=useRef<AbortController|null>(null);
   const motionMode=useMotionPolicy();
 
   const applyEvent=useCallback((event:ThinkTankEvent)=>{
@@ -60,7 +66,7 @@ export function ThinkTankRoom(){
   },[]);
 
   const playback=useEventPlayback(applyEvent,motionMode);
-  const busy=playback.playing||liveRunning||evidenceFetching;
+  const busy=playback.playing||liveRunning||evidenceFetching||researchSearching;
 
   const refreshProviders=useCallback(async()=>{
     try{
@@ -79,9 +85,21 @@ export function ThinkTankRoom(){
     }
   },[]);
 
+  const refreshResearch=useCallback(async()=>{
+    try{
+      const next=await fetchResearchStatus();
+      setResearchStatus(next);
+      setResearchError("");
+    }catch(error){
+      setResearchStatus(null);
+      setResearchError(error instanceof Error?error.message:String(error));
+    }
+  },[]);
+
   useEffect(()=>{
     void refreshProviders();
-  },[refreshProviders]);
+    void refreshResearch();
+  },[refreshProviders,refreshResearch]);
 
   const latestEvent=state.events[state.events.length-1];
   const cue=useMemo(()=>deriveMotionCue(latestEvent,state),[latestEvent,state]);
@@ -175,7 +193,7 @@ export function ThinkTankRoom(){
     });
   };
 
-  const verifyEvidence=async(label:string,uri:string,note:string)=>{
+  const verifyEvidence=async(label:string,uri:string,note:string,researchCandidateId?:string)=>{
     if(busy)return;
 
     const controller=new AbortController();
@@ -188,6 +206,7 @@ export function ThinkTankRoom(){
       kind:"evidence.fetch.requested",
       phase:"intake",
       evidenceUri:uri,
+      researchCandidateId,
       message:"Operator requested machine verification of "+uri+"."
     });
 
@@ -202,6 +221,7 @@ export function ThinkTankRoom(){
         uri:receipt.finalUri,
         note:note||undefined,
         retrieval,
+        researchCandidateId,
         addedBy:"tool"
       };
 
@@ -210,6 +230,7 @@ export function ThinkTankRoom(){
         kind:"evidence.added",
         phase:"intake",
         evidenceUri:uri,
+        researchCandidateId,
         evidenceRef,
         message:
           "URL retrieval verified "+evidenceRef.id+
@@ -232,6 +253,90 @@ export function ThinkTankRoom(){
       evidenceAbortRef.current=null;
       setEvidenceFetching(false);
     }
+  };
+
+  const runResearch=async(claimId:string,query:string)=>{
+    if(busy)return;
+    const normalized=query.trim();
+    if(!normalized)return;
+
+    const controller=new AbortController();
+    researchAbortRef.current=controller;
+    setResearchSearching(true);
+    setResearchError("");
+
+    emitInput({
+      source:"operator",
+      kind:"research.search.requested",
+      phase:"intake",
+      claimId,
+      researchQuery:normalized,
+      message:"Operator requested governed research for "+claimId+": "+normalized
+    });
+
+    try{
+      const response=await searchResearch(normalized,controller.signal);
+      const receiptSeq=stateRef.current.seq+1;
+      const receiptId="RS-"+String(receiptSeq).padStart(4,"0");
+      const researchReceipt={
+        id:receiptId,
+        tool:"searxng-search" as const,
+        provider:"searxng" as const,
+        claimId,
+        query:response.query,
+        searchedAt:response.searchedAt,
+        resultDigest:response.resultDigest,
+        candidates:response.results.map(result=>({
+          id:"RC-"+String(receiptSeq).padStart(4,"0")+"-"+String(result.rank).padStart(2,"0"),
+          claimId,
+          query:response.query,
+          title:result.title,
+          uri:result.uri,
+          snippet:result.snippet,
+          engine:result.engine,
+          rank:result.rank,
+          discoveredAt:response.searchedAt
+        }))
+      };
+
+      emitInput({
+        source:"tool",
+        kind:"research.search.completed",
+        phase:"intake",
+        claimId,
+        researchQuery:response.query,
+        researchReceipt,
+        message:
+          "Governed research "+receiptId+" returned "+
+          researchReceipt.candidates.length+" quarantined candidate(s)."
+      });
+    }catch(error){
+      const message=error instanceof Error?error.message:String(error);
+      setResearchError(message);
+      try{
+        emitInput({
+          source:"tool",
+          kind:"research.search.failed",
+          phase:"intake",
+          claimId,
+          researchQuery:normalized,
+          message:"Governed research failed: "+message
+        });
+      }catch{}
+    }finally{
+      researchAbortRef.current=null;
+      setResearchSearching(false);
+      void refreshResearch();
+    }
+  };
+
+  const verifyResearchCandidate=(candidate:ResearchCandidate)=>{
+    if(busy)return;
+    const note=[
+      "Discovered by "+candidate.engine+" for "+candidate.claimId+".",
+      candidate.snippet
+    ].filter(Boolean).join(" ");
+    void verifyEvidence(candidate.title,candidate.uri,note,candidate.id);
   };
 
   const addClaim=(text:string)=>{
@@ -422,6 +527,7 @@ export function ThinkTankRoom(){
   const abort=()=>{
     const sessionActive=liveRunning||playback.playing;
     evidenceAbortRef.current?.abort();
+    researchAbortRef.current?.abort();
     liveAbortRef.current?.abort();
     playback.cancel();
     setLiveRunning(false);
@@ -547,6 +653,19 @@ export function ThinkTankRoom(){
           onRemove={removeClaim}
           onBind={bindEvidence}
           onUnbind={unbindEvidence}
+        />
+
+        <ResearchPanel
+          claims={state.claims}
+          candidates={state.researchCandidates}
+          searches={state.researchSearches}
+          status={researchStatus}
+          error={researchError}
+          busy={busy}
+          searchBusy={researchSearching}
+          promotedCandidateIds={state.evidenceRefs.map(ref=>ref.researchCandidateId).filter((id):id is string=>Boolean(id))}
+          onSearch={(claimId,query)=>void runResearch(claimId,query)}
+          onVerify={verifyResearchCandidate}
         />
 
         <GovernancePanel
