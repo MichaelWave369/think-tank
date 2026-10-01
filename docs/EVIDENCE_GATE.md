@@ -201,3 +201,19 @@ A Challenger audit may expose that a claim is:
 Those observations do not change Reality Gate score or caps in PR 12.
 
 A later explicit governance version may consume review freshness or coverage conditions. If so, that policy must be separately frozen, tested, and documented rather than inferred from these descriptive states.
+
+
+## Claim-aware authorization
+
+PR 13 does not change the numeric Reality Gate formula, weights, caps, or threshold.
+
+Instead, the synthesis decision now composes two independent checks:
+
+1. numeric Reality Gate
+2. deterministic claim-review policy for the selected mode
+
+A session can therefore score above threshold and still be withheld because relevant claims have missing or stale Challenger reviews.
+
+BUILD retains failed claim-policy output only as DRAFT.
+
+See [CLAIM_GOVERNANCE.md](CLAIM_GOVERNANCE.md).
