@@ -57,6 +57,46 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
     next.operatorPrompt=event.message??"";
   }
 
+  if(event.kind==="claim.added"&&event.claim){
+    next.claims=[...state.claims,event.claim];
+    next.gateScore=null;
+    next.gateBreakdown=null;
+    next.outputLabel=null;
+    next.actionAllowed=false;
+    next.synthesisWithheld=false;
+    next.governanceReason="Claim graph changed; rerun required.";
+  }
+
+  if(event.kind==="claim.removed"&&event.claimId){
+    next.claims=state.claims.filter(claim=>claim.id!==event.claimId);
+    next.gateScore=null;
+    next.gateBreakdown=null;
+    next.outputLabel=null;
+    next.actionAllowed=false;
+    next.synthesisWithheld=false;
+    next.governanceReason="Claim graph changed; rerun required.";
+  }
+
+  if(event.kind==="evidence.bound"&&event.claimBinding){
+    next.claimBindings=[...state.claimBindings,event.claimBinding];
+    next.gateScore=null;
+    next.gateBreakdown=null;
+    next.outputLabel=null;
+    next.actionAllowed=false;
+    next.synthesisWithheld=false;
+    next.governanceReason="Claim graph changed; rerun required.";
+  }
+
+  if(event.kind==="evidence.unbound"&&event.claimBindingId){
+    next.claimBindings=state.claimBindings.filter(binding=>binding.id!==event.claimBindingId);
+    next.gateScore=null;
+    next.gateBreakdown=null;
+    next.outputLabel=null;
+    next.actionAllowed=false;
+    next.synthesisWithheld=false;
+    next.governanceReason="Claim graph changed; rerun required.";
+  }
+
   if(event.kind==="evidence.added"&&event.evidenceRef){
     next.evidenceRefs=[
       ...state.evidenceRefs.filter(ref=>ref.id!==event.evidenceRef?.id),
