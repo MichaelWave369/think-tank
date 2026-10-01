@@ -16,6 +16,16 @@ export type EvidenceKind="operator-reference"|"tool-result"|"external-source"|"p
 export type EvidenceVerification="unverified"|"operator-attested"|"machine-verified";
 export type ClaimRelation="supports"|"contradicts"|"context";
 export type ClaimStatus="unbound"|"supported"|"challenged"|"contested"|"context-only";
+export type ClaimCoverageState="unbound"|"thin"|"directional"|"contested"|"context-only";
+export type ClaimCoverageFlag=
+  |"no-evidence"
+  |"single-source"
+  |"no-machine-verified"
+  |"no-research-lineage"
+  |"support-only"
+  |"contradiction-only"
+  |"mixed-direction"
+  |"context-only";
 
 export interface ResearchCandidate{
   id:string;
@@ -79,6 +89,23 @@ export interface ClaimBinding{
   addedBy:"operator";
 }
 
+export interface ClaimReviewReceipt{
+  id:string;
+  claimId:string;
+  reviewedAt:string;
+  basisFingerprint:string;
+  coverageState:ClaimCoverageState;
+  boundEvidenceCount:number;
+  supportCount:number;
+  contradictionCount:number;
+  contextCount:number;
+  machineVerifiedCount:number;
+  operatorAttestedCount:number;
+  unverifiedCount:number;
+  researchLineageCount:number;
+  flags:ClaimCoverageFlag[];
+}
+
 export interface EvidenceRef{
   id:string;
   kind:EvidenceKind;
@@ -129,6 +156,8 @@ export type ThinkTankEventKind=
   |"routing.completed"
   |"claim.added"
   |"claim.removed"
+  |"claim.review.requested"
+  |"claim.review.completed"
   |"evidence.bound"
   |"evidence.unbound"
   |"research.search.requested"
@@ -174,6 +203,7 @@ export interface ThinkTankEvent{
   claimId?:string;
   claimBinding?:ClaimBinding;
   claimBindingId?:string;
+  claimReview?:ClaimReviewReceipt;
   researchQuery?:string;
   researchReceipt?:ResearchSearchReceipt;
   researchCandidateId?:string;
@@ -212,6 +242,7 @@ export interface ThinkTankEventInput{
   claimId?:string;
   claimBinding?:ClaimBinding;
   claimBindingId?:string;
+  claimReview?:ClaimReviewReceipt;
   researchQuery?:string;
   researchReceipt?:ResearchSearchReceipt;
   researchCandidateId?:string;
@@ -244,6 +275,7 @@ export interface ThinkTankState{
   evidenceRefs:EvidenceRef[];
   claims:Claim[];
   claimBindings:ClaimBinding[];
+  claimReviews:ClaimReviewReceipt[];
   researchSearches:ResearchSearchReceipt[];
   researchCandidates:ResearchCandidate[];
   synthesisWithheld:boolean;
