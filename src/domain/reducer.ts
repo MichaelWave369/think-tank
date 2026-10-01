@@ -45,6 +45,7 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
     next.objectionCount=0;
     next.gateScore=null;
     next.gateBreakdown=null;
+    next.claimGovernance=null;
     next.synthesisWithheld=false;
     next.outputLabel=null;
     next.actionAllowed=false;
@@ -61,6 +62,7 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
     next.claims=[...state.claims,event.claim];
     next.gateScore=null;
     next.gateBreakdown=null;
+    next.claimGovernance=null;
     next.outputLabel=null;
     next.actionAllowed=false;
     next.synthesisWithheld=false;
@@ -71,6 +73,7 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
     next.claims=state.claims.filter(claim=>claim.id!==event.claimId);
     next.gateScore=null;
     next.gateBreakdown=null;
+    next.claimGovernance=null;
     next.outputLabel=null;
     next.actionAllowed=false;
     next.synthesisWithheld=false;
@@ -81,6 +84,7 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
     next.claimBindings=[...state.claimBindings,event.claimBinding];
     next.gateScore=null;
     next.gateBreakdown=null;
+    next.claimGovernance=null;
     next.outputLabel=null;
     next.actionAllowed=false;
     next.synthesisWithheld=false;
@@ -91,6 +95,7 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
     next.claimBindings=state.claimBindings.filter(binding=>binding.id!==event.claimBindingId);
     next.gateScore=null;
     next.gateBreakdown=null;
+    next.claimGovernance=null;
     next.outputLabel=null;
     next.actionAllowed=false;
     next.synthesisWithheld=false;
@@ -116,6 +121,7 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
     ];
     next.gateScore=null;
     next.gateBreakdown=null;
+    next.claimGovernance=null;
     next.outputLabel=null;
     next.actionAllowed=false;
     next.synthesisWithheld=false;
@@ -126,6 +132,7 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
     next.evidenceRefs=state.evidenceRefs.filter(ref=>ref.id!==event.evidenceId);
     next.gateScore=null;
     next.gateBreakdown=null;
+    next.claimGovernance=null;
     next.outputLabel=null;
     next.actionAllowed=false;
     next.synthesisWithheld=false;
@@ -235,6 +242,7 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
   }
 
   if(event.kind==="synthesis.withheld"){
+    next.claimGovernance=event.claimGovernance??state.claimGovernance;
     next.synthesisWithheld=true;
     next.actionAllowed=false;
     next.outputLabel=event.outputLabel??"WITHHELD";
@@ -242,6 +250,7 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
   }
 
   if(event.kind==="synthesis.completed"){
+    next.claimGovernance=event.claimGovernance??state.claimGovernance;
     next.synthesisWithheld=false;
     next.actionAllowed=event.actionAllowed??false;
     next.outputLabel=event.outputLabel??"STANDARD";
