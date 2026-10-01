@@ -143,6 +143,21 @@ describe("governed research kernel",()=>{
     })).toThrow(/no matching operator request/i);
   });
 
+  it("rejects completion metadata that disagrees with its search receipt",()=>{
+    const ready=prepared();
+    const result=receipt();
+
+    expect(()=>buildEvent(ready.state,{
+      source:"tool",
+      kind:"research.search.completed",
+      phase:"intake",
+      claimId:"CL-1",
+      researchQuery:"different query",
+      researchReceipt:result,
+      message:"bad"
+    })).toThrow(/metadata does not match/i);
+  });
+
   it("rejects duplicate candidate URIs within a receipt",()=>{
     const ready=prepared();
     const result=receipt("claim research",["https://example.com/a","https://example.com/a"]);
