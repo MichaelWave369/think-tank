@@ -136,3 +136,12 @@ PR 13 does not:
 - automatically create reviews
 - automatically search for missing evidence
 - remove operator override
+
+
+## Excerpt mutations
+
+PR 14 makes pinned excerpts part of the Challenger review basis.
+
+Adding or removing an excerpt can therefore make a review stale and cause a later rigorous-mode claim policy to block until a fresh audit is run.
+
+PR 14 does not change the claim-policy table or Reality Gate weights.
