@@ -10,7 +10,11 @@ import type {
   ResearchSearchError,
   EvidenceProjectionResponse,
   EvidenceExcerptResponse,
-  EvidenceProjectionError
+  EvidenceProjectionError,
+  DossierSealStatusResponse,
+  DossierSealResponse,
+  DossierVerifyResponse,
+  DossierSealError
 } from "./types";
 
 const DEFAULT_BRIDGE="http://127.0.0.1:3691";
@@ -165,6 +169,62 @@ export async function pinMachineEvidenceExcerpt(
   if(!response.ok||!body.ok){
     const errorBody=body as EvidenceProjectionError;
     throw new Error(errorBody.error?.message||("Evidence excerpt returned HTTP "+response.status+"."));
+  }
+  return body;
+}
+
+
+export async function fetchDossierSealStatus():Promise<DossierSealStatusResponse>{
+  const response=await fetchWithTimeout(providerBridgeUrl+"/dossier/seal/status",{},4000);
+  const body=await response.json() as DossierSealStatusResponse|DossierSealError;
+  if(!response.ok||!body.ok){
+    const errorBody=body as DossierSealError;
+    throw new Error(errorBody.error?.message||("Dossier seal status returned HTTP "+response.status+"."));
+  }
+  return body;
+}
+
+export async function sealDecisionDossier(
+  dossier:import("../domain/types").SynthesisDecisionDossier,
+  signal?:AbortSignal
+):Promise<DossierSealResponse>{
+  const response=await fetchWithTimeout(
+    providerBridgeUrl+"/dossier/seal",
+    {
+      method:"POST",
+      headers:{"content-type":"application/json"},
+      body:JSON.stringify({dossier}),
+      signal
+    },
+    15000
+  );
+  const body=await response.json() as DossierSealResponse|DossierSealError;
+  if(!response.ok||!body.ok){
+    const errorBody=body as DossierSealError;
+    throw new Error(errorBody.error?.message||("Dossier sealing returned HTTP "+response.status+"."));
+  }
+  return body;
+}
+
+export async function verifyDecisionDossierSeal(
+  dossier:import("../domain/types").SynthesisDecisionDossier,
+  seal:import("../domain/types").DossierSealReceipt,
+  signal?:AbortSignal
+):Promise<DossierVerifyResponse>{
+  const response=await fetchWithTimeout(
+    providerBridgeUrl+"/dossier/verify",
+    {
+      method:"POST",
+      headers:{"content-type":"application/json"},
+      body:JSON.stringify({dossier,seal}),
+      signal
+    },
+    15000
+  );
+  const body=await response.json() as DossierVerifyResponse|DossierSealError;
+  if(!response.ok||!body.ok){
+    const errorBody=body as DossierSealError;
+    throw new Error(errorBody.error?.message||("Dossier verification returned HTTP "+response.status+"."));
   }
   return body;
 }
