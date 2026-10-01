@@ -1,6 +1,7 @@
 import { describe,expect,it } from "vitest";
 import { MODE_MATRIX } from "./modes";
 import { createInitialState } from "./state";
+import { evaluateClaimGovernance } from "./claimGovernance";
 import { evaluateGovernance,initialTurnPlan } from "./scheduler";
 import { projectEvent } from "./reducer";
 import type { ThinkTankState } from "./types";
@@ -53,6 +54,46 @@ describe("mode laws",()=>{
   it("requires AUDIT to pass the gate before action is authorized",()=>{
     expect(evaluateGovernance("audit",.6,.75,1).actionAllowed).toBe(false);
     expect(evaluateGovernance("audit",.9,.75,1).actionAllowed).toBe(true);
+  });
+
+  it("withholds high-scoring COUNCIL when required claim reviews are missing",()=>{
+    const state=createInitialState();
+    state.claims=[{id:"CL-1",text:"Unreviewed council claim.",addedBy:"operator"}];
+    const claimPolicy=evaluateClaimGovernance(state,"council");
+
+    const decision=evaluateGovernance("council",.9,.75,1,false,claimPolicy);
+
+    expect(claimPolicy.passed).toBe(false);
+    expect(decision.synthesisAllowed).toBe(false);
+    expect(decision.actionAllowed).toBe(false);
+    expect(decision.reason).toMatch(/missing review/i);
+  });
+
+  it("downgrades BUILD to DRAFT when numeric Gate passes but claim policy fails",()=>{
+    const state=createInitialState();
+    state.claims=[{id:"CL-1",text:"Bound build claim.",addedBy:"operator"}];
+    state.evidenceRefs=[{
+      id:"EV-1",
+      kind:"operator-reference",
+      verification:"operator-attested",
+      label:"Evidence",
+      addedBy:"operator"
+    }];
+    state.claimBindings=[{
+      id:"CB-1",
+      claimId:"CL-1",
+      evidenceId:"EV-1",
+      relation:"supports",
+      addedBy:"operator"
+    }];
+
+    const claimPolicy=evaluateClaimGovernance(state,"build");
+    const decision=evaluateGovernance("build",.9,.75,1,false,claimPolicy);
+
+    expect(claimPolicy.passed).toBe(false);
+    expect(decision.synthesisAllowed).toBe(true);
+    expect(decision.outputLabel).toBe("DRAFT");
+    expect(decision.actionAllowed).toBe(false);
   });
 
   it("executes and exactly replays the happy path for every mode",()=>{
