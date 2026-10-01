@@ -195,6 +195,20 @@ BUILD degrades to DRAFT on claim-policy failure; TRIO, COUNCIL, DEBATE, and AUDI
 
 See [CLAIM_GOVERNANCE.md](CLAIM_GOVERNANCE.md).
 
+## Hash-locked source excerpts
+
+PR 14 adds exact source-text provenance above machine-verified evidence.
+
+The bridge re-fetches a verified source, requires the bytes to match the original SHA-256, derives deterministic text projection v1, and returns only a transient preview until the operator pins a bounded character range.
+
+Pinned excerpts are canonical, replayable tool receipts carrying source, projection, and excerpt digests.
+
+Excerpt mutations become part of the Challenger review basis and invalidate current authorization.
+
+PDF remains verifiable evidence but is explicitly not text-projectable in this rung.
+
+See [SOURCE_EXCERPTS.md](SOURCE_EXCERPTS.md).
+
 ## PR ladder
 
 1. ✅ Room shell + operator authority
@@ -209,6 +223,7 @@ See [CLAIM_GOVERNANCE.md](CLAIM_GOVERNANCE.md).
 10. ✅ Claim registry + claim-to-source binding
 11. ✅ Governed research / search
 12. ✅ Challenger claim coverage audits
-13. Claim-aware governance policy
+13. ✅ Claim-aware governance policy
+14. Hash-locked source excerpts
 
-Future work can add source-content extraction, provider-assisted argument review, authenticated remote deployment, richer provider discovery, streaming, tool execution, and voice without changing the core event contract.
+Future work can add excerpt-aware provider argument review, proper PDF extraction, authenticated remote deployment, richer provider discovery, streaming, tool execution, and voice without changing the core event contract.
