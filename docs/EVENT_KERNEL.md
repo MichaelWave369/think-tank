@@ -87,3 +87,17 @@ CI must reject changes if any of these fail:
 **No operational UI state gets a private shortcut around the event path.**
 
 Mode changes, operator prompts, aborts, gate decisions, overrides, role turns, utterances, and future provider output all enter through the same kernel contract.
+
+
+## Synthesis governance receipts
+
+PR 16 requires every normal synthesis resolution to carry both:
+
+- ClaimGovernanceReport
+- ArgumentGovernanceReport
+
+The kernel recomputes both receipts from canonical state before accepting synthesis.completed or synthesis.withheld.
+
+A mismatch is an integrity failure.
+
+This keeps numeric evidence scoring, deterministic structural claim review, and human-accepted provider argument maps as separate replayable authorities.
