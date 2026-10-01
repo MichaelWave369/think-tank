@@ -664,6 +664,7 @@ export function ThinkTankRoom(){
           busy={busy}
           searchBusy={researchSearching}
           promotedCandidateIds={state.evidenceRefs.map(ref=>ref.researchCandidateId).filter((id):id is string=>Boolean(id))}
+          existingEvidenceUris={state.evidenceRefs.map(ref=>ref.uri).filter((uri):uri is string=>Boolean(uri))}
           onSearch={(claimId,query)=>void runResearch(claimId,query)}
           onVerify={verifyResearchCandidate}
         />
