@@ -122,8 +122,10 @@ Each completed search stores:
 - claim id
 - query
 - search timestamp
-- SHA-256 digest of the normalized accepted result set
-- ranked candidate list
+- SHA-256 digest of the bridge-normalized result set
+- ranked novel candidate list
+
+Repeated searches may rediscover URLs already quarantined for the same claim. Those URLs remain represented by their existing candidate records rather than being duplicated; the new search receipt still preserves the bridge result-set digest.
 
 The digest proves which normalized candidate set the local bridge accepted.
 
@@ -136,6 +138,7 @@ The bridge:
 - rejects missing title/URL entries
 - accepts HTTP/S URLs only
 - rejects embedded URL credentials
+- rejects nonstandard HTTP/S ports that the evidence verifier would not promote
 - canonicalizes URLs
 - deduplicates URLs
 - truncates oversized title/snippet/engine metadata
