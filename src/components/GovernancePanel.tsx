@@ -1,5 +1,6 @@
 import { modeDefinition } from "../domain/modes";
 import { evaluateClaimGovernance } from "../domain/claimGovernance";
+import { evaluateArgumentGovernance } from "../domain/argumentGovernance";
 import { schedulerStatus } from "../domain/scheduler";
 import type { ThinkTankState } from "../domain/types";
 
@@ -18,6 +19,8 @@ export function GovernancePanel({
   const plan=state.turnPlan;
   const claimPolicy=evaluateClaimGovernance(state,state.mode);
   const lastClaimPolicy=state.claimGovernance;
+  const argumentPolicy=evaluateArgumentGovernance(state,state.mode);
+  const lastArgumentPolicy=state.argumentGovernance;
 
   return <section className="governance-panel">
     <header>
@@ -38,6 +41,7 @@ export function GovernancePanel({
       <div><small>TRIGGER</small><span>{plan?.synthesisTrigger??law.synthesisTrigger}</span></div>
       <div><small>GATE LAW</small><span>{law.gate}</span></div>
       <div><small>CLAIM POLICY</small><span>{law.claimPolicy.toUpperCase()}</span></div>
+      <div><small>ARGUMENT POLICY</small><span>{law.argumentPolicy.toUpperCase()}</span></div>
       <div><small>GATE SCORE</small><span>{state.gateScore===null?"WAITING":state.gateScore.toFixed(2)}</span></div>
       <div><small>GATE CAP</small><span>{state.gateBreakdown?.cap.toFixed(2)??"—"}</span></div>
       <div><small>EVIDENCE</small><span>{state.evidenceRefs.length} REFS</span></div>
@@ -47,7 +51,14 @@ export function GovernancePanel({
       <div><small>CLAIMS STALE</small><span>{claimPolicy.staleReviewClaimIds.length}</span></div>
       <div><small>CLAIMS BLOCKED</small><span>{claimPolicy.coverageBlockedClaimIds.length}</span></div>
       <div><small>CLAIM POLICY NOW</small><span>{claimPolicy.passed?"PASS":"BLOCK"}</span></div>
-      <div><small>LAST POLICY RECEIPT</small><span>{lastClaimPolicy?(lastClaimPolicy.passed?"PASS":"BLOCK"):"—"}</span></div>
+      <div><small>LAST CLAIM RECEIPT</small><span>{lastClaimPolicy?(lastClaimPolicy.passed?"PASS":"BLOCK"):"—"}</span></div>
+      <div><small>ARGUMENT APPLICABLE</small><span>{argumentPolicy.applicableClaimIds.length}</span></div>
+      <div><small>ARGUMENT ACCEPTED</small><span>{argumentPolicy.freshAcceptedClaimIds.length}</span></div>
+      <div><small>ARGUMENT MISSING</small><span>{argumentPolicy.missingAcceptedClaimIds.length}</span></div>
+      <div><small>ARGUMENT STALE</small><span>{argumentPolicy.staleAcceptedClaimIds.length}</span></div>
+      <div><small>ARGUMENT DRAFT ONLY</small><span>{argumentPolicy.draftOnlyClaimIds.length}</span></div>
+      <div><small>ARGUMENT POLICY NOW</small><span>{argumentPolicy.passed?"PASS":"BLOCK"}</span></div>
+      <div><small>LAST ARGUMENT RECEIPT</small><span>{lastArgumentPolicy?(lastArgumentPolicy.passed?"PASS":"BLOCK"):"—"}</span></div>
       <div><small>OBJECTIONS</small><span>{state.objectionCount}{law.objectionRequired?" · REQUIRED":""}</span></div>
       <div><small>ACTION</small><span>{state.actionAllowed?"AUTHORIZED":"LOCKED"}</span></div>
     </div>
@@ -55,6 +66,9 @@ export function GovernancePanel({
     <p>{state.governanceReason||law.actionRule}</p>
     <p className={claimPolicy.passed?"gov-good":"gov-bad"}>
       CLAIM POLICY: {claimPolicy.reason}
+    </p>
+    <p className={argumentPolicy.passed?"gov-good":"gov-bad"}>
+      ARGUMENT POLICY: {argumentPolicy.reason}
     </p>
 
     {state.faultCode&&<div className="governance-fault">FAULT: {state.faultCode}</div>}
