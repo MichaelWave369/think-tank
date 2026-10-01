@@ -45,6 +45,7 @@ import { ResearchPanel } from "./ResearchPanel";
 import { SourceExcerptPanel } from "./SourceExcerptPanel";
 import { SystemStatus } from "./SystemStatus";
 import { LedgerRoll } from "./LedgerRoll";
+import { DecisionDossierPanel } from "./DecisionDossierPanel";
 
 const seatStatePriority:TerminalState[]=["warning","speaking","thinking","selected","listening","idle","dimmed","offline"];
 
@@ -1024,6 +1025,8 @@ export function ThinkTankRoom(){
           onGateBlock={()=>runScenario("council-gate-block")}
           onTimeout={()=>runScenario("timeout")}
         />
+
+        <DecisionDossierPanel state={state}/>
 
         {state.synthesisWithheld&&<div className="gate-block">
           <strong>SYNTHESIS WITHHELD</strong>

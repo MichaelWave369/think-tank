@@ -59,6 +59,8 @@ export function SystemStatus({
     <span>Argument Drafts: {argumentSummary.drafts}</span>
     <span>Argument Stale: {argumentSummary.stale}</span>
     <span>Argument Policy: {argumentPolicy.passed?"PASS":"BLOCK"}</span>
+    <span>Dossiers: {state.decisionDossiers.length}</span>
+    <span>Overrides: {state.decisionOverrides.length}</span>
     <span>Research: {state.researchSearches.length} searches</span>
     <span>Candidates: {state.researchCandidates.length}</span>
     <span>Output: {state.outputLabel??"PENDING"}</span>

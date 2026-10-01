@@ -12,6 +12,7 @@ import "./research.css";
 import "./coverage.css";
 import "./excerpts.css";
 import "./argument-review.css";
+import "./decision-dossier.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode><App/></React.StrictMode>

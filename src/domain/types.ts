@@ -19,6 +19,7 @@ export type ClaimStatus="unbound"|"supported"|"challenged"|"contested"|"context-
 export type ClaimCoverageState="unbound"|"thin"|"directional"|"contested"|"context-only";
 export type ClaimPolicyKind="informational"|"bound-fresh"|"all-fresh"|"audit-ready";
 export type ArgumentReviewStatus="draft"|"accepted"|"dismissed";
+export type DecisionOutcome="completed"|"withheld";
 export type ArgumentPolicyKind="informational"|"fresh-accepted-on-excerpts";
 export type ClaimCoverageFlag=
   |"no-evidence"
@@ -146,6 +147,100 @@ export interface ArgumentReview{
   unresolvedGaps:string[];
   summary:string;
   status:ArgumentReviewStatus;
+}
+
+export interface DecisionClaimRef{
+  id:string;
+  text:string;
+}
+
+export interface DecisionBindingRef{
+  id:string;
+  claimId:string;
+  evidenceId:string;
+  relation:ClaimRelation;
+  note:string;
+}
+
+export interface DecisionEvidenceRef{
+  id:string;
+  verification:EvidenceVerification;
+  kind:EvidenceKind;
+  uri:string;
+  retrievalSha256:string;
+  researchCandidateId:string;
+}
+
+export interface DecisionExcerptRef{
+  id:string;
+  evidenceId:string;
+  sourceSha256:string;
+  projectionSha256:string;
+  excerptSha256:string;
+  startChar:number;
+  endChar:number;
+}
+
+export interface DecisionClaimReviewRef{
+  id:string;
+  claimId:string;
+  basisFingerprint:string;
+  coverageState:ClaimCoverageState;
+}
+
+export interface DecisionArgumentReviewRef{
+  id:string;
+  claimId:string;
+  status:ArgumentReviewStatus;
+  basisFingerprint:string;
+  providerModel:string;
+  providerRequestId:string;
+}
+
+export interface DecisionProviderTurnRef{
+  seq:number;
+  roleId:RoleId;
+  seatId:SeatId;
+  providerModel:string;
+  providerRequestId:string;
+}
+
+export interface SynthesisDecisionDossier{
+  id:string;
+  sessionId:string;
+  seed:string;
+  decisionSeq:number;
+  mode:CollaborationMode;
+  operatorPrompt:string;
+  outcome:DecisionOutcome;
+  outputLabel:GovernanceLabel;
+  actionAllowed:boolean;
+  gateScore:number;
+  gateThreshold:number;
+  gateBreakdown:GateBreakdown|null;
+  claimGovernance:ClaimGovernanceReport;
+  argumentGovernance:ArgumentGovernanceReport;
+  objectionCount:number;
+  faultCode:string;
+  assignments:Assignment[];
+  claims:DecisionClaimRef[];
+  bindings:DecisionBindingRef[];
+  evidence:DecisionEvidenceRef[];
+  excerpts:DecisionExcerptRef[];
+  claimReviews:DecisionClaimReviewRef[];
+  argumentReviews:DecisionArgumentReviewRef[];
+  providerTurns:DecisionProviderTurnRef[];
+  basisFingerprint:string;
+  governanceReason:string;
+}
+
+export interface DecisionOverrideReceipt{
+  id:string;
+  dossierId:string;
+  overrideSeq:number;
+  outputLabel:GovernanceLabel;
+  actionAllowed:true;
+  reason:string;
 }
 
 export interface EvidenceRef{
@@ -294,6 +389,9 @@ export interface ThinkTankEvent{
   gateBreakdown?:GateBreakdown;
   claimGovernance?:ClaimGovernanceReport;
   argumentGovernance?:ArgumentGovernanceReport;
+  decisionDossier?:SynthesisDecisionDossier;
+  decisionDossierId?:string;
+  decisionOverride?:DecisionOverrideReceipt;
   message?:string;
   gateScore?:number;
   override?:boolean;
@@ -341,6 +439,9 @@ export interface ThinkTankEventInput{
   gateBreakdown?:GateBreakdown;
   claimGovernance?:ClaimGovernanceReport;
   argumentGovernance?:ArgumentGovernanceReport;
+  decisionDossier?:SynthesisDecisionDossier;
+  decisionDossierId?:string;
+  decisionOverride?:DecisionOverrideReceipt;
   message?:string;
   gateScore?:number;
   override?:boolean;
@@ -365,6 +466,8 @@ export interface ThinkTankState{
   gateBreakdown:GateBreakdown|null;
   claimGovernance:ClaimGovernanceReport|null;
   argumentGovernance:ArgumentGovernanceReport|null;
+  decisionDossiers:SynthesisDecisionDossier[];
+  decisionOverrides:DecisionOverrideReceipt[];
   evidenceRefs:EvidenceRef[];
   evidenceExcerpts:EvidenceExcerpt[];
   claims:Claim[];

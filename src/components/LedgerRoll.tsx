@@ -12,6 +12,7 @@ const exportLedger=(events:ThinkTankEvent[])=>{
       event.roleId?.toUpperCase()??"SYSTEM",
       event.kind,
       event.message??"",
+      event.decisionDossier?.id??event.decisionOverride?.id??"",
       event.stateBefore+" -> "+event.stateAfter
     ].join(" | ")
   ).join("\n");
@@ -68,6 +69,8 @@ export function LedgerRoll({
         <span>
           [{String(event.seq).padStart(4,"0")}] {event.source.toUpperCase()} / {event.roleId?.toUpperCase()??"SYSTEM"} / {event.kind}
           {" > "}{event.message??event.kind}
+          {event.decisionDossier?" · "+event.decisionDossier.id:""}
+          {event.decisionOverride?" · "+event.decisionOverride.id+"→"+event.decisionOverride.dossierId:""}
         </span>
         <small>{shortFingerprint(event.stateBefore)} → {shortFingerprint(event.stateAfter)}</small>
       </p>)}

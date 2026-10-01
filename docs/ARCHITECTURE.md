@@ -237,6 +237,28 @@ Provider analysis still contributes zero numeric Reality Gate points.
 
 See [ARGUMENT_GOVERNANCE.md](ARGUMENT_GOVERNANCE.md).
 
+## Synthesis decision dossier
+
+PR 17 packages every normal synthesis result into one deterministic historical receipt.
+
+The dossier freezes:
+- mode and operator prompt
+- normal completed/withheld outcome
+- Reality Gate
+- Claim Policy
+- Argument Policy
+- claim/binding/evidence/excerpt basis
+- structural-review fingerprints
+- provider argument-map fingerprints
+- current-run provider turn provenance
+- decision-basis fingerprint
+
+FORCE SYNTHESIS does not rewrite the dossier. It appends a separate linked DecisionOverrideReceipt.
+
+Dossiers remain historical state across later mutations and runs.
+
+See [DECISION_DOSSIER.md](DECISION_DOSSIER.md).
+
 ## PR ladder
 
 1. ✅ Room shell + operator authority
@@ -254,6 +276,7 @@ See [ARGUMENT_GOVERNANCE.md](ARGUMENT_GOVERNANCE.md).
 13. ✅ Claim-aware governance policy
 14. ✅ Hash-locked source excerpts
 15. ✅ Excerpt-aware Challenger argument review
-16. Argument-map governance
+16. ✅ Argument-map governance
+17. Synthesis decision dossier
 
-Future work can add proper PDF extraction, authenticated remote deployment, richer provider discovery, streaming, tool execution, voice, and higher-order synthesis receipts without changing the core event contract.
+Future work can add proper PDF extraction, authenticated remote deployment, richer provider discovery, streaming, tool execution, voice, cryptographic signing, and external attestation without changing the core event contract.

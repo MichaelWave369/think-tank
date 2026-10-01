@@ -13,6 +13,8 @@ export const createInitialState=():ThinkTankState=>({
   gateBreakdown:null,
   claimGovernance:null,
   argumentGovernance:null,
+  decisionDossiers:[],
+  decisionOverrides:[],
   evidenceRefs:[],
   evidenceExcerpts:[],
   claims:[],
