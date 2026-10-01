@@ -70,6 +70,66 @@ describe("evidence kernel",()=>{
     })).toThrow(/existing evidence id/i);
   });
 
+  it("rejects evidence mutation during an active governed session",()=>{
+    const state=createInitialState();
+    state.phase="independent";
+
+    expect(()=>buildEvent(state,{
+      source:"operator",
+      kind:"evidence.added",
+      phase:"independent",
+      evidenceRef:{
+        id:"EV-LATE",
+        kind:"operator-reference",
+        verification:"operator-attested",
+        label:"Late evidence",
+        addedBy:"operator"
+      },
+      message:"late"
+    })).toThrow(/cannot mutate during an active governed session/i);
+  });
+
+  it("invalidates prior gate authorization when evidence changes",()=>{
+    const state=createInitialState();
+    state.gateScore=.88;
+    state.gateBreakdown={
+      provenance:1,
+      roleCoverage:1,
+      seatDiversity:1,
+      challengeCoverage:1,
+      externalSupport:.65,
+      rawScore:.8775,
+      finalScore:.8775,
+      cap:1,
+      capReason:"fixture",
+      evidenceCount:2,
+      verifiedEvidenceCount:0,
+      attestedEvidenceCount:2
+    };
+    state.outputLabel="READY";
+    state.actionAllowed=true;
+
+    const event=buildEvent(state,{
+      source:"operator",
+      kind:"evidence.added",
+      phase:"intake",
+      evidenceRef:{
+        id:"EV-NEW",
+        kind:"operator-reference",
+        verification:"operator-attested",
+        label:"New evidence",
+        addedBy:"operator"
+      },
+      message:"new evidence"
+    });
+    const next=projectEvent(state,event);
+
+    expect(next.gateScore).toBeNull();
+    expect(next.gateBreakdown).toBeNull();
+    expect(next.actionAllowed).toBe(false);
+    expect(next.outputLabel).toBeNull();
+  });
+
   it("rejects a forged deterministic gate score",()=>{
     const state=createInitialState();
     state.turnPlan=initialTurnPlan("solo");
