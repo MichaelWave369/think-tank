@@ -1,6 +1,8 @@
 import type { ThinkTankEvent,ThinkTankEventInput,ThinkTankState } from "../domain/types";
 import { projectEvent } from "../domain/reducer";
+import { evaluateGovernance,initialTurnPlan } from "../domain/scheduler";
 import { fingerprintProjection } from "./fingerprint";
+import { stableStringify } from "./stable";
 
 export class KernelIntegrityError extends Error{
   constructor(message:string,public readonly seq?:number){
@@ -16,6 +18,126 @@ export interface ReplayReport{
   finalFingerprint:string;
   expectedFingerprint?:string;
   error?:string;
+}
+
+function assertPolicyEvent(state:ThinkTankState,event:ThinkTankEvent):void{
+  if(event.kind==="schedule.planned"){
+    if(!event.turnPlan){
+      throw new KernelIntegrityError("Schedule event is missing a turn plan.",event.seq);
+    }
+
+    const expected=initialTurnPlan(event.mode);
+    if(stableStringify(event.turnPlan)!==stableStringify(expected)){
+      throw new KernelIntegrityError("Schedule does not match the selected mode law.",event.seq);
+    }
+    return;
+  }
+
+  if(event.kind==="round.started"){
+    if(!state.turnPlan)throw new KernelIntegrityError("Round started before a schedule was planned.",event.seq);
+    if(event.round===undefined)throw new KernelIntegrityError("Round event is missing its round number.",event.seq);
+    if(state.currentSpeaker)throw new KernelIntegrityError("Cannot start a new round while a speaker is active.",event.seq);
+    if(event.round!==state.currentRound+1){
+      throw new KernelIntegrityError("Round discontinuity: expected "+(state.currentRound+1)+", received "+event.round+".",event.seq);
+    }
+    if(event.round>state.turnPlan.maxRounds){
+      throw new KernelIntegrityError("Round cap exceeded for "+state.mode.toUpperCase()+".",event.seq);
+    }
+    if(state.currentRound>0&&state.speakerIndex<state.turnPlan.speakerQueue.length){
+      throw new KernelIntegrityError("Cannot advance rounds before the scheduled queue completes.",event.seq);
+    }
+    return;
+  }
+
+  if(event.kind==="turn.started"){
+    if(!state.turnPlan)throw new KernelIntegrityError("Turn started before a schedule was planned.",event.seq);
+    if(state.currentRound<1)throw new KernelIntegrityError("Turn started before a round was opened.",event.seq);
+    if(state.currentSpeaker)throw new KernelIntegrityError("A second speaker cannot start while another turn is active.",event.seq);
+
+    const expectedRole=state.turnPlan.speakerQueue[state.speakerIndex];
+    if(!expectedRole)throw new KernelIntegrityError("Speaker queue is already complete.",event.seq);
+    if(event.roleId!==expectedRole){
+      throw new KernelIntegrityError(
+        "Turn order violation: expected "+expectedRole+", received "+(event.roleId??"none")+".",
+        event.seq
+      );
+    }
+    return;
+  }
+
+  if(event.kind==="utterance.complete"||event.kind==="challenge.raised"){
+    if(!state.currentSpeaker){
+      throw new KernelIntegrityError("Utterance completed without an active speaker.",event.seq);
+    }
+    if(event.roleId!==state.currentSpeaker){
+      throw new KernelIntegrityError(
+        "Utterance role mismatch: active speaker is "+state.currentSpeaker+".",
+        event.seq
+      );
+    }
+    if(event.kind==="challenge.raised"&&event.roleId!=="challenger"){
+      throw new KernelIntegrityError("Only the Challenger role may emit challenge.raised.",event.seq);
+    }
+    return;
+  }
+
+  if(event.kind==="turn.timeout"){
+    if(!state.currentSpeaker){
+      throw new KernelIntegrityError("Timeout recorded without an active speaker.",event.seq);
+    }
+    if(event.roleId&&event.roleId!==state.currentSpeaker){
+      throw new KernelIntegrityError("Timeout role does not match the active speaker.",event.seq);
+    }
+    return;
+  }
+
+  if(event.kind==="gate.scored"){
+    if(!state.turnPlan)throw new KernelIntegrityError("Reality Gate scored before a schedule was planned.",event.seq);
+    if(state.currentSpeaker)throw new KernelIntegrityError("Reality Gate cannot score while a speaker is active.",event.seq);
+    if(state.speakerIndex<state.turnPlan.speakerQueue.length){
+      throw new KernelIntegrityError("Reality Gate cannot score before the scheduled queue completes.",event.seq);
+    }
+    if(event.gateScore===undefined||event.gateScore<0||event.gateScore>1){
+      throw new KernelIntegrityError("Reality Gate score must be between 0 and 1.",event.seq);
+    }
+    return;
+  }
+
+  if(event.kind==="synthesis.completed"||event.kind==="synthesis.withheld"){
+    if(!state.turnPlan)throw new KernelIntegrityError("Synthesis resolved before a schedule was planned.",event.seq);
+
+    const decision=evaluateGovernance(
+      state.mode,
+      state.gateScore??0,
+      state.gateThreshold,
+      state.objectionCount,
+      Boolean(state.faultCode)
+    );
+
+    const expectedKind=decision.synthesisAllowed?"synthesis.completed":"synthesis.withheld";
+    if(event.kind!==expectedKind){
+      throw new KernelIntegrityError(
+        "Governance violation: mode law requires "+expectedKind+", received "+event.kind+".",
+        event.seq
+      );
+    }
+    if(event.outputLabel!==decision.outputLabel){
+      throw new KernelIntegrityError(
+        "Governance label mismatch: expected "+decision.outputLabel+".",
+        event.seq
+      );
+    }
+    if(Boolean(event.actionAllowed)!==decision.actionAllowed){
+      throw new KernelIntegrityError("Action authorization contradicts the mode law.",event.seq);
+    }
+    return;
+  }
+
+  if(event.kind==="operator.override"){
+    if(!state.synthesisWithheld&&!state.faultCode){
+      throw new KernelIntegrityError("Operator override requires a withheld or faulted session.",event.seq);
+    }
+  }
 }
 
 export function buildEvent(state:ThinkTankState,input:ThinkTankEventInput):ThinkTankEvent{
@@ -35,10 +157,17 @@ export function buildEvent(state:ThinkTankState,input:ThinkTankEventInput):Think
     message:input.message,
     gateScore:input.gateScore,
     override:input.override,
+    turnPlan:input.turnPlan,
+    round:input.round,
+    faultCode:input.faultCode,
+    outputLabel:input.outputLabel,
+    actionAllowed:input.actionAllowed,
+    governanceReason:input.governanceReason,
     stateBefore,
     stateAfter:"pending"
   };
 
+  assertPolicyEvent(state,draft);
   const projected=projectEvent(state,draft);
 
   return {
@@ -89,20 +218,15 @@ export function applyVerifiedEvent(state:ThinkTankState,event:ThinkTankEvent):Th
 
   const actualBefore=fingerprintProjection(state);
   if(event.stateBefore!==actualBefore){
-    throw new KernelIntegrityError(
-      "Pre-state fingerprint mismatch at seq "+event.seq+".",
-      event.seq
-    );
+    throw new KernelIntegrityError("Pre-state fingerprint mismatch at seq "+event.seq+".",event.seq);
   }
 
+  assertPolicyEvent(state,event);
   const projected=projectEvent(state,event);
   const actualAfter=fingerprintProjection(projected);
 
   if(event.stateAfter!==actualAfter){
-    throw new KernelIntegrityError(
-      "Post-state fingerprint mismatch at seq "+event.seq+".",
-      event.seq
-    );
+    throw new KernelIntegrityError("Post-state fingerprint mismatch at seq "+event.seq+".",event.seq);
   }
 
   return projected;
