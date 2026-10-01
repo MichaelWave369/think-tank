@@ -305,6 +305,15 @@ function assertEvidenceEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
     if(state.evidenceRefs.some(existing=>existing.id===ref.id)){
       throw new KernelIntegrityError("Evidence id already exists: "+ref.id+".",event.seq);
     }
+    if(ref.researchCandidateId){
+      const candidate=state.researchCandidates.find(item=>item.id===ref.researchCandidateId);
+      if(!candidate){
+        throw new KernelIntegrityError("Machine evidence references an unknown research candidate.",event.seq);
+      }
+      if(state.evidenceRefs.some(existing=>existing.researchCandidateId===ref.researchCandidateId)){
+        throw new KernelIntegrityError("Research candidate has already been promoted to evidence.",event.seq);
+      }
+    }
     if(ref.uri&&state.evidenceRefs.some(existing=>existing.uri===ref.uri)){
       throw new KernelIntegrityError("Evidence URI already exists; reuse the existing receipt across claims.",event.seq);
     }
@@ -328,13 +337,7 @@ function assertEvidenceEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
         throw new KernelIntegrityError("Tool evidence must declare machine verification.",event.seq);
       }
       if(ref.researchCandidateId){
-        const candidate=state.researchCandidates.find(item=>item.id===ref.researchCandidateId);
-        if(!candidate){
-          throw new KernelIntegrityError("Machine evidence references an unknown research candidate.",event.seq);
-        }
-        if(state.evidenceRefs.some(existing=>existing.researchCandidateId===ref.researchCandidateId)){
-          throw new KernelIntegrityError("Research candidate has already been promoted to evidence.",event.seq);
-        }
+        const candidate=state.researchCandidates.find(item=>item.id===ref.researchCandidateId)!;
         if(ref.retrieval?.requestedUri!==candidate.uri){
           throw new KernelIntegrityError("Research candidate URI must match the evidence retrieval request.",event.seq);
         }
