@@ -39,7 +39,7 @@ export function LedgerRoll({
   const verified=replayReport.valid&&replayReport.exact;
   const [paused,setPaused]=useState(false);
   const paperRef=useRef<HTMLDivElement|null>(null);
-  const lastSeq=events.at(-1)?.seq??0;
+  const lastSeq=events.length?events[events.length-1].seq:0;
 
   useEffect(()=>{
     if(paused)return;
