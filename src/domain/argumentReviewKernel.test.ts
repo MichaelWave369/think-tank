@@ -140,6 +140,13 @@ describe("excerpt-aware argument review kernel",()=>{
     })).toThrow(/currently assigned Challenger seat/i);
   });
 
+  it("rejects an offline assigned Challenger seat",()=>{
+    const state=baseState();
+    state.seatStatus.openai="offline";
+
+    expect(()=>request(state)).toThrow(/offline Challenger seat/i);
+  });
+
   it("rejects a forged basis fingerprint",()=>{
     const requested=request(baseState());
     const forged=reviewFor(requested.state,{basisFingerprint:"fnv1a32:deadbeef"});
@@ -206,6 +213,22 @@ describe("excerpt-aware argument review kernel",()=>{
       argumentReviewId:"AR-1",
       message:"accept again"
     })).toThrow(/Only an existing DRAFT/i);
+  });
+
+  it("rejects accepting a stale draft",()=>{
+    const requested=request(baseState());
+    const completed=complete(requested.state);
+    const stale={...completed.state,claimBindings:[
+      {...completed.state.claimBindings[0]!,relation:"contradicts" as const}
+    ]};
+
+    expect(()=>buildEvent(stale,{
+      source:"operator",
+      kind:"argument.review.accepted",
+      phase:"intake",
+      argumentReviewId:"AR-1",
+      message:"accept stale"
+    })).toThrow(/Stale argument reviews cannot be accepted/i);
   });
 
   it("allows an accepted review to be dismissed",()=>{
