@@ -6,34 +6,34 @@ A governed, event-sourced multi-mind control room. Cognitive roles are staffed b
 
 ## Current rung
 
-**PR 9 — Machine-Verified Evidence Retrieval**
+**PR 10 — Claim Registry + Claim-to-Source Binding**
 
-The Evidence Packet can now independently retrieve public HTTP/S resources through the local governed bridge and record cryptographic provenance receipts.
+Evidence no longer has to float as an undifferentiated packet. The operator can register explicit claims and bind individual evidence receipts as supporting, contradicting, or contextual.
 
-PR 9 adds:
-- operator-authorized URL verification requests
-- governed `tool` event source
-- local bridge `POST /evidence/fetch`
-- public-network-only retrieval policy
-- loopback/private/link-local/metadata target rejection
-- DNS-rebinding defense by pinning connections to validated IPs
-- redirect revalidation
-- content-type allowlist
-- response byte cap
-- redirect cap
-- SHA-256 digest of accepted response bytes
-- canonical retrieval metadata
-- machine-verified evidence display in the room
-- tool failure receipts that add no evidence
-- kernel-only acceptance of complete governed tool receipts
-- exact replay of machine evidence
-- dedicated bridge network-policy tests
+PR 10 adds:
+- canonical claim registry
+- canonical claim/evidence bindings
+- SUPPORTS / CONTRADICTS / CONTEXT relations
+- derived claim status
+- UNBOUND / SUPPORTED / CHALLENGED / CONTESTED / CONTEXT-ONLY states
+- duplicate-claim rejection
+- unknown-reference rejection
+- one active relation per claim/source pair
+- explicit unbind-before-relation-change law
+- bound evidence deletion protection
+- bound claim deletion protection
+- claim graph mutation lock during active execution
+- prior Gate authorization invalidation after semantic graph edits
+- exact claim graph replay
+- Claim Board / Source Map UI
+- bound markers in Evidence Packet
+- claim graph telemetry in System Status
 
 ### Important semantic rule
 
-**MACHINE-VERIFIED means retrieved + hashed + provenance-recorded.**
+**Bindings describe how evidence bears on a claim. They do not declare the claim true or false.**
 
-It does **not** mean the source is correct, trustworthy, independent, or sufficient.
+PR 10 deliberately leaves the Reality Gate scoring weights unchanged.
 
 See:
 - [Architecture](docs/ARCHITECTURE.md)
@@ -45,6 +45,7 @@ See:
 - [Providers](docs/PROVIDERS.md)
 - [Reality Gate Evidence Engine](docs/EVIDENCE_GATE.md)
 - [Machine-Verified Evidence Retrieval](docs/MACHINE_EVIDENCE.md)
+- [Claim Registry + Bindings](docs/CLAIM_BINDINGS.md)
 
 ## Local-first setup
 
@@ -67,7 +68,7 @@ Verification:
 
 > **If a light changes, a sequenced event explains why.**
 
-If evidence changes the Reality Gate, a replayable provenance receipt explains where that evidence came from.
+If a source changes what it is claimed to support or contradict, an explicit binding event explains that too.
 
 ## Build ladder
 
@@ -79,6 +80,7 @@ If evidence changes the Reality Gate, a replayable provenance receipt explains w
 6. ✅ Crane Fly assignments
 7. ✅ Provider adapters + LIVE execution
 8. ✅ Reality Gate evidence engine
-9. **Machine-verified evidence retrieval**
+9. ✅ Machine-verified evidence retrieval
+10. **Claim registry + claim-to-source binding**
 
 **Φ THINK TANK is a control room, not eight chat cards.**
