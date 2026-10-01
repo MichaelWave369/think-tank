@@ -182,3 +182,22 @@ PR 10 adds claim-to-source bindings without changing these weights or caps.
 Claim graph edits invalidate prior Gate authorization, but the deterministic evidence score itself remains the PR 8 law.
 
 Future claim-aware verification or search tools should add evidence receipts and bindings. They should not bypass this scorer or silently reinterpret existing sources.
+
+
+## Challenger coverage audits
+
+PR 12 adds deterministic claim-coverage review without changing this scoring law.
+
+A Challenger audit may expose that a claim is:
+- unbound
+- thin
+- directional
+- contested
+- context-only
+- based only on attested evidence
+- missing research lineage
+- stale after graph changes
+
+Those observations do not change Reality Gate score or caps in PR 12.
+
+A later explicit governance version may consume review freshness or coverage conditions. If so, that policy must be separately frozen, tested, and documented rather than inferred from these descriptive states.

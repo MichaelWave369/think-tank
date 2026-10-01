@@ -1,6 +1,7 @@
 import { useCallback,useEffect,useMemo,useReducer,useRef,useState } from "react";
 import { roles,seats } from "../data/terminals";
 import { planAssignments,routingEventInputs,scoreSeatForRole } from "../domain/craneFly";
+import { evaluateClaimCoverage } from "../domain/claimCoverage";
 import { projectEvent,thinkTankReducer } from "../domain/reducer";
 import { createInitialState } from "../domain/state";
 import type {
@@ -27,6 +28,7 @@ import { scenarioEventInputs,type DemoScenario } from "../sim/demo";
 import { TerminalPanel } from "./TerminalPanel";
 import { Commonline } from "./Commonline";
 import { ClaimBoard } from "./ClaimBoard";
+import { ClaimCoverageMatrix } from "./ClaimCoverageMatrix";
 import { CraneFlyPanel } from "./CraneFlyPanel";
 import { EvidencePanel } from "./EvidencePanel";
 import { GovernancePanel } from "./GovernancePanel";
@@ -345,6 +347,42 @@ export function ThinkTankRoom(){
     void verifyEvidence(candidate.title,candidate.uri,note,candidate.id);
   };
 
+  const reviewClaimCoverage=(claimId:string)=>{
+    if(busy)return;
+
+    const request=buildEvent(stateRef.current,{
+      source:"operator",
+      kind:"claim.review.requested",
+      phase:"intake",
+      roleId:"challenger",
+      claimId,
+      message:"Operator requested Challenger structural audit for "+claimId+"."
+    });
+    applyEvent(request);
+
+    const reviewedAt=new Date().toISOString();
+    const review=evaluateClaimCoverage(
+      stateRef.current,
+      claimId,
+      "CR-"+String(stateRef.current.seq+1).padStart(4,"0"),
+      reviewedAt
+    );
+
+    const completed=buildEvent(stateRef.current,{
+      source:"system",
+      kind:"claim.review.completed",
+      phase:"intake",
+      roleId:"challenger",
+      claimId,
+      claimReview:review,
+      message:
+        "Challenger structural audit "+review.id+" · "+
+        review.coverageState.toUpperCase()+" · "+
+        review.boundEvidenceCount+" bound evidence."
+    });
+    applyEvent(completed);
+  };
+
   const addClaim=(text:string)=>{
     if(busy)return;
     const claim={
@@ -659,6 +697,12 @@ export function ThinkTankRoom(){
           onRemove={removeClaim}
           onBind={bindEvidence}
           onUnbind={unbindEvidence}
+        />
+
+        <ClaimCoverageMatrix
+          state={state}
+          busy={busy}
+          onReview={reviewClaimCoverage}
         />
 
         <ResearchPanel

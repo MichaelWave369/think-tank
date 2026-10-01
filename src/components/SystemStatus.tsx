@@ -1,4 +1,5 @@
 import { claimGraphSummary } from "../domain/claims";
+import { claimCoverageSummary } from "../domain/claimCoverage";
 import { schedulerStatus } from "../domain/scheduler";
 import type { ThinkTankState } from "../domain/types";
 import type { ReplayReport } from "../kernel/eventKernel";
@@ -24,6 +25,7 @@ export function SystemStatus({
   const pinCount=Object.keys(state.pinnedAssignments).length;
   const onlineCount=Object.values(state.seatStatus).filter(status=>status!=="offline").length;
   const claimSummary=claimGraphSummary(state);
+  const coverageSummary=claimCoverageSummary(state);
 
   return <section className="system-status">
     <strong>SYSTEM STATUS</strong>
@@ -42,6 +44,9 @@ export function SystemStatus({
     <span>Claims: {claimSummary.total} · {claimSummary.bindings} bindings</span>
     <span>Claims Unbound: {claimSummary.unbound}</span>
     <span>Claims Contested: {claimSummary.contested}</span>
+    <span>Claim Audits: {coverageSummary.reviewed} reviewed</span>
+    <span>Audits Stale: {coverageSummary.stale}</span>
+    <span>Audits Missing: {coverageSummary.unreviewed}</span>
     <span>Research: {state.researchSearches.length} searches</span>
     <span>Candidates: {state.researchCandidates.length}</span>
     <span>Output: {state.outputLabel??"PENDING"}</span>

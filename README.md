@@ -6,34 +6,33 @@ A governed, event-sourced multi-mind control room. Cognitive roles are staffed b
 
 ## Current rung
 
-**PR 11 — Governed Research / Search**
+**PR 12 — Challenger Claim Coverage Audits**
 
-The Think Tank can now discover candidate sources for registered claims without treating search results as evidence.
+The Think Tank can now deterministically audit the structural coverage around every registered claim without pretending that evidence structure is the same thing as factual truth.
 
-PR 11 adds:
-- optional local-first SearXNG search adapter
-- operator-authorized claim-scoped searches
-- canonical search request / completion / failure events
-- replayable research search receipts
-- SHA-256 result-set digest
-- quarantined research candidates
-- candidate URL normalization and deduplication
-- candidate count caps
-- candidate-to-machine-evidence lineage
-- explicit VERIFY → EVIDENCE promotion
-- existing evidence reuse
-- duplicate evidence URI rejection
-- duplicate machine-content digest rejection
-- Research Console UI
-- search/candidate System Status telemetry
-- bridge runtime helper repair
-- expanded bridge and kernel tests
+PR 12 adds:
+- deterministic Challenger structural audits
+- canonical claim review request/completion events
+- immutable claim review receipts
+- per-claim basis fingerprints
+- FRESH / STALE / UNREVIEWED review state
+- UNBOUND / THIN / DIRECTIONAL / CONTESTED / CONTEXT-ONLY coverage states
+- support / contradiction / context counts
+- machine-verified / attested / unverified counts
+- research-lineage counts
+- explicit structural flags
+- kernel recomputation of every review receipt
+- forged review rejection
+- graph-change-during-review rejection
+- exact review replay
+- Claim Coverage Matrix UI
+- System Status audit freshness telemetry
 
 ### Important semantic rule
 
-**SEARCH RESULT ≠ EVIDENCE.**
+**COVERAGE ≠ TRUTH.**
 
-Discovery contributes zero to Reality Gate until a candidate passes governed machine retrieval.
+PR 12 deliberately leaves Reality Gate weights and authorization behavior unchanged.
 
 See:
 - [Architecture](docs/ARCHITECTURE.md)
@@ -47,6 +46,7 @@ See:
 - [Machine-Verified Evidence Retrieval](docs/MACHINE_EVIDENCE.md)
 - [Claim Registry + Bindings](docs/CLAIM_BINDINGS.md)
 - [Governed Research / Search](docs/GOVERNED_RESEARCH.md)
+- [Challenger Claim Coverage](docs/CHALLENGER_COVERAGE.md)
 
 ## Local-first setup
 
@@ -69,7 +69,7 @@ Verification:
 
 > **If a light changes, a sequenced event explains why.**
 
-Search discovery, source promotion, retrieval verification, and claim interpretation are separate ledger-visible transitions.
+If Challenger says a claim was reviewed, an immutable deterministic receipt explains exactly what graph it reviewed.
 
 ## Build ladder
 
@@ -83,6 +83,7 @@ Search discovery, source promotion, retrieval verification, and claim interpreta
 8. ✅ Reality Gate evidence engine
 9. ✅ Machine-verified evidence retrieval
 10. ✅ Claim registry + claim-to-source binding
-11. **Governed research / search**
+11. ✅ Governed research / search
+12. **Challenger claim coverage audits**
 
 **Φ THINK TANK is a control room, not eight chat cards.**

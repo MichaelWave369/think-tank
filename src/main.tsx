@@ -9,6 +9,7 @@ import "./providers.css";
 import "./evidence.css";
 import "./claims.css";
 import "./research.css";
+import "./coverage.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode><App/></React.StrictMode>

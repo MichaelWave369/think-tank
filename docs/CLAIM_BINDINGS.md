@@ -129,7 +129,9 @@ PR 11 builds governed search directly on this graph.
 
 Research is always scoped to an existing claim. Search candidates remain quarantined until machine retrieval creates an evidence receipt, after which the operator may bind the receipt here.
 
-Future gate rungs may use claim coverage and relation structure explicitly. They must continue to build on this graph rather than creating parallel research state.
+PR 12 adds deterministic Challenger coverage audits directly over this graph. Review snapshots preserve the exact basis fingerprint and become stale when the underlying claim/evidence structure changes.
+
+Future gate rungs may use claim coverage, review freshness, and relation structure explicitly. They must continue to build on this graph rather than creating parallel research state.
 
 ## UI
 
