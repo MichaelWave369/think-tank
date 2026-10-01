@@ -36,8 +36,23 @@
 .state-offline{opacity:.42;filter:grayscale(1)}
 .state-offline .terminal-dot{background:transparent;box-shadow:none;border:1px solid currentColor}
 
+.kernel-ok{color:#21754d;font-weight:900}
+.system-status .kernel-ok{color:#8cffc3}
+.kernel-fault{color:#b32222;font-weight:900}
+.system-status .kernel-fault{color:#ff776d}
+.ledger-controls{display:flex;align-items:center;gap:10px}
+.ledger-controls button{border:1px solid #65563f;background:#d4c29e;color:#2f2518;padding:4px 8px;font-size:.62rem;font-weight:700}
+.ledger-controls button:disabled{opacity:.45;cursor:not-allowed}
+.ledger-fault{padding:7px 14px;background:#3a1111;color:#ffd0c9;font-size:.68rem;font-weight:800}
+.ledger-paper p{display:flex;justify-content:space-between;gap:12px}
+.ledger-paper p>span{min-width:0}
+.ledger-paper p>small{white-space:nowrap;opacity:.52;font-size:.58rem}
+
 @media(max-width:700px){
   .terminal-class{font-size:.52rem}
   .state-beacon span{display:none}
   .speech-window p{-webkit-line-clamp:4}
+  .ledger-roll header{align-items:flex-start;gap:6px;flex-direction:column}
+  .ledger-paper p{display:block}
+  .ledger-paper p>small{display:block;margin-top:2px}
 }
