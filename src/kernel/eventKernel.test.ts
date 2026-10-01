@@ -7,6 +7,100 @@ import { buildEvent,buildEventBatch,replayEvents,verifyReplay } from "./eventKer
 import { fingerprintProjection } from "./fingerprint";
 
 describe("event kernel",()=>{
+  it("mints a decision dossier and replays it exactly",()=>{
+    const initial=createInitialState();
+    const events=buildEventBatch(
+      initial,
+      scenarioEventInputs("Dossier replay test.","council","council-gate-block",initial)
+    );
+    const finalEvent=events[events.length-1]!;
+    const live=events.reduce(projectEvent,initial);
+    const replayed=replayEvents(createInitialState(),events);
+
+    expect(finalEvent.decisionDossier?.id).toBe("DOS-"+String(finalEvent.seq).padStart(4,"0"));
+    expect(finalEvent.decisionDossier?.outcome).toBe("withheld");
+    expect(live.decisionDossiers).toHaveLength(1);
+    expect(replayed.decisionDossiers).toEqual(live.decisionDossiers);
+  });
+
+  it("rejects a forged synthesis decision dossier",()=>{
+    const initial=createInitialState();
+    const inputs=scenarioEventInputs(
+      "Forge dossier test.","council","council-gate-block",initial
+    );
+    const prefix=inputs.slice(0,-1);
+    const finalInput=inputs[inputs.length-1]!;
+    const prefixEvents=buildEventBatch(initial,prefix);
+    const state=prefixEvents.reduce(projectEvent,initial);
+
+    const valid=buildEvent(state,finalInput);
+    const forged={
+      ...finalInput,
+      decisionDossier:{
+        ...valid.decisionDossier!,
+        basisFingerprint:"fnv1a32:deadbeef"
+      }
+    };
+
+    expect(()=>buildEvent(state,forged)).toThrow(/Decision dossier does not match deterministic recomputation/i);
+  });
+
+  it("rejects a replay ledger with the dossier removed",()=>{
+    const initial=createInitialState();
+    const events=buildEventBatch(
+      initial,
+      scenarioEventInputs("Missing dossier test.","council","council-gate-block",initial)
+    );
+    const tampered=events.map((event,index)=>
+      index===events.length-1?{...event,decisionDossier:undefined}:event
+    );
+
+    expect(()=>replayEvents(createInitialState(),tampered))
+      .toThrow(/requires a decision dossier/i);
+  });
+
+  it("rejects a synthesis reason that disagrees with deterministic governance",()=>{
+    const initial=createInitialState();
+    const inputs=scenarioEventInputs(
+      "Reason integrity test.","council","council-gate-block",initial
+    );
+    const prefix=inputs.slice(0,-1);
+    const finalInput={...inputs[inputs.length-1]!,governanceReason:"Made-up reason."};
+    const state=buildEventBatch(initial,prefix).reduce(projectEvent,initial);
+
+    expect(()=>buildEvent(state,finalInput))
+      .toThrow(/Governance reason does not match deterministic/i);
+  });
+
+  it("links FORCE SYNTHESIS to the latest withheld dossier and replays exactly",()=>{
+    const initial=createInitialState();
+    const events=buildEventBatch(
+      initial,
+      scenarioEventInputs("Override dossier test.","council","council-gate-block",initial)
+    );
+    const withheld=events.reduce(projectEvent,initial);
+
+    const override=buildEvent(withheld,{
+      source:"operator",
+      kind:"operator.override",
+      phase:"synthesis",
+      override:true,
+      outputLabel:"STANDARD",
+      actionAllowed:true,
+      governanceReason:"Human operator explicitly overrode the withheld/faulted synthesis state.",
+      message:"Operator override recorded: FORCE SYNTHESIS."
+    });
+    const final=projectEvent(withheld,override);
+
+    expect(override.decisionOverride?.dossierId).toBe(withheld.decisionDossiers[0]?.id);
+    expect(final.decisionOverrides).toHaveLength(1);
+    expect(final.decisionDossiers[0]?.outcome).toBe("withheld");
+
+    const replayed=replayEvents(createInitialState(),[...events,override]);
+    expect(replayed.decisionOverrides).toEqual(final.decisionOverrides);
+    expect(replayed.actionAllowed).toBe(true);
+  });
+
   it("rejects a forged passing argument-governance receipt",()=>{
     const initial=createInitialState();
     initial.claims=[{id:"CL-1",text:"Excerpt-bearing council claim.",addedBy:"operator"}];
