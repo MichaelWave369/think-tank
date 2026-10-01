@@ -43,3 +43,26 @@ export interface ProviderErrorResponse{
   ok:false;
   error:{code:string;message:string};
 }
+
+
+export interface EvidenceFetchRequest{
+  uri:string;
+}
+
+export interface EvidenceFetchReceipt{
+  ok:true;
+  tool:"url-fetch";
+  requestedUri:string;
+  finalUri:string;
+  httpStatus:number;
+  contentType:string;
+  bytes:number;
+  sha256:string;
+  redirects:number;
+  retrievedAt:string;
+}
+
+export interface EvidenceFetchError{
+  ok:false;
+  error:{code:string;message:string};
+}
