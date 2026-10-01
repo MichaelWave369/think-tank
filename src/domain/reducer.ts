@@ -55,11 +55,32 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
     next.operatorPrompt=event.message??"";
   }
 
+  if(event.kind==="seat.status"&&event.seatId&&event.seatStatus){
+    next.seatStatus={...state.seatStatus,[event.seatId]:event.seatStatus};
+  }
+
+  if(event.kind==="role.pinned"&&event.roleId&&event.seatId){
+    next.pinnedAssignments={...state.pinnedAssignments,[event.roleId]:event.seatId};
+  }
+
+  if(event.kind==="role.unpinned"&&event.roleId){
+    const pins={...state.pinnedAssignments};
+    delete pins[event.roleId];
+    next.pinnedAssignments=pins;
+  }
+
   if(event.kind==="role.assigned"&&event.roleId&&event.seatId){
     next.assignments=[
       ...state.assignments.filter(assignment=>assignment.roleId!==event.roleId),
       {roleId:event.roleId,seatId:event.seatId}
     ];
+    next.assignmentScores={...state.assignmentScores,[event.roleId]:event.assignmentScore??0};
+    next.assignmentReasons={...state.assignmentReasons,[event.roleId]:event.assignmentReason??event.message??"Assignment updated."};
+    next.assignmentOrigins={...state.assignmentOrigins,[event.roleId]:event.assignmentOrigin??"auto"};
+  }
+
+  if(event.kind==="routing.completed"){
+    next.governanceReason=event.message??state.governanceReason;
   }
 
   if(event.kind==="session.started"){
