@@ -9,7 +9,8 @@
     "test": "vitest run",
     "preview": "vite preview",
     "bridge": "node scripts/provider-bridge.mjs",
-    "bridge:check": "node --check scripts/provider-bridge.mjs"
+    "bridge:check": "node --check scripts/provider-bridge.mjs",
+    "bridge:test": "node --test scripts/evidence-verifier.test.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",
