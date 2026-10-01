@@ -14,4 +14,5 @@ jobs:
       - run: npm install
       - run: npm test
       - run: npm run bridge:check
+      - run: npm run bridge:test
       - run: npm run build
