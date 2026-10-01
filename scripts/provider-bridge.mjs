@@ -420,16 +420,20 @@ export const projectEvidenceText=(body,contentType)=>{
   };
 };
 
-const extractEvidenceText=async({uri,expectedSha256,startChar,endChar})=>{
-  if(typeof uri!=="string"||!uri.trim())throw bridgeError("Evidence projection requires a URI.",400);
+export const assertEvidenceSourceDigest=(actualSha256,expectedSha256)=>{
   if(typeof expectedSha256!=="string"||!/^[a-f0-9]{64}$/.test(expectedSha256)){
     throw bridgeError("Evidence projection requires the original lowercase SHA-256.",400);
   }
-
-  const {body,receipt}=await fetchEvidenceResource(uri.trim());
-  if(receipt.sha256!==expectedSha256){
+  if(actualSha256!==expectedSha256){
     throw bridgeError("Evidence source bytes changed since machine verification.",409);
   }
+};
+
+const extractEvidenceText=async({uri,expectedSha256,startChar,endChar})=>{
+  if(typeof uri!=="string"||!uri.trim())throw bridgeError("Evidence projection requires a URI.",400);
+
+  const {body,receipt}=await fetchEvidenceResource(uri.trim());
+  assertEvidenceSourceDigest(receipt.sha256,expectedSha256);
 
   const projection=projectEvidenceText(body,receipt.contentType);
   const base={
