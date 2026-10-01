@@ -1,4 +1,4 @@
-import type { RoleId,SeatId } from "../domain/types";
+import type { DossierSealReceipt,RoleId,SeatId,SynthesisDecisionDossier } from "../domain/types";
 
 export type ProviderConnectionState="connected"|"configured"|"disconnected"|"error";
 
@@ -124,4 +124,41 @@ export interface EvidenceExcerptResponse extends EvidenceProjectionResponse{
 export interface EvidenceProjectionError{
   ok:false;
   error:{code:string;message:string};
+}
+
+
+export interface DossierSealStatusResponse{
+  ok:true;
+  state:"configured"|"disabled";
+  algorithm:"Ed25519";
+  canonicalization:"json-stable-v1";
+  keyFingerprint:string|null;
+  signerLabel:string|null;
+  trust:"self-attested-local-key";
+  detail:string;
+}
+
+export interface DossierSealResponse{
+  ok:true;
+  seal:DossierSealReceipt;
+}
+
+export interface DossierVerifyResponse{
+  ok:true;
+  verified:boolean;
+  reason:string;
+  dossierId:string;
+  sealId:string;
+  digestSha256:string;
+  publicKeyFingerprintSha256:string;
+  verifiedAt:string;
+}
+
+export interface DossierSealError{
+  ok:false;
+  error:{code:string;message:string};
+}
+
+export interface DossierSealRequest{
+  dossier:SynthesisDecisionDossier;
 }
