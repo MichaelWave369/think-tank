@@ -98,3 +98,30 @@ export interface ResearchSearchError{
   ok:false;
   error:{code:string;message:string};
 }
+
+
+export interface EvidenceProjectionResponse{
+  ok:true;
+  tool:"text-projector";
+  extractor:"text-projection-v1";
+  sourceUri:string;
+  sourceSha256:string;
+  projectionSha256:string;
+  contentType:string;
+  charCount:number;
+  totalCharCount:number;
+  truncated:boolean;
+  extractedAt:string;
+  text:string;
+}
+
+export interface EvidenceExcerptResponse extends EvidenceProjectionResponse{
+  startChar:number;
+  endChar:number;
+  excerptSha256:string;
+}
+
+export interface EvidenceProjectionError{
+  ok:false;
+  error:{code:string;message:string};
+}
