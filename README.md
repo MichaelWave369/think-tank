@@ -6,26 +6,34 @@ A governed, event-sourced multi-mind control room. Cognitive roles are staffed b
 
 ## Current rung
 
-**PR 3 — Event Kernel + Deterministic Replay**
+**PR 4 — Modes + Scheduler + Governance**
 
-The ledger is now becoming the source of truth instead of a decorative transcript.
+The mode buttons are now executable laws rather than labels.
 
-PR 3 adds:
-- canonical event envelope with schema version, source, session, seed, sequence, mode, and phase
-- deterministic pre-state and post-state projection fingerprints
-- strict replay validation
-- exact ledger reconstruction from the initial room state
-- event-sourced operator mode selection
-- event-sourced operator prompts, aborts, and overrides
-- visible `REPLAY EXACT` / `REPLAY FAULT` status
-- paper-ledger before → after fingerprints
-- `REPLAY LEDGER` operator control
-- automated tests for sequence gaps, session mismatch, seed mismatch, payload tampering, exact replay, and mode replay
+PR 4 adds:
+- locked scheduler plans for SOLO / TRIO / COUNCIL / DEBATE / DREAM / BUILD / AUDIT
+- active-role sets and dimming
+- ordered speaker queues
+- mode-specific round caps
+- turn timeouts
+- synthesis triggers
+- mode-aware Reality Gate behavior
+- Debate objection requirement
+- Dream speculative/non-actionable output
+- Build low-evidence DRAFT behavior
+- Audit action lock below threshold
+- kernel rejection of illegal turn order, premature gate scoring, and excess rounds
+- visible MODE LAW / SCHEDULER console
+- canonical Council gate-block drill
+- canonical timeout/fault drill
+- force-synthesis arming only for withheld/faulted sessions
+- CI coverage across all seven modes
 
 See:
 - [Architecture](docs/ARCHITECTURE.md)
 - [Terminal Contract](docs/TERMINAL_CONTRACT.md)
 - [Event Kernel](docs/EVENT_KERNEL.md)
+- [Mode Governance](docs/MODE_GOVERNANCE.md)
 
 ## Run locally
 
@@ -47,8 +55,8 @@ The UI must not care whether an event came from the simulator, OpenAI, Kimi, Oll
 
 1. ✅ Room shell + operator authority
 2. ✅ Terminal identity + speech viewport
-3. **Event kernel + deterministic replay**
-4. Modes + scheduler + governance
+3. ✅ Event kernel + deterministic replay
+4. **Modes + scheduler + governance**
 5. Motion layer
 6. Crane Fly assignments
 7. Provider adapters
