@@ -399,6 +399,15 @@ function assertExcerptEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
       item.excerptEnd===event.excerptEnd
     );
     if(!request)throw new KernelIntegrityError("Excerpt failure has no matching operator request.",event.seq);
+    const terminal=[...state.events].reverse().find(item=>
+      (item.kind==="evidence.excerpt.added"||item.kind==="evidence.excerpt.failed")&&
+      item.evidenceId===event.evidenceId&&
+      item.excerptStart===event.excerptStart&&
+      item.excerptEnd===event.excerptEnd
+    );
+    if(terminal&&terminal.seq>request.seq){
+      throw new KernelIntegrityError("Excerpt request is already resolved.",event.seq);
+    }
     return true;
   }
 
@@ -444,6 +453,15 @@ function assertExcerptEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
       item.excerptEnd===excerpt.endChar
     );
     if(!request)throw new KernelIntegrityError("Excerpt receipt has no matching operator request.",event.seq);
+    const terminal=[...state.events].reverse().find(item=>
+      (item.kind==="evidence.excerpt.added"||item.kind==="evidence.excerpt.failed")&&
+      item.evidenceId===excerpt.evidenceId&&
+      item.excerptStart===excerpt.startChar&&
+      item.excerptEnd===excerpt.endChar
+    );
+    if(terminal&&terminal.seq>request.seq){
+      throw new KernelIntegrityError("Excerpt request is already resolved.",event.seq);
+    }
     return true;
   }
 
