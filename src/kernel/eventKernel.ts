@@ -22,9 +22,34 @@ export interface ReplayReport{
 }
 
 function assertEvidenceEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
-  const evidenceMutation=event.kind==="evidence.added"||event.kind==="evidence.removed";
-  if(evidenceMutation&&state.phase!=="intake"&&state.phase!=="complete"&&state.phase!=="aborted"){
+  const evidenceAction=
+    event.kind==="evidence.fetch.requested"||
+    event.kind==="evidence.fetch.failed"||
+    event.kind==="evidence.added"||
+    event.kind==="evidence.removed";
+
+  if(evidenceAction&&state.phase!=="intake"&&state.phase!=="complete"&&state.phase!=="aborted"){
     throw new KernelIntegrityError("Evidence packet cannot mutate during an active governed session.",event.seq);
+  }
+
+  if(event.kind==="evidence.fetch.requested"){
+    if(event.source!=="operator"){
+      throw new KernelIntegrityError("Evidence fetch requests are operator-authorized.",event.seq);
+    }
+    if(!event.evidenceUri?.trim()){
+      throw new KernelIntegrityError("Evidence fetch request requires a URI.",event.seq);
+    }
+    return true;
+  }
+
+  if(event.kind==="evidence.fetch.failed"){
+    if(event.source!=="tool"){
+      throw new KernelIntegrityError("Evidence fetch failure must be tool-originated.",event.seq);
+    }
+    if(!event.evidenceUri?.trim()){
+      throw new KernelIntegrityError("Evidence fetch failure requires the requested URI.",event.seq);
+    }
+    return true;
   }
 
   if(event.kind==="evidence.added"){
@@ -43,12 +68,57 @@ function assertEvidenceEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
       if(ref.verification==="machine-verified"){
         throw new KernelIntegrityError("Operator evidence cannot self-declare machine verification.",event.seq);
       }
+    }else if(event.source==="tool"){
+      if(ref.addedBy!=="tool"){
+        throw new KernelIntegrityError("Tool evidence must declare addedBy=tool.",event.seq);
+      }
+      if(ref.verification!=="machine-verified"){
+        throw new KernelIntegrityError("Tool evidence must declare machine verification.",event.seq);
+      }
+      if(ref.kind!=="external-source"){
+        throw new KernelIntegrityError("Machine-retrieved evidence must use external-source kind.",event.seq);
+      }
+
+      const receipt=ref.retrieval;
+      if(!receipt){
+        throw new KernelIntegrityError("Machine-verified evidence requires a retrieval receipt.",event.seq);
+      }
+      if(receipt.tool!=="url-fetch"){
+        throw new KernelIntegrityError("Unsupported evidence retrieval tool.",event.seq);
+      }
+      if(!receipt.requestedUri.trim()||!receipt.finalUri.trim()){
+        throw new KernelIntegrityError("Retrieval receipt requires requested and final URIs.",event.seq);
+      }
+      if(ref.uri!==receipt.finalUri){
+        throw new KernelIntegrityError("Evidence URI must match retrieval receipt final URI.",event.seq);
+      }
+      if(receipt.httpStatus<200||receipt.httpStatus>=300){
+        throw new KernelIntegrityError("Machine-verified evidence requires a successful HTTP status.",event.seq);
+      }
+      if(!receipt.contentType.trim()){
+        throw new KernelIntegrityError("Retrieval receipt requires a content type.",event.seq);
+      }
+      if(receipt.bytes<0||!Number.isFinite(receipt.bytes)){
+        throw new KernelIntegrityError("Retrieval receipt byte count is invalid.",event.seq);
+      }
+      if(!/^[a-f0-9]{64}$/.test(receipt.sha256)){
+        throw new KernelIntegrityError("Retrieval receipt requires a lowercase SHA-256 digest.",event.seq);
+      }
+      if(receipt.redirects<0||!Number.isInteger(receipt.redirects)){
+        throw new KernelIntegrityError("Retrieval receipt redirect count is invalid.",event.seq);
+      }
+      if(Number.isNaN(Date.parse(receipt.retrievedAt))){
+        throw new KernelIntegrityError("Retrieval receipt timestamp is invalid.",event.seq);
+      }
     }else if(event.source==="system"){
       if(ref.addedBy!=="system"){
         throw new KernelIntegrityError("System evidence must declare addedBy=system.",event.seq);
       }
+      if(ref.verification==="machine-verified"){
+        throw new KernelIntegrityError("Machine verification is reserved for governed tool receipts.",event.seq);
+      }
     }else{
-      throw new KernelIntegrityError("Evidence may only be added by operator or system.",event.seq);
+      throw new KernelIntegrityError("Evidence may only be added by operator, system, or governed tool.",event.seq);
     }
     return true;
   }
@@ -298,6 +368,7 @@ export function buildEvent(state:ThinkTankState,input:ThinkTankEventInput):Think
     providerRequestId:input.providerRequestId,
     evidenceRef:input.evidenceRef,
     evidenceId:input.evidenceId,
+    evidenceUri:input.evidenceUri,
     gateBreakdown:input.gateBreakdown,
     message:input.message,
     gateScore:input.gateScore,
