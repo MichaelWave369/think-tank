@@ -10,6 +10,8 @@ export const createInitialState=():ThinkTankState=>({
   operatorPrompt:"",
   gateThreshold:.75,
   gateScore:null,
+  gateBreakdown:null,
+  evidenceRefs:[],
   synthesisWithheld:false,
   assignments:[
     {roleId:"vessie",seatId:"local"},
