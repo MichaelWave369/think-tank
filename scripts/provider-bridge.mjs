@@ -3,6 +3,7 @@ import https from "node:https";
 import {createHash} from "node:crypto";
 import {lookup} from "node:dns/promises";
 import {isIP} from "node:net";
+import {pathToFileURL} from "node:url";
 
 try{process.loadEnvFile(".env");}catch{}
 
@@ -63,7 +64,7 @@ const readJson=(req)=>new Promise((resolve,reject)=>{
   req.on("error",reject);
 });
 
-const isBlockedIpv4=(address)=>{
+export const isBlockedIpv4=(address)=>{
   const parts=address.split(".").map(Number);
   if(parts.length!==4||parts.some(value=>!Number.isInteger(value)||value<0||value>255))return true;
   const [a,b]=parts;
@@ -80,7 +81,7 @@ const isBlockedIpv4=(address)=>{
   );
 };
 
-const isBlockedIpv6=(address)=>{
+export const isBlockedIpv6=(address)=>{
   const value=address.toLowerCase();
   if(value==="::"||value==="::1")return true;
   if(value.startsWith("fe8")||value.startsWith("fe9")||value.startsWith("fea")||value.startsWith("feb"))return true;
@@ -92,7 +93,7 @@ const isBlockedIpv6=(address)=>{
   return false;
 };
 
-const assertPublicHttpUrl=async(raw)=>{
+export const assertPublicHttpUrl=async(raw)=>{
   let url;
   try{url=new URL(raw);}catch{throw new Error("Evidence URI must be a valid absolute URL.");}
   if(url.protocol!=="https:"&&url.protocol!=="http:")throw new Error("Evidence URI must use http or https.");
@@ -427,7 +428,9 @@ const server=http.createServer(async(req,res)=>{
   }
 });
 
-server.listen(PORT,HOST,()=>{
-  console.log("Φ Think Tank provider bridge listening on http://"+HOST+":"+PORT);
-  console.log("Secrets remain server-side in this local process.");
-});
+if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
+  server.listen(PORT,HOST,()=>{
+    console.log("Φ Think Tank provider bridge listening on http://"+HOST+":"+PORT);
+    console.log("Secrets remain server-side in this local process.");
+  });
+}
