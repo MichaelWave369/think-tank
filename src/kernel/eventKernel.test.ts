@@ -1,11 +1,38 @@
 import { describe,expect,it } from "vitest";
 import { createInitialState } from "../domain/state";
+import { scenarioEventInputs } from "../sim/demo";
 import { projectEvent } from "../domain/reducer";
 import { demoEventInputs } from "../sim/demo";
 import { buildEvent,buildEventBatch,replayEvents,verifyReplay } from "./eventKernel";
 import { fingerprintProjection } from "./fingerprint";
 
 describe("event kernel",()=>{
+  it("rejects a forged passing claim-governance receipt",()=>{
+    const initial=createInitialState();
+    initial.claims=[{id:"CL-1",text:"Unreviewed council claim.",addedBy:"operator"}];
+
+    const inputs=scenarioEventInputs(
+      "Test forged claim policy.",
+      "council",
+      "happy",
+      initial
+    );
+    const prefix=inputs.slice(0,-1);
+    const finalInput=inputs[inputs.length-1]!;
+    const prefixEvents=buildEventBatch(initial,prefix);
+    const state=prefixEvents.reduce(projectEvent,initial);
+    const forged={
+      ...finalInput,
+      claimGovernance:{
+        ...finalInput.claimGovernance!,
+        passed:true,
+        missingReviewClaimIds:[],
+        reason:"Forged pass."
+      }
+    };
+
+    expect(()=>buildEvent(state,forged)).toThrow(/claim governance receipt does not match/i);
+  });
   it("replays the same ledger to the exact same projection",()=>{
     const initial=createInitialState();
     const events=buildEventBatch(initial,demoEventInputs("Explain the current architecture."));
