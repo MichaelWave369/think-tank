@@ -6,26 +6,28 @@ A governed, event-sourced multi-mind control room. Cognitive roles are staffed b
 
 ## Current rung
 
-**PR 5 — Semantic Motion Layer**
+**PR 6 — Crane Fly Assignments**
 
-The room now moves from events instead of decorative timers.
+Crane Fly now staffs active cognitive roles with available provider/model seats instead of merely displaying a routing label.
 
-PR 5 adds:
-- semantic motion cues derived from canonical ledger events
-- deterministic one-event-at-a-time simulation playback
-- seat → Φ Commonline → role route visualization
-- role and provider-seat event hits
-- room wake, gate pass/block, fault, completion, override, and abort cues
-- one global motion policy owner
-- reduced-motion semantic fallback
-- hidden-tab FX pause
-- transform/opacity-only animation policy
-- operator lockout during playback while ABORT remains live
-- System Status playback + Motion FX state
-- ledger print animation
-- ledger auto-scroll pause/resume
-- tear/export receipt text
-- automated motion-cue tests
+PR 6 adds:
+- deterministic role ↔ seat scoring
+- normalized capability profiles across all seats
+- role-specific routing requirements
+- local-first bonuses where appropriate
+- availability states: ONLINE / DEGRADED / OFFLINE
+- load-balancing penalty
+- explicit operator PIN / UNPIN controls
+- hard pin supremacy over AUTO routing
+- unresolved-role blocking when a pinned seat is offline
+- event-sourced seat status, pin, unpin, assignment, and routing receipts
+- assignment score, origin, and explanation on every route
+- Crane Fly operator switchboard UI
+- assignment provenance on role terminals
+- assignment motion through Commonline
+- automatic routing before governed session execution
+- SEND blocked when an active role cannot be staffed
+- automated Crane Fly and kernel routing tests
 
 See:
 - [Architecture](docs/ARCHITECTURE.md)
@@ -33,6 +35,7 @@ See:
 - [Event Kernel](docs/EVENT_KERNEL.md)
 - [Mode Governance](docs/MODE_GOVERNANCE.md)
 - [Motion Layer](docs/MOTION_LAYER.md)
+- [Crane Fly](docs/CRANE_FLY.md)
 
 ## Run locally
 
@@ -48,7 +51,7 @@ Verification:
 
 > **If a light changes, a sequenced event explains why.**
 
-Motion is a projection of accepted events. Provider integration replaces event emitters, not the interface or motion contract.
+Crane Fly assignment decisions are canonical events. Automatic routing may choose among available seats, but it does not override an explicit operator pin.
 
 ## Build ladder
 
@@ -56,8 +59,8 @@ Motion is a projection of accepted events. Provider integration replaces event e
 2. ✅ Terminal identity + speech viewport
 3. ✅ Event kernel + deterministic replay
 4. ✅ Modes + scheduler + governance
-5. **Semantic motion layer**
-6. Crane Fly assignments
+5. ✅ Semantic motion layer
+6. **Crane Fly assignments**
 7. Provider adapters
 
 **Φ THINK TANK is a control room, not eight chat cards.**

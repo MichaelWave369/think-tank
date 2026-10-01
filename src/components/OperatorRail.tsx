@@ -3,14 +3,16 @@ interface Props{
   seed:string;
   prompt:string;
   canForce:boolean;
+  canRun:boolean;
   busy:boolean;
   onPrompt:(value:string)=>void;
   onSend:()=>void;
   onAbort:()=>void;
+  onRouter:()=>void;
   onForce:()=>void;
 }
 
-export function OperatorRail({sessionId,seed,prompt,canForce,busy,onPrompt,onSend,onAbort,onForce}:Props){
+export function OperatorRail({sessionId,seed,prompt,canForce,canRun,busy,onPrompt,onSend,onAbort,onRouter,onForce}:Props){
   return <section className="operator-rail">
     <div className="operator-label"><strong>OPERATOR</strong><span>HUMAN AUTHORITY</span></div>
     <textarea
@@ -21,14 +23,14 @@ export function OperatorRail({sessionId,seed,prompt,canForce,busy,onPrompt,onSen
       disabled={busy}
     />
     <div className="operator-actions">
-      <button onClick={onSend} disabled={busy}>SEND / RUN MODE</button>
+      <button onClick={onSend} disabled={busy||!canRun}>SEND / RUN MODE</button>
       <button className="abort" onClick={onAbort}>ABORT</button>
-      <button disabled={busy}>PIN / UNPIN</button>
+      <button onClick={onRouter} disabled={busy}>CRANE FLY / PIN</button>
       <button className="force" onClick={onForce} disabled={busy||!canForce}>FORCE SYNTHESIS</button>
     </div>
     <div className="operator-meta">
-      <span>SESSION {sessionId}</span>
-      <span>SEED {seed}</span>
+      <span>SESSION {sessionId}</span><span>SEED {seed}</span>
+      <span>ROUTE {canRun?"READY":"BLOCKED"}</span>
       <span>PLAYBACK {busy?"ACTIVE":"IDLE"}</span>
       <span>FORCE {canForce&&!busy?"ARMED":"SAFE"}</span>
     </div>

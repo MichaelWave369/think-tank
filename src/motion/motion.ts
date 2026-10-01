@@ -2,18 +2,8 @@ import type { SeatId,ThinkTankEvent,ThinkTankState } from "../domain/types";
 
 export type MotionMode="full"|"reduced"|"paused";
 export type MotionCueKind=
-  |"idle"
-  |"wake"
-  |"route"
-  |"speak"
-  |"challenge"
-  |"gate-pass"
-  |"gate-block"
-  |"fault"
-  |"complete"
-  |"override"
-  |"abort"
-  |"ledger";
+  |"idle"|"wake"|"route"|"assign"|"speak"|"challenge"
+  |"gate-pass"|"gate-block"|"fault"|"complete"|"override"|"abort"|"ledger";
 
 export interface MotionCue{
   seq:number;
@@ -27,10 +17,7 @@ export interface MotionCue{
 const seatForRole=(state:ThinkTankState,roleId?:ThinkTankEvent["roleId"]):SeatId|undefined=>
   state.assignments.find(assignment=>assignment.roleId===roleId)?.seatId;
 
-export function deriveMotionCue(
-  event:ThinkTankEvent|undefined,
-  state:ThinkTankState
-):MotionCue{
+export function deriveMotionCue(event:ThinkTankEvent|undefined,state:ThinkTankState):MotionCue{
   if(!event)return {seq:0,kind:"idle",label:"ROOM IDLE",intensity:"low"};
 
   const base={
@@ -42,6 +29,8 @@ export function deriveMotionCue(
   switch(event.kind){
     case "session.started":
       return {...base,kind:"wake",label:"ROOM WAKE",intensity:"medium"};
+    case "role.assigned":
+      return {...base,kind:"assign",label:"CRANE FLY → "+(event.roleId??"ROLE").toUpperCase(),intensity:"medium"};
     case "turn.started":
       return {...base,kind:"route",label:"ROUTE TO "+(event.roleId??"ROLE").toUpperCase(),intensity:"medium"};
     case "utterance.complete":

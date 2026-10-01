@@ -18,6 +18,23 @@ export const createInitialState=():ThinkTankState=>({
     {roleId:"challenger",seatId:"openai"},
     {roleId:"archivist",seatId:"kimi"}
   ],
+  pinnedAssignments:{},
+  assignmentScores:{vessie:4.1,dreamer:4.8,builder:4.7,challenger:5,archivist:4.8},
+  assignmentReasons:{
+    vessie:"Bootstrap assignment before Crane Fly planning.",
+    dreamer:"Bootstrap assignment before Crane Fly planning.",
+    builder:"Bootstrap assignment before Crane Fly planning.",
+    challenger:"Bootstrap assignment before Crane Fly planning.",
+    archivist:"Bootstrap assignment before Crane Fly planning."
+  },
+  assignmentOrigins:{
+    vessie:"bootstrap",
+    dreamer:"bootstrap",
+    builder:"bootstrap",
+    challenger:"bootstrap",
+    archivist:"bootstrap"
+  },
+  seatStatus:{openai:"online",kimi:"online",local:"online"},
   terminalStates:{vessie:"idle",dreamer:"idle",builder:"idle",challenger:"idle",archivist:"idle"},
   lastUtterance:{},
   turnPlan:null,

@@ -16,7 +16,7 @@ See [EVENT_KERNEL.md](EVENT_KERNEL.md).
 
 ## Human operator authority
 
-The Operator Rail is permanent UI. Prompt submission, mode selection, abort, pin/unpin, and force-synthesis belong to the operator surface.
+The Operator Rail is permanent UI. Prompt submission, mode selection, abort, pin/unpin, seat availability, and force-synthesis belong to the operator surface.
 
 Operational controls do not bypass the ledger. Operator actions are canonical events.
 
@@ -38,7 +38,34 @@ Provider/model seats:
 - Kimi seat
 - Local Brain
 
-An Assignment binds a seat to a role for the current session. Crane Fly routes assignments; UI identity does not depend on provider identity.
+An Assignment binds a seat to a role for the current session. UI identity does not depend on provider identity.
+
+## Crane Fly assignment engine
+
+Crane Fly now owns deterministic role ↔ seat staffing for the active collaboration mode.
+
+It considers:
+- active mode role set
+- normalized seat capability profiles
+- seat locality
+- seat availability
+- current assignment load
+- explicit operator pins
+
+Each automatic assignment emits a canonical `role.assigned` event containing:
+- role
+- seat
+- score
+- assignment origin
+- human-readable reason
+
+Operator pins are hard constraints. AUTO routing does not override them.
+
+If a pinned seat is offline, the role becomes unresolved and SEND is blocked until the operator unpins the role or restores the seat.
+
+Routing occurs after the operator prompt and before governed session start.
+
+See [CRANE_FLY.md](CRANE_FLY.md).
 
 ## Modes + scheduler
 
@@ -68,6 +95,10 @@ The global motion policy is:
 Hidden tabs pause FX. Reduced motion preserves semantic state without traveling effects.
 
 Animated properties are restricted to transform and opacity.
+
+Assignment and runtime route events use the same visual path:
+
+`SEAT → Φ COMMONLINE → ROLE`
 
 Simulation batches are pre-sealed by the event kernel and then visually projected one event at a time so routing can actually be observed without changing ledger semantics.
 
@@ -99,8 +130,8 @@ The gate is interpreted by the selected mode law. A low score may withhold synth
 2. ✅ Terminal identity + speech viewport
 3. ✅ Event kernel + deterministic replay
 4. ✅ Modes + scheduler + governance
-5. Semantic motion layer
+5. ✅ Semantic motion layer
 6. Crane Fly role-seat assignment engine
 7. Provider adapters
 
-Provider adapters must emit kernel events. They must not bypass the scheduler, reducer, or directly animate the UI.
+Provider adapters must emit kernel events. They must not bypass Crane Fly, the scheduler, reducer, or motion contract.

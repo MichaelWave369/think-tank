@@ -20,7 +20,75 @@ export interface ReplayReport{
   error?:string;
 }
 
+function assertRoutingEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
+  if(event.kind==="seat.status"){
+    if(!event.seatId||!event.seatStatus){
+      throw new KernelIntegrityError("Seat status event requires seat id and status.",event.seq);
+    }
+    return true;
+  }
+
+  if(event.kind==="role.pinned"){
+    if(!event.roleId||!event.seatId){
+      throw new KernelIntegrityError("Role pin requires role id and seat id.",event.seq);
+    }
+    if(state.seatStatus[event.seatId]==="offline"){
+      throw new KernelIntegrityError("Cannot pin a role to an offline seat.",event.seq);
+    }
+    return true;
+  }
+
+  if(event.kind==="role.unpinned"){
+    if(!event.roleId){
+      throw new KernelIntegrityError("Role unpin requires role id.",event.seq);
+    }
+    return true;
+  }
+
+  if(event.kind==="role.assigned"){
+    if(!event.roleId||!event.seatId){
+      throw new KernelIntegrityError("Role assignment requires role id and seat id.",event.seq);
+    }
+    if(state.seatStatus[event.seatId]==="offline"){
+      throw new KernelIntegrityError("Cannot assign a role to an offline seat.",event.seq);
+    }
+
+    const pinned=state.pinnedAssignments[event.roleId];
+    if(pinned&&pinned!==event.seatId){
+      throw new KernelIntegrityError(
+        "Assignment violates operator pin: "+event.roleId+" is pinned to "+pinned+".",
+        event.seq
+      );
+    }
+
+    if(event.assignmentOrigin!=="auto"&&event.assignmentOrigin!=="operator-pin"&&event.assignmentOrigin!=="bootstrap"){
+      throw new KernelIntegrityError("Assignment event requires a valid origin.",event.seq);
+    }
+
+    if(event.assignmentScore===undefined||!Number.isFinite(event.assignmentScore)){
+      throw new KernelIntegrityError("Assignment event requires a finite score.",event.seq);
+    }
+
+    if(!event.assignmentReason?.trim()){
+      throw new KernelIntegrityError("Assignment event requires an explanation.",event.seq);
+    }
+
+    return true;
+  }
+
+  if(event.kind==="routing.completed"){
+    if(event.source!=="system"){
+      throw new KernelIntegrityError("Routing completion must be system-originated.",event.seq);
+    }
+    return true;
+  }
+
+  return false;
+}
+
 function assertPolicyEvent(state:ThinkTankState,event:ThinkTankEvent):void{
+  if(assertRoutingEvent(state,event))return;
+
   if(event.kind==="schedule.planned"){
     if(!event.turnPlan){
       throw new KernelIntegrityError("Schedule event is missing a turn plan.",event.seq);
@@ -70,10 +138,7 @@ function assertPolicyEvent(state:ThinkTankState,event:ThinkTankEvent):void{
       throw new KernelIntegrityError("Utterance completed without an active speaker.",event.seq);
     }
     if(event.roleId!==state.currentSpeaker){
-      throw new KernelIntegrityError(
-        "Utterance role mismatch: active speaker is "+state.currentSpeaker+".",
-        event.seq
-      );
+      throw new KernelIntegrityError("Utterance role mismatch: active speaker is "+state.currentSpeaker+".",event.seq);
     }
     if(event.kind==="challenge.raised"&&event.roleId!=="challenger"){
       throw new KernelIntegrityError("Only the Challenger role may emit challenge.raised.",event.seq);
@@ -122,10 +187,7 @@ function assertPolicyEvent(state:ThinkTankState,event:ThinkTankEvent):void{
       );
     }
     if(event.outputLabel!==decision.outputLabel){
-      throw new KernelIntegrityError(
-        "Governance label mismatch: expected "+decision.outputLabel+".",
-        event.seq
-      );
+      throw new KernelIntegrityError("Governance label mismatch: expected "+decision.outputLabel+".",event.seq);
     }
     if(Boolean(event.actionAllowed)!==decision.actionAllowed){
       throw new KernelIntegrityError("Action authorization contradicts the mode law.",event.seq);
@@ -154,6 +216,10 @@ export function buildEvent(state:ThinkTankState,input:ThinkTankEventInput):Think
     phase:input.phase??state.phase,
     roleId:input.roleId,
     seatId:input.seatId,
+    seatStatus:input.seatStatus,
+    assignmentScore:input.assignmentScore,
+    assignmentReason:input.assignmentReason,
+    assignmentOrigin:input.assignmentOrigin,
     message:input.message,
     gateScore:input.gateScore,
     override:input.override,
@@ -170,10 +236,7 @@ export function buildEvent(state:ThinkTankState,input:ThinkTankEventInput):Think
   assertPolicyEvent(state,draft);
   const projected=projectEvent(state,draft);
 
-  return {
-    ...draft,
-    stateAfter:fingerprintProjection(projected)
-  };
+  return {...draft,stateAfter:fingerprintProjection(projected)};
 }
 
 export function buildEventBatch(state:ThinkTankState,inputs:ThinkTankEventInput[]):ThinkTankEvent[]{
@@ -210,10 +273,7 @@ export function applyVerifiedEvent(state:ThinkTankState,event:ThinkTankEvent):Th
 
   const expectedSeq=state.seq+1;
   if(event.seq!==expectedSeq){
-    throw new KernelIntegrityError(
-      "Sequence discontinuity: expected "+expectedSeq+", received "+event.seq+".",
-      event.seq
-    );
+    throw new KernelIntegrityError("Sequence discontinuity: expected "+expectedSeq+", received "+event.seq+".",event.seq);
   }
 
   const actualBefore=fingerprintProjection(state);

@@ -8,9 +8,21 @@ export type EventSource="operator"|"system"|"simulator"|"provider";
 export type SynthesisTrigger="all-replied"|"gate-passed"|"operator-force"|"timeout";
 export type GateBehavior="informational"|"threshold"|"threshold-or-draft"|"threshold-and-objection";
 export type GovernanceLabel="STANDARD"|"SPECULATIVE"|"DRAFT"|"READY"|"AUDIT"|"WITHHELD";
+export type CapabilityKey="REASON"|"CONTEXT"|"TOOLS"|"WEB"|"MEMORY"|"PRIVATE"|"OFFLINE"|"SPEED"|"BUILD"|"CRITIQUE"|"ARCHIVE"|"IMAGINE"|"SYNTHESIS";
+export type SeatAvailability="online"|"degraded"|"offline";
+export type SeatLocality="local"|"remote";
+export type AssignmentOrigin="bootstrap"|"auto"|"operator-pin";
 
 export interface RoleTerminal{ id:RoleId; name:string; accent:string; verbs:string[]; motif:string; }
-export interface Seat{ id:SeatId; name:string; model:string; provider:string; accent:string; capabilities:Record<string,number>; }
+export interface Seat{
+  id:SeatId;
+  name:string;
+  model:string;
+  provider:string;
+  accent:string;
+  locality:SeatLocality;
+  capabilities:Record<CapabilityKey,number>;
+}
 export interface Assignment{ roleId:RoleId; seatId:SeatId; }
 
 export interface TurnPlan{
@@ -29,7 +41,11 @@ export type ThinkTankEventKind=
   |"mode.selected"
   |"session.started"
   |"operator.prompt"
+  |"seat.status"
+  |"role.pinned"
+  |"role.unpinned"
   |"role.assigned"
+  |"routing.completed"
   |"schedule.planned"
   |"round.started"
   |"turn.started"
@@ -54,6 +70,10 @@ export interface ThinkTankEvent{
   phase:SessionPhase;
   roleId?:RoleId;
   seatId?:SeatId;
+  seatStatus?:SeatAvailability;
+  assignmentScore?:number;
+  assignmentReason?:string;
+  assignmentOrigin?:AssignmentOrigin;
   message?:string;
   gateScore?:number;
   override?:boolean;
@@ -74,6 +94,10 @@ export interface ThinkTankEventInput{
   phase?:SessionPhase;
   roleId?:RoleId;
   seatId?:SeatId;
+  seatStatus?:SeatAvailability;
+  assignmentScore?:number;
+  assignmentReason?:string;
+  assignmentOrigin?:AssignmentOrigin;
   message?:string;
   gateScore?:number;
   override?:boolean;
@@ -97,6 +121,11 @@ export interface ThinkTankState{
   gateScore:number|null;
   synthesisWithheld:boolean;
   assignments:Assignment[];
+  pinnedAssignments:Partial<Record<RoleId,SeatId>>;
+  assignmentScores:Partial<Record<RoleId,number>>;
+  assignmentReasons:Partial<Record<RoleId,string>>;
+  assignmentOrigins:Partial<Record<RoleId,AssignmentOrigin>>;
+  seatStatus:Record<SeatId,SeatAvailability>;
   terminalStates:Record<RoleId,TerminalState>;
   lastUtterance:Partial<Record<RoleId,string>>;
   turnPlan:TurnPlan|null;
