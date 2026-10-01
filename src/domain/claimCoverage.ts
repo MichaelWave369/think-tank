@@ -33,7 +33,17 @@ export function claimCoverageBasis(state:ThinkTankState,claimId:string){
           kind:evidence.kind,
           uri:evidence.uri??"",
           researchCandidateId:evidence.researchCandidateId??"",
-          sha256:evidence.retrieval?.sha256??""
+          sha256:evidence.retrieval?.sha256??"",
+          excerpts:state.evidenceExcerpts
+            .filter(excerpt=>excerpt.evidenceId===evidence.id)
+            .map(excerpt=>({
+              id:excerpt.id,
+              projectionSha256:excerpt.projectionSha256,
+              excerptSha256:excerpt.excerptSha256,
+              startChar:excerpt.startChar,
+              endChar:excerpt.endChar
+            }))
+            .sort((a,b)=>a.id.localeCompare(b.id))
         }:null
       };
     })
