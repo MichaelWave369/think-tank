@@ -97,7 +97,11 @@ The special cap is removed. The normal weighted score applies.
 
 The special cap is removed.
 
-Machine verification is reserved for system/tool integrations. The operator UI cannot create a `machine-verified` receipt.
+PR 9 implements the first machine-verification path.
+
+A machine-verified reference must originate from the governed URL retrieval tool and include a complete retrieval receipt with SHA-256 provenance.
+
+Machine verification proves retrieval provenance. It does not certify factual correctness.
 
 ## Operator evidence
 
@@ -165,8 +169,12 @@ Healthy Council, two operator-attested references:
 - final = 0.8775
 - result = governed by the normal mode threshold
 
-## Future extension
+## Machine retrieval integration
 
-A later retrieval/tool rung may emit `machine-verified` evidence after validating source retrieval, hashes, tool receipts, or other provenance.
+PR 9 adds governed URL retrieval described in [MACHINE_EVIDENCE.md](MACHINE_EVIDENCE.md).
 
-That future system should add evidence receipts. It should not bypass this scorer.
+The scoring law in this document is unchanged.
+
+A healthy Council with one machine-verified external source receives external-support breadth 0.50 and quality 1.00, producing a final score of 0.825 under the current weights.
+
+Future claim-level verification or search tools should add evidence receipts. They should not bypass this scorer.

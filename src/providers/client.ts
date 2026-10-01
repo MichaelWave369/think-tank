@@ -2,7 +2,9 @@ import type {
   ProviderErrorResponse,
   ProviderInvokeRequest,
   ProviderInvokeResponse,
-  ProviderStatusResponse
+  ProviderStatusResponse,
+  EvidenceFetchReceipt,
+  EvidenceFetchError
 } from "./types";
 
 const DEFAULT_BRIDGE="http://127.0.0.1:3691";
@@ -49,6 +51,31 @@ export async function invokeProvider(
   if(!response.ok||!body.ok){
     const errorBody=body as ProviderErrorResponse;
     throw new Error(errorBody.error?.message||("Provider bridge returned HTTP "+response.status+"."));
+  }
+
+  return body;
+}
+
+
+export async function fetchMachineEvidence(
+  uri:string,
+  signal?:AbortSignal
+):Promise<EvidenceFetchReceipt>{
+  const response=await fetchWithTimeout(
+    providerBridgeUrl+"/evidence/fetch",
+    {
+      method:"POST",
+      headers:{"content-type":"application/json"},
+      body:JSON.stringify({uri}),
+      signal
+    },
+    30000
+  );
+
+  const body=await response.json() as EvidenceFetchReceipt|EvidenceFetchError;
+  if(!response.ok||!body.ok){
+    const errorBody=body as EvidenceFetchError;
+    throw new Error(errorBody.error?.message||("Evidence fetch returned HTTP "+response.status+"."));
   }
 
   return body;

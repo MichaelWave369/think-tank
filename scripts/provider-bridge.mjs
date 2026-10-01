@@ -1,4 +1,9 @@
 import http from "node:http";
+import https from "node:https";
+import {createHash} from "node:crypto";
+import {lookup} from "node:dns/promises";
+import {isIP} from "node:net";
+import {pathToFileURL} from "node:url";
 
 try{process.loadEnvFile(".env");}catch{}
 
@@ -8,6 +13,8 @@ const OLLAMA_BASE_URL=(process.env.OLLAMA_BASE_URL||"http://127.0.0.1:11434").re
 const KIMI_BASE_URL=(process.env.KIMI_BASE_URL||"https://api.moonshot.ai/v1").replace(/\/$/,"");
 const MAX_BODY_BYTES=512_000;
 const MAX_OUTPUT_TOKENS=Math.max(64,Number(process.env.PROVIDER_MAX_OUTPUT_TOKENS||1200));
+const EVIDENCE_MAX_BYTES=Math.max(1024,Number(process.env.EVIDENCE_MAX_BYTES||2_000_000));
+const EVIDENCE_MAX_REDIRECTS=Math.max(0,Math.min(5,Number(process.env.EVIDENCE_MAX_REDIRECTS||3)));
 
 const explicitOrigins=(process.env.THINK_TANK_ORIGIN||"")
   .split(",").map(value=>value.trim()).filter(Boolean);
@@ -57,30 +64,163 @@ const readJson=(req)=>new Promise((resolve,reject)=>{
   req.on("error",reject);
 });
 
-const normalizeMessages=(messages)=>{
-  if(!Array.isArray(messages)||messages.length===0)throw new Error("messages must be a non-empty array.");
-  return messages.map((message,index)=>{
-    const role=message?.role;
-    const content=message?.content;
-    if(!["system","user","assistant"].includes(role))throw new Error("Invalid message role at index "+index+".");
-    if(typeof content!=="string"||!content.trim())throw new Error("Invalid message content at index "+index+".");
-    if(content.length>120_000)throw new Error("Message content exceeds provider bridge limit.");
-    return {role,content};
-  });
+export const isBlockedIpv4=(address)=>{
+  const parts=address.split(".").map(Number);
+  if(parts.length!==4||parts.some(value=>!Number.isInteger(value)||value<0||value>255))return true;
+  const [a,b]=parts;
+  return (
+    a===0||
+    a===10||
+    a===127||
+    (a===100&&b>=64&&b<=127)||
+    (a===169&&b===254)||
+    (a===172&&b>=16&&b<=31)||
+    (a===192&&b===168)||
+    (a===198&&(b===18||b===19))||
+    a>=224
+  );
 };
 
-const fetchJson=async(url,init,timeoutMs)=>{
-  const response=await fetch(url,{...init,signal:AbortSignal.timeout(timeoutMs)});
-  const text=await response.text();
-  let body={};
-  try{body=text?JSON.parse(text):{};}catch{body={raw:text};}
-  if(!response.ok){
-    const message=body?.error?.message||body?.message||body?.raw||("HTTP "+response.status);
-    const error=new Error(String(message));
-    error.status=response.status;
-    throw error;
+export const isBlockedIpv6=(address)=>{
+  const value=address.toLowerCase();
+  if(value==="::"||value==="::1")return true;
+  if(value.startsWith("fe8")||value.startsWith("fe9")||value.startsWith("fea")||value.startsWith("feb"))return true;
+  if(value.startsWith("fc")||value.startsWith("fd")||value.startsWith("ff"))return true;
+  if(value.startsWith("::ffff:")){
+    const mapped=value.slice(7);
+    return isIP(mapped)===4?isBlockedIpv4(mapped):true;
   }
-  return {body,response};
+  return false;
+};
+
+export const assertPublicHttpUrl=async(raw)=>{
+  let url;
+  try{url=new URL(raw);}catch{throw new Error("Evidence URI must be a valid absolute URL.");}
+  if(url.protocol!=="https:"&&url.protocol!=="http:")throw new Error("Evidence URI must use http or https.");
+  if(url.username||url.password)throw new Error("Evidence URI must not contain credentials.");
+  if(url.protocol==="http:"&&url.port&&url.port!=="80")throw new Error("HTTP evidence URI may only use port 80.");
+  if(url.protocol==="https:"&&url.port&&url.port!=="443")throw new Error("HTTPS evidence URI may only use port 443.");
+
+  const rawHost=url.hostname.startsWith("[")&&url.hostname.endsWith("]")
+    ?url.hostname.slice(1,-1)
+    :url.hostname;
+  const direct=isIP(rawHost);
+  const addresses=direct
+    ?[{address:rawHost,family:direct}]
+    :await lookup(rawHost,{all:true,verbatim:true});
+
+  if(!addresses.length)throw new Error("Evidence host did not resolve.");
+
+  for(const entry of addresses){
+    const blocked=entry.family===4?isBlockedIpv4(entry.address):isBlockedIpv6(entry.address);
+    if(blocked)throw new Error("Evidence host resolves to a private, local, multicast, or reserved address.");
+  }
+
+  return {url,address:addresses[0].address,family:addresses[0].family};
+};
+
+const allowedEvidenceType=(contentType)=>{
+  const type=(contentType||"").split(";")[0].trim().toLowerCase();
+  return (
+    type.startsWith("text/")||
+    type==="application/json"||
+    type==="application/xml"||
+    type==="application/xhtml+xml"||
+    type==="application/pdf"
+  );
+};
+
+const requestPinned=({url,address,family},maxBytes)=>new Promise((resolve,reject)=>{
+  const transport=url.protocol==="https:"?https:http;
+  let settled=false;
+
+  const finishError=(error)=>{
+    if(settled)return;
+    settled=true;
+    reject(error);
+  };
+
+  const request=transport.request(url,{
+    method:"GET",
+    headers:{
+      "accept":"text/html,text/plain,application/json,application/xml,application/pdf;q=0.8,*/*;q=0.2",
+      "user-agent":"PhiThinkTank-EvidenceVerifier/0.2"
+    },
+    timeout:20_000,
+    servername:url.hostname,
+    lookup:(_hostname,_options,callback)=>callback(null,address,family)
+  },response=>{
+    const chunks=[];
+    let total=0;
+
+    response.on("data",chunk=>{
+      total+=chunk.length;
+      if(total>maxBytes){
+        response.destroy(new Error("Evidence response exceeds the configured byte limit."));
+        return;
+      }
+      chunks.push(chunk);
+    });
+
+    response.on("end",()=>{
+      if(settled)return;
+      settled=true;
+      resolve({
+        status:response.statusCode||0,
+        headers:response.headers,
+        body:Buffer.concat(chunks,total)
+      });
+    });
+
+    response.on("error",finishError);
+  });
+
+  request.on("timeout",()=>request.destroy(new Error("Evidence retrieval timed out.")));
+  request.on("error",finishError);
+  request.end();
+});
+
+const fetchEvidenceReceipt=async(requestedUri)=>{
+  let target=await assertPublicHttpUrl(requestedUri);
+  let redirects=0;
+
+  while(true){
+    const response=await requestPinned(target,EVIDENCE_MAX_BYTES);
+    const status=response.status;
+
+    if([301,302,303,307,308].includes(status)){
+      if(redirects>=EVIDENCE_MAX_REDIRECTS)throw new Error("Evidence redirect limit exceeded.");
+      const location=Array.isArray(response.headers.location)
+        ?response.headers.location[0]
+        :response.headers.location;
+      if(!location)throw new Error("Evidence redirect did not include a Location header.");
+      target=await assertPublicHttpUrl(new URL(location,target.url).toString());
+      redirects+=1;
+      continue;
+    }
+
+    if(status<200||status>=300)throw new Error("Evidence fetch returned HTTP "+status+".");
+
+    const contentType=String(response.headers["content-type"]||"application/octet-stream");
+    if(!allowedEvidenceType(contentType)){
+      throw new Error("Evidence content type is not allowed: "+contentType+".");
+    }
+
+    const sha256=createHash("sha256").update(response.body).digest("hex");
+
+    return {
+      ok:true,
+      tool:"url-fetch",
+      requestedUri,
+      finalUri:target.url.toString(),
+      httpStatus:status,
+      contentType,
+      bytes:response.body.length,
+      sha256,
+      redirects,
+      retrievedAt:new Date().toISOString()
+    };
+  }
 };
 
 const ollamaStatus=async()=>{
@@ -123,7 +263,7 @@ const remoteStatus=(seatId,provider,key,model)=>({
 
 const statusPayload=async()=>({
   ok:true,
-  bridgeVersion:"0.1.0",
+  bridgeVersion:"0.2.0",
   seats:[
     await ollamaStatus(),
     remoteStatus("openai","OpenAI",process.env.OPENAI_API_KEY,process.env.OPENAI_MODEL),
@@ -236,12 +376,20 @@ const server=http.createServer(async(req,res)=>{
 
   try{
     if(req.method==="GET"&&req.url==="/health"){
-      send(res,200,{ok:true,service:"phi-think-tank-provider-bridge",version:"0.1.0"},origin);
+      send(res,200,{ok:true,service:"phi-think-tank-provider-bridge",version:"0.2.0"},origin);
       return;
     }
 
     if(req.method==="GET"&&req.url==="/providers/status"){
       send(res,200,await statusPayload(),origin);
+      return;
+    }
+
+    if(req.method==="POST"&&req.url==="/evidence/fetch"){
+      const raw=await readJson(req);
+      if(typeof raw.uri!=="string"||!raw.uri.trim())throw new Error("Evidence fetch requires a URI.");
+      const receipt=await fetchEvidenceReceipt(raw.uri.trim());
+      send(res,200,receipt,origin);
       return;
     }
 
@@ -280,7 +428,9 @@ const server=http.createServer(async(req,res)=>{
   }
 });
 
-server.listen(PORT,HOST,()=>{
-  console.log("Φ Think Tank provider bridge listening on http://"+HOST+":"+PORT);
-  console.log("Secrets remain server-side in this local process.");
-});
+if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
+  server.listen(PORT,HOST,()=>{
+    console.log("Φ Think Tank provider bridge listening on http://"+HOST+":"+PORT);
+    console.log("Secrets remain server-side in this local process.");
+  });
+}

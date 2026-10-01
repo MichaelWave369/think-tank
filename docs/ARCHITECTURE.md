@@ -115,6 +115,26 @@ Reality Gate is a provenance/support governance mechanism, not a factual truth o
 
 See [EVIDENCE_GATE.md](EVIDENCE_GATE.md).
 
+## Machine-verified evidence retrieval
+
+PR 9 adds the first governed tool allowed to emit `machine-verified` evidence.
+
+The operator authorizes a URL fetch. The local bridge:
+- validates the destination
+- blocks private/local network targets
+- pins the connection to the validated public address
+- revalidates redirects
+- caps bytes and redirects
+- hashes the accepted response body
+
+The canonical evidence receipt stores metadata + SHA-256, not the fetched body.
+
+Only `source: tool` evidence with a complete retrieval receipt may claim `machine-verified`.
+
+This proves retrieval provenance, not factual truth.
+
+See [MACHINE_EVIDENCE.md](MACHINE_EVIDENCE.md).
+
 ## PR ladder
 
 1. ✅ Room shell + operator authority
@@ -124,6 +144,7 @@ See [EVIDENCE_GATE.md](EVIDENCE_GATE.md).
 5. ✅ Semantic motion layer
 6. ✅ Crane Fly role-seat assignment engine
 7. ✅ Provider adapters + LIVE execution
-8. Reality Gate evidence engine
+8. ✅ Reality Gate evidence engine
+9. Machine-verified evidence retrieval
 
-Future work can add machine-verified retrieval/tool evidence, authenticated remote deployment, richer provider discovery, streaming, tool execution, and voice without changing the core event contract.
+Future work can add governed search/research tools, claim-to-source binding, authenticated remote deployment, richer provider discovery, streaming, tool execution, and voice without changing the core event contract.

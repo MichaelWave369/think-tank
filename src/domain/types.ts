@@ -4,7 +4,7 @@ export type TerminalState="idle"|"selected"|"listening"|"thinking"|"speaking"|"w
 export type CollaborationMode="solo"|"trio"|"council"|"debate"|"dream"|"build"|"audit";
 export type RouterPolicy="manual"|"auto-trio"|"council-broadcast"|"debate-round-robin"|"dream-forward"|"build-forward"|"audit-forward";
 export type SessionPhase="intake"|"routing"|"independent"|"challenge"|"revision"|"synthesis"|"action"|"complete"|"aborted";
-export type EventSource="operator"|"system"|"simulator"|"provider";
+export type EventSource="operator"|"system"|"simulator"|"provider"|"tool";
 export type SynthesisTrigger="all-replied"|"gate-passed"|"operator-force"|"timeout";
 export type GateBehavior="informational"|"threshold"|"threshold-or-draft"|"threshold-and-objection";
 export type GovernanceLabel="STANDARD"|"SPECULATIVE"|"DRAFT"|"READY"|"AUDIT"|"WITHHELD";
@@ -14,6 +14,18 @@ export type SeatLocality="local"|"remote";
 export type AssignmentOrigin="bootstrap"|"auto"|"operator-pin";
 export type EvidenceKind="operator-reference"|"tool-result"|"external-source"|"provider-output";
 export type EvidenceVerification="unverified"|"operator-attested"|"machine-verified";
+
+export interface RetrievalReceipt{
+  tool:"url-fetch";
+  requestedUri:string;
+  finalUri:string;
+  httpStatus:number;
+  contentType:string;
+  bytes:number;
+  sha256:string;
+  redirects:number;
+  retrievedAt:string;
+}
 
 export interface RoleTerminal{ id:RoleId; name:string; accent:string; verbs:string[]; motif:string; }
 export interface Seat{
@@ -34,7 +46,8 @@ export interface EvidenceRef{
   label:string;
   uri?:string;
   note?:string;
-  addedBy:"operator"|"system";
+  retrieval?:RetrievalReceipt;
+  addedBy:"operator"|"system"|"tool";
 }
 
 export interface GateBreakdown{
@@ -73,6 +86,8 @@ export type ThinkTankEventKind=
   |"role.unpinned"
   |"role.assigned"
   |"routing.completed"
+  |"evidence.fetch.requested"
+  |"evidence.fetch.failed"
   |"evidence.added"
   |"evidence.removed"
   |"provider.failed"
@@ -109,6 +124,7 @@ export interface ThinkTankEvent{
   providerRequestId?:string;
   evidenceRef?:EvidenceRef;
   evidenceId?:string;
+  evidenceUri?:string;
   gateBreakdown?:GateBreakdown;
   message?:string;
   gateScore?:number;
@@ -139,6 +155,7 @@ export interface ThinkTankEventInput{
   providerRequestId?:string;
   evidenceRef?:EvidenceRef;
   evidenceId?:string;
+  evidenceUri?:string;
   gateBreakdown?:GateBreakdown;
   message?:string;
   gateScore?:number;

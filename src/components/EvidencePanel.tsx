@@ -2,37 +2,52 @@ import { useState } from "react";
 import type { EvidenceRef,GateBreakdown } from "../domain/types";
 
 const pct=(value:number)=>Math.round(value*100)+"%";
+const shortHash=(value:string)=>value.slice(0,16)+"…";
 
 export function EvidencePanel({
   refs,
   breakdown,
   threshold,
   busy,
+  verifyBusy,
+  verifyError,
   onAdd,
+  onVerify,
   onRemove
 }:{
   refs:EvidenceRef[];
   breakdown:GateBreakdown|null;
   threshold:number;
   busy:boolean;
+  verifyBusy:boolean;
+  verifyError:string;
   onAdd:(label:string,uri:string,note:string)=>void;
+  onVerify:(label:string,uri:string,note:string)=>void;
   onRemove:(id:string)=>void;
 }){
   const [label,setLabel]=useState("");
   const [uri,setUri]=useState("");
   const [note,setNote]=useState("");
 
-  const submit=()=>{
+  const clear=()=>{setLabel("");setUri("");setNote("");};
+
+  const submitAttested=()=>{
     if(!label.trim()||busy)return;
     onAdd(label.trim(),uri.trim(),note.trim());
-    setLabel("");setUri("");setNote("");
+    clear();
+  };
+
+  const submitVerified=()=>{
+    if(!label.trim()||!uri.trim()||busy)return;
+    onVerify(label.trim(),uri.trim(),note.trim());
+    clear();
   };
 
   return <section className="evidence-panel">
     <header>
       <div>
         <strong>REALITY GATE / EVIDENCE PACKET</strong>
-        <span>PROVENANCE ≠ TRUTH · CONSENSUS ≠ EVIDENCE</span>
+        <span>PROVENANCE ≠ TRUTH · RETRIEVED ≠ TRUE · CONSENSUS ≠ EVIDENCE</span>
       </div>
       <b className={breakdown&&breakdown.finalScore>=threshold?"evidence-pass":"evidence-hold"}>
         {breakdown?breakdown.finalScore.toFixed(2):"UNSCORED"} / {threshold.toFixed(2)}
@@ -41,19 +56,34 @@ export function EvidencePanel({
 
     <div className="evidence-entry">
       <label><span>LABEL</span><input value={label} onChange={e=>setLabel(e.target.value)} disabled={busy} placeholder="Primary source, field observation, benchmark…"/></label>
-      <label><span>URI / REFERENCE</span><input value={uri} onChange={e=>setUri(e.target.value)} disabled={busy} placeholder="https://… or local reference"/></label>
+      <label><span>URI / REFERENCE</span><input value={uri} onChange={e=>setUri(e.target.value)} disabled={busy} placeholder="https://…"/></label>
       <label><span>NOTE</span><input value={note} onChange={e=>setNote(e.target.value)} disabled={busy} placeholder="What this reference supports"/></label>
-      <button type="button" onClick={submit} disabled={busy||!label.trim()}>ADD OPERATOR-ATTESTED EVIDENCE</button>
+      <div className="evidence-actions">
+        <button type="button" onClick={submitAttested} disabled={busy||!label.trim()}>
+          ADD OPERATOR-ATTESTED
+        </button>
+        <button className="machine-verify" type="button" onClick={submitVerified} disabled={busy||!label.trim()||!uri.trim()}>
+          {verifyBusy?"VERIFYING…":"FETCH + MACHINE VERIFY"}
+        </button>
+      </div>
     </div>
+
+    {verifyError&&<div className="evidence-tool-error">RETRIEVAL TOOL: {verifyError}</div>}
 
     <div className="evidence-list">
       {refs.length===0&&<p className="evidence-empty">No external evidence receipts. Model output alone is capped below the normal gate threshold.</p>}
-      {refs.map(ref=><article key={ref.id}>
+      {refs.map(ref=><article className={"evidence-ref verification-"+ref.verification} key={ref.id}>
         <div>
           <strong>{ref.label}</strong>
-          <span>{ref.id} · {ref.verification.toUpperCase()} · {ref.kind.toUpperCase()}</span>
+          <span>{ref.id} · {ref.verification.toUpperCase()} · {ref.kind.toUpperCase()} · BY {ref.addedBy.toUpperCase()}</span>
           {ref.uri&&<small>{ref.uri}</small>}
           {ref.note&&<p>{ref.note}</p>}
+          {ref.retrieval&&<div className="retrieval-receipt">
+            <span>SHA-256 {shortHash(ref.retrieval.sha256)}</span>
+            <span>{ref.retrieval.httpStatus} · {ref.retrieval.contentType}</span>
+            <span>{ref.retrieval.bytes.toLocaleString()} BYTES · {ref.retrieval.redirects} REDIRECTS</span>
+            <span>{ref.retrieval.retrievedAt}</span>
+          </div>}
         </div>
         <button type="button" onClick={()=>onRemove(ref.id)} disabled={busy}>REMOVE</button>
       </article>)}

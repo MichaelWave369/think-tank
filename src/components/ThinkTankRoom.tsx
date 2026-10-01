@@ -18,7 +18,7 @@ import { buildEvent,buildEventBatch,replayEvents,verifyReplay } from "../kernel/
 import { deriveMotionCue } from "../motion/motion";
 import { useEventPlayback } from "../motion/useEventPlayback";
 import { useMotionPolicy } from "../motion/useMotionPolicy";
-import { fetchProviderStatus,invokeProvider } from "../providers/client";
+import { fetchMachineEvidence,fetchProviderStatus,invokeProvider } from "../providers/client";
 import { runLiveProviderSession } from "../providers/liveRunner";
 import type { ProviderStatusResponse } from "../providers/types";
 import { scenarioEventInputs,type DemoScenario } from "../sim/demo";
@@ -46,7 +46,10 @@ export function ThinkTankRoom(){
   const [providerError,setProviderError]=useState("");
   const [localModel,setLocalModel]=useState("");
   const [liveRunning,setLiveRunning]=useState(false);
+  const [evidenceFetching,setEvidenceFetching]=useState(false);
+  const [evidenceToolError,setEvidenceToolError]=useState("");
   const liveAbortRef=useRef<AbortController|null>(null);
+  const evidenceAbortRef=useRef<AbortController|null>(null);
   const motionMode=useMotionPolicy();
 
   const applyEvent=useCallback((event:ThinkTankEvent)=>{
@@ -55,7 +58,7 @@ export function ThinkTankRoom(){
   },[]);
 
   const playback=useEventPlayback(applyEvent,motionMode);
-  const busy=playback.playing||liveRunning;
+  const busy=playback.playing||liveRunning||evidenceFetching;
 
   const refreshProviders=useCallback(async()=>{
     try{
@@ -168,6 +171,65 @@ export function ThinkTankRoom(){
       evidenceRef,
       message:"Operator attested evidence "+evidenceRef.id+": "+label+"."
     });
+  };
+
+  const verifyEvidence=async(label:string,uri:string,note:string)=>{
+    if(busy)return;
+
+    const controller=new AbortController();
+    evidenceAbortRef.current=controller;
+    setEvidenceFetching(true);
+    setEvidenceToolError("");
+
+    emitInput({
+      source:"operator",
+      kind:"evidence.fetch.requested",
+      phase:"intake",
+      evidenceUri:uri,
+      message:"Operator requested machine verification of "+uri+"."
+    });
+
+    try{
+      const receipt=await fetchMachineEvidence(uri,controller.signal);
+      const {ok:_,...retrieval}=receipt;
+      const evidenceRef:EvidenceRef={
+        id:"EV-"+String(stateRef.current.seq+1).padStart(4,"0"),
+        kind:"external-source",
+        verification:"machine-verified",
+        label,
+        uri:receipt.finalUri,
+        note:note||undefined,
+        retrieval,
+        addedBy:"tool"
+      };
+
+      emitInput({
+        source:"tool",
+        kind:"evidence.added",
+        phase:"intake",
+        evidenceUri:uri,
+        evidenceRef,
+        message:
+          "URL retrieval verified "+evidenceRef.id+
+          " · SHA-256 "+receipt.sha256.slice(0,16)+"… · "+receipt.bytes+" bytes."
+      });
+    }catch(error){
+      const message=error instanceof Error?error.message:String(error);
+      setEvidenceToolError(message);
+
+      try{
+        emitInput({
+          source:"tool",
+          kind:"evidence.fetch.failed",
+          phase:"intake",
+          evidenceUri:uri,
+          message:"Evidence retrieval failed: "+message
+        });
+      }catch{}
+    }finally{
+      evidenceAbortRef.current=null;
+      setEvidenceFetching(false);
+    }
   };
 
   const removeEvidence=(evidenceId:string)=>{
@@ -297,13 +359,18 @@ export function ThinkTankRoom(){
   };
 
   const abort=()=>{
+    const sessionActive=liveRunning||playback.playing;
+    evidenceAbortRef.current?.abort();
     liveAbortRef.current?.abort();
     playback.cancel();
     setLiveRunning(false);
-    emitInput({
-      source:"operator",kind:"session.aborted",phase:"aborted",
-      message:"Operator abort. Session halted."
-    });
+
+    if(sessionActive){
+      emitInput({
+        source:"operator",kind:"session.aborted",phase:"aborted",
+        message:"Operator abort. Session halted."
+      });
+    }
   };
 
   const canForce=state.synthesisWithheld||Boolean(state.faultCode);
@@ -402,7 +469,10 @@ export function ThinkTankRoom(){
           breakdown={state.gateBreakdown}
           threshold={state.gateThreshold}
           busy={busy}
+          verifyBusy={evidenceFetching}
+          verifyError={evidenceToolError}
           onAdd={addEvidence}
+          onVerify={(label,uri,note)=>void verifyEvidence(label,uri,note)}
           onRemove={removeEvidence}
         />
 

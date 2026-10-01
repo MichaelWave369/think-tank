@@ -6,35 +6,34 @@ A governed, event-sourced multi-mind control room. Cognitive roles are staffed b
 
 ## Current rung
 
-**PR 8 — Reality Gate Evidence Engine**
+**PR 9 — Machine-Verified Evidence Retrieval**
 
-LIVE sessions now receive a deterministic, inspectable evidence score instead of a placeholder gate value.
+The Evidence Packet can now independently retrieve public HTTP/S resources through the local governed bridge and record cryptographic provenance receipts.
 
-PR 8 adds:
-- canonical evidence receipts
-- operator-attested reference entry/removal
-- explicit evidence verification classes
-- deterministic Reality Gate score breakdown
-- provider provenance scoring
-- required-role coverage scoring
-- low-weight seat-diversity scoring
-- challenge coverage scoring
-- external-support scoring
-- hard evidence-class confidence caps
-- model-consensus ceiling of 0.65 without external evidence
-- single-attestation ceiling of 0.74
-- machine-verified evidence reserved for system/tool integrations
-- gate score + cap visible in the control room
-- kernel recomputation of scored LIVE gate receipts
-- forged score/breakdown rejection
-- exact evidence replay
-- automated evidence and LIVE gate tests
+PR 9 adds:
+- operator-authorized URL verification requests
+- governed `tool` event source
+- local bridge `POST /evidence/fetch`
+- public-network-only retrieval policy
+- loopback/private/link-local/metadata target rejection
+- DNS-rebinding defense by pinning connections to validated IPs
+- redirect revalidation
+- content-type allowlist
+- response byte cap
+- redirect cap
+- SHA-256 digest of accepted response bytes
+- canonical retrieval metadata
+- machine-verified evidence display in the room
+- tool failure receipts that add no evidence
+- kernel-only acceptance of complete governed tool receipts
+- exact replay of machine evidence
+- dedicated bridge network-policy tests
 
 ### Important semantic rule
 
-**Reality Gate is evidence/provenance governance, not a truth oracle.**
+**MACHINE-VERIFIED means retrieved + hashed + provenance-recorded.**
 
-Multiple models agreeing with one another do not become external evidence merely by agreeing.
+It does **not** mean the source is correct, trustworthy, independent, or sufficient.
 
 See:
 - [Architecture](docs/ARCHITECTURE.md)
@@ -45,6 +44,7 @@ See:
 - [Crane Fly](docs/CRANE_FLY.md)
 - [Providers](docs/PROVIDERS.md)
 - [Reality Gate Evidence Engine](docs/EVIDENCE_GATE.md)
+- [Machine-Verified Evidence Retrieval](docs/MACHINE_EVIDENCE.md)
 
 ## Local-first setup
 
@@ -60,13 +60,14 @@ Verification:
 
     npm test
     npm run bridge:check
+    npm run bridge:test
     npm run build
 
 ## Architectural law
 
 > **If a light changes, a sequenced event explains why.**
 
-If the Reality Gate changes, a replayable evidence packet explains why.
+If evidence changes the Reality Gate, a replayable provenance receipt explains where that evidence came from.
 
 ## Build ladder
 
@@ -77,6 +78,7 @@ If the Reality Gate changes, a replayable evidence packet explains why.
 5. ✅ Semantic motion layer
 6. ✅ Crane Fly assignments
 7. ✅ Provider adapters + LIVE execution
-8. **Reality Gate evidence engine**
+8. ✅ Reality Gate evidence engine
+9. **Machine-verified evidence retrieval**
 
 **Φ THINK TANK is a control room, not eight chat cards.**
