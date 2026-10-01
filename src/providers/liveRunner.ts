@@ -1,4 +1,5 @@
 import { planAssignments,routingEventInputs } from "../domain/craneFly";
+import { evaluateEvidence } from "../domain/evidence";
 import { projectEvent } from "../domain/reducer";
 import { evaluateGovernance,initialTurnPlan } from "../domain/scheduler";
 import type { RoleId,Seat,ThinkTankEvent,ThinkTankEventInput,ThinkTankState } from "../domain/types";
@@ -153,17 +154,21 @@ export async function runLiveProviderSession(options:LiveRunnerOptions):Promise<
       }
     }
 
+    const gateBreakdown=evaluateEvidence(working);
     emit({
       source:"system",
       kind:"gate.scored",
       phase:"synthesis",
-      gateScore:0,
-      message:"LIVE providers completed. No production evidence scorer is connected; Reality Gate fails closed at 0.00."
+      gateScore:gateBreakdown.finalScore,
+      gateBreakdown,
+      message:
+        "Reality Gate evaluated evidence packet at "+gateBreakdown.finalScore.toFixed(2)+
+        " (raw "+gateBreakdown.rawScore.toFixed(2)+", cap "+gateBreakdown.cap.toFixed(2)+")."
     });
 
     const decision=evaluateGovernance(
       working.mode,
-      0,
+      gateBreakdown.finalScore,
       working.gateThreshold,
       working.objectionCount,
       false
@@ -178,7 +183,7 @@ export async function runLiveProviderSession(options:LiveRunnerOptions):Promise<
       governanceReason:decision.reason,
       message:decision.synthesisAllowed
         ?"LIVE session completed under "+working.mode.toUpperCase()+" gate law as "+decision.outputLabel+"."
-        :"LIVE synthesis withheld because no production evidence scorer is connected."
+        :"LIVE synthesis withheld by the deterministic evidence gate."
     });
 
     return {state:working,completed:true,aborted:false};
