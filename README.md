@@ -6,34 +6,34 @@ A governed, event-sourced multi-mind control room. Cognitive roles are staffed b
 
 ## Current rung
 
-**PR 10 — Claim Registry + Claim-to-Source Binding**
+**PR 11 — Governed Research / Search**
 
-Evidence no longer has to float as an undifferentiated packet. The operator can register explicit claims and bind individual evidence receipts as supporting, contradicting, or contextual.
+The Think Tank can now discover candidate sources for registered claims without treating search results as evidence.
 
-PR 10 adds:
-- canonical claim registry
-- canonical claim/evidence bindings
-- SUPPORTS / CONTRADICTS / CONTEXT relations
-- derived claim status
-- UNBOUND / SUPPORTED / CHALLENGED / CONTESTED / CONTEXT-ONLY states
-- duplicate-claim rejection
-- unknown-reference rejection
-- one active relation per claim/source pair
-- explicit unbind-before-relation-change law
-- bound evidence deletion protection
-- bound claim deletion protection
-- claim graph mutation lock during active execution
-- prior Gate authorization invalidation after semantic graph edits
-- exact claim graph replay
-- Claim Board / Source Map UI
-- bound markers in Evidence Packet
-- claim graph telemetry in System Status
+PR 11 adds:
+- optional local-first SearXNG search adapter
+- operator-authorized claim-scoped searches
+- canonical search request / completion / failure events
+- replayable research search receipts
+- SHA-256 result-set digest
+- quarantined research candidates
+- candidate URL normalization and deduplication
+- candidate count caps
+- candidate-to-machine-evidence lineage
+- explicit VERIFY → EVIDENCE promotion
+- existing evidence reuse
+- duplicate evidence URI rejection
+- duplicate machine-content digest rejection
+- Research Console UI
+- search/candidate System Status telemetry
+- bridge runtime helper repair
+- expanded bridge and kernel tests
 
 ### Important semantic rule
 
-**Bindings describe how evidence bears on a claim. They do not declare the claim true or false.**
+**SEARCH RESULT ≠ EVIDENCE.**
 
-PR 10 deliberately leaves the Reality Gate scoring weights unchanged.
+Discovery contributes zero to Reality Gate until a candidate passes governed machine retrieval.
 
 See:
 - [Architecture](docs/ARCHITECTURE.md)
@@ -46,6 +46,7 @@ See:
 - [Reality Gate Evidence Engine](docs/EVIDENCE_GATE.md)
 - [Machine-Verified Evidence Retrieval](docs/MACHINE_EVIDENCE.md)
 - [Claim Registry + Bindings](docs/CLAIM_BINDINGS.md)
+- [Governed Research / Search](docs/GOVERNED_RESEARCH.md)
 
 ## Local-first setup
 
@@ -68,7 +69,7 @@ Verification:
 
 > **If a light changes, a sequenced event explains why.**
 
-If a source changes what it is claimed to support or contradict, an explicit binding event explains that too.
+Search discovery, source promotion, retrieval verification, and claim interpretation are separate ledger-visible transitions.
 
 ## Build ladder
 
@@ -81,6 +82,7 @@ If a source changes what it is claimed to support or contradict, an explicit bin
 7. ✅ Provider adapters + LIVE execution
 8. ✅ Reality Gate evidence engine
 9. ✅ Machine-verified evidence retrieval
-10. **Claim registry + claim-to-source binding**
+10. ✅ Claim registry + claim-to-source binding
+11. **Governed research / search**
 
 **Φ THINK TANK is a control room, not eight chat cards.**
