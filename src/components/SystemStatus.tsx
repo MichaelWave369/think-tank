@@ -61,6 +61,8 @@ export function SystemStatus({
     <span>Argument Policy: {argumentPolicy.passed?"PASS":"BLOCK"}</span>
     <span>Dossiers: {state.decisionDossiers.length}</span>
     <span>Overrides: {state.decisionOverrides.length}</span>
+    <span>Dossier Seals: {state.dossierSeals.length}</span>
+    <span>Seal Checks: {state.dossierSealVerifications.length}</span>
     <span>Research: {state.researchSearches.length} searches</span>
     <span>Candidates: {state.researchCandidates.length}</span>
     <span>Output: {state.outputLabel??"PENDING"}</span>
