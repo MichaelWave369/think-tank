@@ -1,8 +1,19 @@
 import { schedulerStatus } from "../domain/scheduler";
 import type { ThinkTankState } from "../domain/types";
 import type { ReplayReport } from "../kernel/eventKernel";
+import type { MotionMode } from "../motion/motion";
 
-export function SystemStatus({state,replayReport}:{state:ThinkTankState;replayReport:ReplayReport}){
+export function SystemStatus({
+  state,
+  replayReport,
+  motionMode,
+  playing
+}:{
+  state:ThinkTankState;
+  replayReport:ReplayReport;
+  motionMode:MotionMode;
+  playing:boolean;
+}){
   const gate=state.gateScore===null?"WAITING":state.gateScore.toFixed(2);
   const kernelOk=replayReport.valid&&replayReport.exact;
 
@@ -10,6 +21,8 @@ export function SystemStatus({state,replayReport}:{state:ThinkTankState;replayRe
     <strong>SYSTEM STATUS</strong>
     <span>Crane Fly: {state.routerPolicy.toUpperCase()}</span>
     <span>Scheduler: {schedulerStatus(state)}</span>
+    <span>Playback: {playing?"ACTIVE":"IDLE"}</span>
+    <span>Motion FX: {motionMode.toUpperCase()}</span>
     <span>Round: {state.currentRound} / {state.turnPlan?.maxRounds??0}</span>
     <span>Reality Gate: {gate} / {state.gateThreshold.toFixed(2)}</span>
     <span>Output: {state.outputLabel??"PENDING"}</span>

@@ -1,4 +1,5 @@
 import type { RoleTerminal,Seat,TerminalState } from "../domain/types";
+import type { MotionCueKind } from "../motion/motion";
 
 type RoleProps={
   kind:"role";
@@ -7,6 +8,8 @@ type RoleProps={
   utterance?:string;
   staffedBy:string;
   phase?:string;
+  motionActive?:boolean;
+  motionKind?:MotionCueKind;
 };
 
 type SeatProps={
@@ -14,6 +17,8 @@ type SeatProps={
   terminal:Seat;
   assignedRoles:string[];
   state:TerminalState;
+  motionActive?:boolean;
+  motionKind?:MotionCueKind;
 };
 
 const stateSymbol:Record<TerminalState,string>={
@@ -36,8 +41,11 @@ function StateBeacon({state}:{state:TerminalState}){
 
 export function TerminalPanel(props:RoleProps|SeatProps){
   if(props.kind==="seat"){
-    const {terminal,assignedRoles,state}=props;
-    return <section className={"terminal seat accent-"+terminal.accent+" state-"+state}>
+    const {terminal,assignedRoles,state,motionActive=false,motionKind="idle"}=props;
+    return <section
+      className={"terminal seat accent-"+terminal.accent+" state-"+state+(motionActive?" motion-hit cue-"+motionKind:"")}
+      data-terminal={"seat:"+terminal.id}
+    >
       <header className="terminal-header">
         <div className="terminal-title">
           <span className="terminal-dot"/>
@@ -77,10 +85,13 @@ export function TerminalPanel(props:RoleProps|SeatProps){
     </section>;
   }
 
-  const {terminal,state,utterance,staffedBy,phase}=props;
+  const {terminal,state,utterance,staffedBy,phase,motionActive=false,motionKind="idle"}=props;
   const speaking=state==="speaking"||state==="warning";
 
-  return <section className={"terminal role accent-"+terminal.accent+" state-"+state}>
+  return <section
+    className={"terminal role accent-"+terminal.accent+" state-"+state+(motionActive?" motion-hit cue-"+motionKind:"")}
+    data-terminal={"role:"+terminal.id}
+  >
     <header className="terminal-header">
       <div className="terminal-title">
         <span className="terminal-dot"/>
@@ -92,7 +103,7 @@ export function TerminalPanel(props:RoleProps|SeatProps){
 
     <div className="terminal-visual">
       <div className="motif">{terminal.motif}</div>
-      <div className="verb-list">{terminal.verbs.map(v=><span key={v}>{v}</span>)}</div>
+      <div className="verb-list">{terminal.verbs.map(value=><span key={value}>{value}</span>)}</div>
     </div>
 
     <div className="speech-window" aria-live={speaking?"polite":"off"}>

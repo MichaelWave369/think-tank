@@ -1,15 +1,19 @@
-import { useMemo,useReducer,useState } from "react";
+import { useCallback,useMemo,useReducer,useState } from "react";
 import { roles,seats } from "../data/terminals";
 import { createInitialState } from "../domain/state";
 import { thinkTankReducer } from "../domain/reducer";
-import type { CollaborationMode,RoleId,TerminalState,ThinkTankEventInput } from "../domain/types";
+import type { CollaborationMode,RoleId,TerminalState,ThinkTankEvent,ThinkTankEventInput } from "../domain/types";
 import { buildEvent,buildEventBatch,replayEvents,verifyReplay } from "../kernel/eventKernel";
+import { deriveMotionCue } from "../motion/motion";
+import { useEventPlayback } from "../motion/useEventPlayback";
+import { useMotionPolicy } from "../motion/useMotionPolicy";
 import { scenarioEventInputs,type DemoScenario } from "../sim/demo";
 import { TerminalPanel } from "./TerminalPanel";
 import { Commonline } from "./Commonline";
 import { GovernancePanel } from "./GovernancePanel";
 import { OperatorRail } from "./OperatorRail";
 import { ModeBar } from "./ModeBar";
+import { MotionLayer } from "./MotionLayer";
 import { SystemStatus } from "./SystemStatus";
 import { LedgerRoll } from "./LedgerRoll";
 
@@ -18,6 +22,16 @@ const seatStatePriority:TerminalState[]=["warning","speaking","thinking","select
 export function ThinkTankRoom(){
   const [state,dispatch]=useReducer(thinkTankReducer,createInitialState());
   const [prompt,setPrompt]=useState("");
+  const motionMode=useMotionPolicy();
+
+  const applyEvent=useCallback((event:ThinkTankEvent)=>{
+    dispatch({type:"APPLY_EVENT",event});
+  },[]);
+
+  const playback=useEventPlayback(applyEvent,motionMode);
+
+  const latestEvent=state.events[state.events.length-1];
+  const cue=useMemo(()=>deriveMotionCue(latestEvent,state),[latestEvent,state]);
 
   const activeRole=useMemo(
     ()=>[...state.events].reverse().find(event=>event.roleId)?.roleId,
@@ -50,16 +64,19 @@ export function ThinkTankRoom(){
   };
 
   const emitInput=(input:ThinkTankEventInput)=>{
-    dispatch({type:"APPLY_EVENT",event:buildEvent(state,input)});
+    const event=buildEvent(state,input);
+    applyEvent(event);
   };
 
   const runScenario=(scenario:DemoScenario)=>{
+    if(playback.playing)return;
     const events=buildEventBatch(state,scenarioEventInputs(prompt,state.mode,scenario));
-    for(const event of events)dispatch({type:"APPLY_EVENT",event});
+    playback.play(events);
     setPrompt("");
   };
 
   const selectMode=(mode:CollaborationMode)=>{
+    if(playback.playing)return;
     emitInput({
       source:"operator",
       kind:"mode.selected",
@@ -69,17 +86,20 @@ export function ThinkTankRoom(){
     });
   };
 
-  const abort=()=>emitInput({
-    source:"operator",
-    kind:"session.aborted",
-    phase:"aborted",
-    message:"Operator abort. Session halted."
-  });
+  const abort=()=>{
+    playback.cancel();
+    emitInput({
+      source:"operator",
+      kind:"session.aborted",
+      phase:"aborted",
+      message:"Operator abort. Session halted."
+    });
+  };
 
   const canForce=state.synthesisWithheld||Boolean(state.faultCode);
 
   const force=()=>{
-    if(!canForce)return;
+    if(playback.playing||!canForce)return;
     emitInput({
       source:"operator",
       kind:"operator.override",
@@ -93,12 +113,19 @@ export function ThinkTankRoom(){
   };
 
   const replayExact=()=>{
+    if(playback.playing)return;
     const restored=replayEvents(createInitialState(),state.events);
     dispatch({type:"RESET",state:restored});
   };
 
-  return <main className="room-shell">
+  return <main
+    className="room-shell"
+    data-motion={motionMode}
+    data-cue={cue.kind}
+    data-seq={cue.seq}
+  >
     <div className="scanlines" aria-hidden="true"/>
+    <MotionLayer cue={cue} mode={motionMode}/>
 
     <header className="room-header">
       <div><small>SUPER Φ.VESSEL</small><strong>Φ THINK TANK</strong><span>Multi-Mind Terminal for Super Φ.Vessel</span></div>
@@ -116,6 +143,8 @@ export function ThinkTankRoom(){
         utterance={state.lastUtterance[role.id]}
         staffedBy={seatName(role.id)}
         phase={phaseForRole(role.id)}
+        motionActive={cue.roleId===role.id}
+        motionKind={cue.kind}
       />)}
     </section>
 
@@ -127,14 +156,23 @@ export function ThinkTankRoom(){
           terminal={seat}
           assignedRoles={assignedRolesForSeat(seat.id)}
           state={stateForSeat(seat.id)}
+          motionActive={cue.seatId===seat.id}
+          motionKind={cue.kind}
         />)}
       </aside>
 
       <div className="center-stack">
-        <Commonline assignments={state.assignments} activeRole={activeRole} seats={seats}/>
+        <Commonline
+          assignments={state.assignments}
+          activeRole={activeRole}
+          seats={seats}
+          cue={cue}
+          motionMode={motionMode}
+        />
 
         <GovernancePanel
           state={state}
+          busy={playback.playing}
           onGateBlock={()=>runScenario("council-gate-block")}
           onTimeout={()=>runScenario("timeout")}
         />
@@ -149,18 +187,29 @@ export function ThinkTankRoom(){
           seed={state.seed}
           prompt={prompt}
           canForce={canForce}
+          busy={playback.playing}
           onPrompt={setPrompt}
           onSend={()=>runScenario("happy")}
           onAbort={abort}
           onForce={force}
         />
 
-        <ModeBar mode={state.mode} onChange={selectMode}/>
+        <ModeBar mode={state.mode} disabled={playback.playing} onChange={selectMode}/>
       </div>
 
-      <SystemStatus state={state} replayReport={replayReport}/>
+      <SystemStatus
+        state={state}
+        replayReport={replayReport}
+        motionMode={motionMode}
+        playing={playback.playing}
+      />
     </section>
 
-    <LedgerRoll events={state.events} replayReport={replayReport} onReplay={replayExact}/>
+    <LedgerRoll
+      events={state.events}
+      replayReport={replayReport}
+      busy={playback.playing}
+      onReplay={replayExact}
+    />
   </main>;
 }

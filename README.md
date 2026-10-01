@@ -6,34 +6,33 @@ A governed, event-sourced multi-mind control room. Cognitive roles are staffed b
 
 ## Current rung
 
-**PR 4 — Modes + Scheduler + Governance**
+**PR 5 — Semantic Motion Layer**
 
-The mode buttons are now executable laws rather than labels.
+The room now moves from events instead of decorative timers.
 
-PR 4 adds:
-- locked scheduler plans for SOLO / TRIO / COUNCIL / DEBATE / DREAM / BUILD / AUDIT
-- active-role sets and dimming
-- ordered speaker queues
-- mode-specific round caps
-- turn timeouts
-- synthesis triggers
-- mode-aware Reality Gate behavior
-- Debate objection requirement
-- Dream speculative/non-actionable output
-- Build low-evidence DRAFT behavior
-- Audit action lock below threshold
-- kernel rejection of illegal turn order, premature gate scoring, and excess rounds
-- visible MODE LAW / SCHEDULER console
-- canonical Council gate-block drill
-- canonical timeout/fault drill
-- force-synthesis arming only for withheld/faulted sessions
-- CI coverage across all seven modes
+PR 5 adds:
+- semantic motion cues derived from canonical ledger events
+- deterministic one-event-at-a-time simulation playback
+- seat → Φ Commonline → role route visualization
+- role and provider-seat event hits
+- room wake, gate pass/block, fault, completion, override, and abort cues
+- one global motion policy owner
+- reduced-motion semantic fallback
+- hidden-tab FX pause
+- transform/opacity-only animation policy
+- operator lockout during playback while ABORT remains live
+- System Status playback + Motion FX state
+- ledger print animation
+- ledger auto-scroll pause/resume
+- tear/export receipt text
+- automated motion-cue tests
 
 See:
 - [Architecture](docs/ARCHITECTURE.md)
 - [Terminal Contract](docs/TERMINAL_CONTRACT.md)
 - [Event Kernel](docs/EVENT_KERNEL.md)
 - [Mode Governance](docs/MODE_GOVERNANCE.md)
+- [Motion Layer](docs/MOTION_LAYER.md)
 
 ## Run locally
 
@@ -49,15 +48,15 @@ Verification:
 
 > **If a light changes, a sequenced event explains why.**
 
-The UI must not care whether an event came from the simulator, OpenAI, Kimi, Ollama, or a future provider. Provider integration replaces the emitter, not the interface contract.
+Motion is a projection of accepted events. Provider integration replaces event emitters, not the interface or motion contract.
 
 ## Build ladder
 
 1. ✅ Room shell + operator authority
 2. ✅ Terminal identity + speech viewport
 3. ✅ Event kernel + deterministic replay
-4. **Modes + scheduler + governance**
-5. Motion layer
+4. ✅ Modes + scheduler + governance
+5. **Semantic motion layer**
 6. Crane Fly assignments
 7. Provider adapters
 
