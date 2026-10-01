@@ -34,6 +34,172 @@ export interface ReplayReport{
   error?:string;
 }
 
+function assertDossierSealEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
+  const action=[
+    "dossier.seal.requested",
+    "dossier.seal.completed",
+    "dossier.seal.failed",
+    "dossier.verify.requested",
+    "dossier.verify.completed",
+    "dossier.verify.failed"
+  ].includes(event.kind);
+
+  if(
+    action&&
+    state.phase!=="intake"&&
+    state.phase!=="synthesis"&&
+    state.phase!=="complete"&&
+    state.phase!=="aborted"
+  ){
+    throw new KernelIntegrityError("Dossier sealing cannot run during active governed execution.",event.seq);
+  }
+
+  const dossier=event.decisionDossierId
+    ?state.decisionDossiers.find(item=>item.id===event.decisionDossierId)
+    :undefined;
+
+  if(event.kind==="dossier.seal.requested"){
+    if(event.source!=="operator"){
+      throw new KernelIntegrityError("Dossier seal requests are operator-authorized.",event.seq);
+    }
+    if(!dossier){
+      throw new KernelIntegrityError("Dossier seal request requires an existing decision dossier.",event.seq);
+    }
+    return true;
+  }
+
+  if(event.kind==="dossier.seal.completed"){
+    if(event.source!=="tool"){
+      throw new KernelIntegrityError("Dossier seal completion must be tool-originated.",event.seq);
+    }
+    const seal=event.dossierSeal;
+    if(!seal||!dossier||seal.dossierId!==dossier.id){
+      throw new KernelIntegrityError("Dossier seal receipt does not match an existing dossier.",event.seq);
+    }
+    if(
+      seal.tool!=="ed25519-dossier-sealer"||
+      seal.algorithm!=="Ed25519"||
+      seal.canonicalization!=="json-stable-v1"||
+      seal.trust!=="self-attested-local-key"
+    ){
+      throw new KernelIntegrityError("Dossier seal metadata is invalid.",event.seq);
+    }
+    if(
+      !seal.id.trim()||
+      !/^[a-f0-9]{64}$/.test(seal.digestSha256)||
+      !/^[a-f0-9]{64}$/.test(seal.publicKeyFingerprintSha256)||
+      !seal.signatureBase64.trim()||
+      !seal.publicKeyPem.includes("BEGIN PUBLIC KEY")||
+      !seal.signerLabel.trim()||
+      Number.isNaN(Date.parse(seal.signedAt))
+    ){
+      throw new KernelIntegrityError("Dossier seal receipt is incomplete or malformed.",event.seq);
+    }
+    if(state.dossierSeals.some(existing=>existing.id===seal.id)){
+      throw new KernelIntegrityError("Dossier seal id already exists.",event.seq);
+    }
+    if(state.dossierSeals.some(existing=>
+      existing.dossierId===seal.dossierId&&
+      existing.publicKeyFingerprintSha256===seal.publicKeyFingerprintSha256
+    )){
+      throw new KernelIntegrityError("This signer key already sealed the dossier.",event.seq);
+    }
+
+    const request=[...state.events].reverse().find(item=>
+      item.kind==="dossier.seal.requested"&&item.decisionDossierId===seal.dossierId
+    );
+    if(!request){
+      throw new KernelIntegrityError("Dossier seal completion has no matching operator request.",event.seq);
+    }
+    const terminal=[...state.events].reverse().find(item=>
+      (item.kind==="dossier.seal.completed"||item.kind==="dossier.seal.failed")&&
+      item.decisionDossierId===seal.dossierId
+    );
+    if(terminal&&terminal.seq>request.seq){
+      throw new KernelIntegrityError("Dossier seal request is already resolved.",event.seq);
+    }
+    return true;
+  }
+
+  if(event.kind==="dossier.seal.failed"){
+    if(event.source!=="tool"||!dossier){
+      throw new KernelIntegrityError("Dossier seal failure must be tool-originated for an existing dossier.",event.seq);
+    }
+    const request=[...state.events].reverse().find(item=>
+      item.kind==="dossier.seal.requested"&&item.decisionDossierId===dossier.id
+    );
+    if(!request){
+      throw new KernelIntegrityError("Dossier seal failure has no matching operator request.",event.seq);
+    }
+    return true;
+  }
+
+  const seal=event.dossierSealId
+    ?state.dossierSeals.find(item=>item.id===event.dossierSealId)
+    :undefined;
+
+  if(event.kind==="dossier.verify.requested"){
+    if(event.source!=="operator"){
+      throw new KernelIntegrityError("Dossier verification requests are operator-authorized.",event.seq);
+    }
+    if(!seal||!state.decisionDossiers.some(item=>item.id===seal.dossierId)){
+      throw new KernelIntegrityError("Dossier verification requires an existing seal and dossier.",event.seq);
+    }
+    return true;
+  }
+
+  if(event.kind==="dossier.verify.completed"){
+    if(event.source!=="tool"){
+      throw new KernelIntegrityError("Dossier verification completion must be tool-originated.",event.seq);
+    }
+    const receipt=event.dossierVerification;
+    if(!receipt||!seal){
+      throw new KernelIntegrityError("Dossier verification requires a receipt and existing seal.",event.seq);
+    }
+    if(
+      receipt.dossierId!==seal.dossierId||
+      receipt.sealId!==seal.id||
+      receipt.tool!=="ed25519-dossier-verifier"||
+      receipt.algorithm!=="Ed25519"||
+      receipt.digestSha256!==seal.digestSha256||
+      receipt.publicKeyFingerprintSha256!==seal.publicKeyFingerprintSha256||
+      Number.isNaN(Date.parse(receipt.verifiedAt))
+    ){
+      throw new KernelIntegrityError("Dossier verification receipt does not match its seal.",event.seq);
+    }
+
+    const request=[...state.events].reverse().find(item=>
+      item.kind==="dossier.verify.requested"&&item.dossierSealId===seal.id
+    );
+    if(!request){
+      throw new KernelIntegrityError("Dossier verification has no matching operator request.",event.seq);
+    }
+    const terminal=[...state.events].reverse().find(item=>
+      (item.kind==="dossier.verify.completed"||item.kind==="dossier.verify.failed")&&
+      item.dossierSealId===seal.id
+    );
+    if(terminal&&terminal.seq>request.seq){
+      throw new KernelIntegrityError("Dossier verification request is already resolved.",event.seq);
+    }
+    return true;
+  }
+
+  if(event.kind==="dossier.verify.failed"){
+    if(event.source!=="tool"||!seal){
+      throw new KernelIntegrityError("Dossier verification failure must be tool-originated for an existing seal.",event.seq);
+    }
+    const request=[...state.events].reverse().find(item=>
+      item.kind==="dossier.verify.requested"&&item.dossierSealId===seal.id
+    );
+    if(!request){
+      throw new KernelIntegrityError("Dossier verification failure has no matching operator request.",event.seq);
+    }
+    return true;
+  }
+
+  return false;
+}
+
 function assertArgumentReviewEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
   const action=[
     "argument.review.requested",
@@ -914,6 +1080,7 @@ function assertRoutingEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
 }
 
 function assertPolicyEvent(state:ThinkTankState,event:ThinkTankEvent):void{
+  if(assertDossierSealEvent(state,event))return;
   if(assertArgumentReviewEvent(state,event))return;
   if(assertExcerptEvent(state,event))return;
   if(assertClaimReviewEvent(state,event))return;
@@ -1166,6 +1333,9 @@ export function buildEvent(state:ThinkTankState,input:ThinkTankEventInput):Think
     decisionDossier:input.decisionDossier,
     decisionDossierId:input.decisionDossierId,
     decisionOverride:input.decisionOverride,
+    dossierSeal:input.dossierSeal,
+    dossierSealId:input.dossierSealId,
+    dossierVerification:input.dossierVerification,
     message:input.message,
     gateScore:input.gateScore,
     override:input.override,
