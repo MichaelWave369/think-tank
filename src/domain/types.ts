@@ -248,10 +248,6 @@ export interface ThinkTankEvent{
   evidenceExcerptId?:string;
   excerptStart?:number;
   excerptEnd?:number;
-  evidenceExcerpt?:EvidenceExcerpt;
-  evidenceExcerptId?:string;
-  excerptStart?:number;
-  excerptEnd?:number;
   gateBreakdown?:GateBreakdown;
   claimGovernance?:ClaimGovernanceReport;
   message?:string;
@@ -292,6 +288,10 @@ export interface ThinkTankEventInput{
   evidenceRef?:EvidenceRef;
   evidenceId?:string;
   evidenceUri?:string;
+  evidenceExcerpt?:EvidenceExcerpt;
+  evidenceExcerptId?:string;
+  excerptStart?:number;
+  excerptEnd?:number;
   gateBreakdown?:GateBreakdown;
   claimGovernance?:ClaimGovernanceReport;
   message?:string;
