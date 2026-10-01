@@ -1,12 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  assertEvidenceSourceDigest,
   assertPublicHttpUrl,
   buildSearxngSearchUrl,
   isBlockedIpv4,
   isBlockedIpv6,
   normalizeMessages,
-  normalizeSearchResults
+  normalizeSearchResults,
+  projectEvidenceText
 } from "./provider-bridge.mjs";
 
 test("blocks private and local IPv4 ranges",()=>{
@@ -113,4 +115,43 @@ test("normalizes, filters, deduplicates, ranks, and caps search candidates",()=>
   ]);
   assert.equal(results[0].title,"First");
   assert.equal(results[1].engine,"engine-b");
+});
+
+
+test("rejects source bytes that no longer match the verified digest",()=>{
+  const expected="a".repeat(64);
+  assert.doesNotThrow(()=>assertEvidenceSourceDigest(expected,expected));
+  assert.throws(
+    ()=>assertEvidenceSourceDigest("b".repeat(64),expected),
+    /source bytes changed since machine verification/i
+  );
+});
+
+test("projects visible HTML text without scripts or styles",()=>{
+  const projection=projectEvidenceText(
+    Buffer.from("<h1>Title</h1><script>evil()</script><style>.x{}</style><p>Hello &amp; world</p>"),
+    "text/html; charset=utf-8"
+  );
+
+  assert.match(projection.text,/Title/);
+  assert.match(projection.text,/Hello & world/);
+  assert.doesNotMatch(projection.text,/evil|\.x/);
+  assert.match(projection.projectionSha256,/^[a-f0-9]{64}$/);
+});
+
+test("projects JSON deterministically as readable text",()=>{
+  const projection=projectEvidenceText(
+    Buffer.from('{"alpha":1,"beta":"two"}'),
+    "application/json"
+  );
+
+  assert.match(projection.text,/"alpha": 1/);
+  assert.match(projection.text,/"beta": "two"/);
+});
+
+test("refuses to pretend PDFs are text-projectable",()=>{
+  assert.throws(
+    ()=>projectEvidenceText(Buffer.from("%PDF-1.7"),"application/pdf"),
+    /PDF text projection is not supported/i
+  );
 });
