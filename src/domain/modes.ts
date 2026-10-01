@@ -3,6 +3,7 @@ import type {
   GateBehavior,
   GovernanceLabel,
   ClaimPolicyKind,
+  ArgumentPolicyKind,
   RoleId,
   RouterPolicy,
   SynthesisTrigger
@@ -25,6 +26,7 @@ export interface ModeDefinition{
   objectionRequired:boolean;
   actionRule:string;
   claimPolicy:ClaimPolicyKind;
+  argumentPolicy:ArgumentPolicyKind;
 }
 
 export const MODE_MATRIX:ModeDefinition[]=[
@@ -32,14 +34,14 @@ export const MODE_MATRIX:ModeDefinition[]=[
     id:"solo",label:"SOLO",activeSet:"1 pinned role or seat",router:"manual",
     gate:"informational",leaders:["vessie"],activeRoles:["vessie"],speakerQueue:["vessie"],
     maxRounds:1,timeoutMs:30000,synthesisTrigger:"all-replied",gateBehavior:"informational",
-    outputLabel:"STANDARD",objectionRequired:false,actionRule:"Gate is visible but does not block synthesis.",claimPolicy:"informational"
+    outputLabel:"STANDARD",objectionRequired:false,actionRule:"Gate is visible but does not block synthesis.",claimPolicy:"informational",argumentPolicy:"informational",argumentPolicy:"informational"
   },
   {
     id:"trio",label:"TRIO",activeSet:"3 complementary roles",router:"auto-trio",
     gate:"synthesis allowed at threshold",leaders:["dreamer","builder","challenger"],
     activeRoles:["dreamer","builder","challenger"],speakerQueue:["dreamer","builder","challenger"],
     maxRounds:1,timeoutMs:30000,synthesisTrigger:"gate-passed",gateBehavior:"threshold",
-    outputLabel:"STANDARD",objectionRequired:false,actionRule:"Below threshold, synthesis is withheld.",claimPolicy:"bound-fresh"
+    outputLabel:"STANDARD",objectionRequired:false,actionRule:"Below threshold, synthesis is withheld.",claimPolicy:"bound-fresh",argumentPolicy:"informational",argumentPolicy:"fresh-accepted-on-excerpts",argumentPolicy:"informational"
   },
   {
     id:"council",label:"COUNCIL",activeSet:"all assigned roles",router:"council-broadcast",
@@ -47,7 +49,7 @@ export const MODE_MATRIX:ModeDefinition[]=[
     activeRoles:["dreamer","builder","challenger","archivist","vessie"],
     speakerQueue:["dreamer","builder","challenger","archivist","vessie"],
     maxRounds:1,timeoutMs:30000,synthesisTrigger:"gate-passed",gateBehavior:"threshold",
-    outputLabel:"STANDARD",objectionRequired:false,actionRule:"All scheduled voices land before gate evaluation.",claimPolicy:"all-fresh"
+    outputLabel:"STANDARD",objectionRequired:false,actionRule:"All scheduled voices land before gate evaluation.",claimPolicy:"all-fresh",argumentPolicy:"fresh-accepted-on-excerpts"
   },
   {
     id:"debate",label:"DEBATE",activeSet:"challenger plus defenders",router:"debate-round-robin",
@@ -75,7 +77,7 @@ export const MODE_MATRIX:ModeDefinition[]=[
     gate:"no action until threshold passes",leaders:["challenger","archivist"],
     activeRoles:["challenger","archivist"],speakerQueue:["challenger","archivist"],
     maxRounds:1,timeoutMs:30000,synthesisTrigger:"gate-passed",gateBehavior:"threshold",
-    outputLabel:"AUDIT",objectionRequired:false,actionRule:"Action phase remains locked until the gate passes.",claimPolicy:"audit-ready"
+    outputLabel:"AUDIT",objectionRequired:false,actionRule:"Action phase remains locked until the gate passes.",claimPolicy:"audit-ready",argumentPolicy:"fresh-accepted-on-excerpts"
   }
 ];
 
