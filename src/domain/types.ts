@@ -17,6 +17,29 @@ export type EvidenceVerification="unverified"|"operator-attested"|"machine-verif
 export type ClaimRelation="supports"|"contradicts"|"context";
 export type ClaimStatus="unbound"|"supported"|"challenged"|"contested"|"context-only";
 
+export interface ResearchCandidate{
+  id:string;
+  claimId:string;
+  query:string;
+  title:string;
+  uri:string;
+  snippet:string;
+  engine:string;
+  rank:number;
+  discoveredAt:string;
+}
+
+export interface ResearchSearchReceipt{
+  id:string;
+  tool:"searxng-search";
+  provider:"searxng";
+  claimId:string;
+  query:string;
+  searchedAt:string;
+  resultDigest:string;
+  candidates:ResearchCandidate[];
+}
+
 export interface RetrievalReceipt{
   tool:"url-fetch";
   requestedUri:string;
@@ -64,6 +87,7 @@ export interface EvidenceRef{
   uri?:string;
   note?:string;
   retrieval?:RetrievalReceipt;
+  researchCandidateId?:string;
   addedBy:"operator"|"system"|"tool";
 }
 
@@ -107,6 +131,9 @@ export type ThinkTankEventKind=
   |"claim.removed"
   |"evidence.bound"
   |"evidence.unbound"
+  |"research.search.requested"
+  |"research.search.completed"
+  |"research.search.failed"
   |"evidence.fetch.requested"
   |"evidence.fetch.failed"
   |"evidence.added"
@@ -147,6 +174,9 @@ export interface ThinkTankEvent{
   claimId?:string;
   claimBinding?:ClaimBinding;
   claimBindingId?:string;
+  researchQuery?:string;
+  researchReceipt?:ResearchSearchReceipt;
+  researchCandidateId?:string;
   evidenceRef?:EvidenceRef;
   evidenceId?:string;
   evidenceUri?:string;
@@ -182,6 +212,9 @@ export interface ThinkTankEventInput{
   claimId?:string;
   claimBinding?:ClaimBinding;
   claimBindingId?:string;
+  researchQuery?:string;
+  researchReceipt?:ResearchSearchReceipt;
+  researchCandidateId?:string;
   evidenceRef?:EvidenceRef;
   evidenceId?:string;
   evidenceUri?:string;
@@ -211,6 +244,8 @@ export interface ThinkTankState{
   evidenceRefs:EvidenceRef[];
   claims:Claim[];
   claimBindings:ClaimBinding[];
+  researchSearches:ResearchSearchReceipt[];
+  researchCandidates:ResearchCandidate[];
   synthesisWithheld:boolean;
   assignments:Assignment[];
   pinnedAssignments:Partial<Record<RoleId,SeatId>>;
