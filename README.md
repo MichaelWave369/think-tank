@@ -6,23 +6,24 @@ A governed, event-sourced multi-mind control room. Cognitive roles are staffed b
 
 ## Current rung
 
-**PR 1 — Room Shell + Operator Authority**
+**PR 2 — Terminal Identity + Speech Viewports**
 
-The first skeleton includes:
+The room now distinguishes cognitive roles from provider/model seats at the monitor level.
 
-- Vessie Prime, Dreamer, Builder, Challenger, and Archivist as cognitive role terminals
-- OpenAI, Kimi, and Local Brain as provider/model seats
-- explicit role ↔ seat assignments
-- Commonline shared event bus
-- Operator Rail with SEND, ABORT, PIN/UNPIN, and FORCE SYNTHESIS
-- SOLO, TRIO, COUNCIL, DEBATE, DREAM, BUILD, and AUDIT modes
-- Crane Fly router policy labels
-- Reality Gate threshold with visible WITHHELD state
-- paper-roll Receipt / Ledger
-- reducer-driven event state with deterministic sequence numbers
-- simulated Council path
-- responsive room-map/sticky operator foundations
-- reduced-motion support
+PR 2 adds:
+- explicit ROLE vs SEAT monitor labels
+- non-color terminal state signals for idle, listening, thinking, speaking, warning, dimmed, and offline
+- 2–4 line live/last-utterance viewports on Role Terminals
+- visible session phase per role
+- visible seat staffing per role
+- visible role assignments per provider/model seat
+- derived seat activity state from the roles it staffs
+- capability meter values instead of decorative bars alone
+- a fuller Council simulation so every role develops visible history
+
+See:
+- [Architecture](docs/ARCHITECTURE.md)
+- [Terminal Contract](docs/TERMINAL_CONTRACT.md)
 
 ## Run locally
 
@@ -39,12 +40,10 @@ Production build:
 
 The UI must not care whether an event came from the simulator, OpenAI, Kimi, Ollama, or a future provider. Provider integration replaces the emitter, not the interface contract.
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
-
 ## Build ladder
 
-1. Room shell + operator authority
-2. Terminal identity + speech viewport
+1. ✅ Room shell + operator authority
+2. **Terminal identity + speech viewport**
 3. Event kernel + deterministic replay
 4. Modes + scheduler + governance
 5. Motion layer
