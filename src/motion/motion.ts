@@ -41,6 +41,7 @@ export function deriveMotionCue(event:ThinkTankEvent|undefined,state:ThinkTankSt
       return event.gateScore!==undefined&&event.gateScore>=state.gateThreshold
         ?{...base,kind:"gate-pass",label:"REALITY GATE PASS",intensity:"high"}
         :{...base,kind:"gate-block",label:"REALITY GATE BELOW THRESHOLD",intensity:"high"};
+    case "provider.failed":
     case "governance.fault":
     case "turn.timeout":
       return {...base,kind:"fault",label:event.faultCode??"GOVERNANCE FAULT",intensity:"high"};
