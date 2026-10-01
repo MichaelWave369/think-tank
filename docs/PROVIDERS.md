@@ -1,0 +1,160 @@
+# Provider Adapters + LIVE Execution
+
+PR 7 connects real model providers without changing the Think Tank role, scheduler, routing, governance, or ledger contracts.
+
+## Architecture
+
+Browser UI → local provider bridge → provider
+
+The bridge binds to `127.0.0.1:3691` by default.
+
+Secrets remain in the local Node process. They are never placed in React state, localStorage, or frontend bundles.
+
+## Why a local bridge
+
+A public unauthenticated serverless proxy holding API keys would let arbitrary visitors spend the operator's API balance.
+
+PR 7 deliberately does **not** ship that architecture.
+
+The local bridge:
+- defaults to loopback only
+- allows localhost browser origins automatically
+- can allow an explicit deployed UI origin with `THINK_TANK_ORIGIN`
+- never returns API keys
+- limits request body size
+- caps generated output tokens
+- validates role and seat ids
+- uses fixed provider endpoints
+
+## Current provider transports
+
+### Ollama
+
+- status/model discovery: `GET http://127.0.0.1:11434/api/tags`
+- chat: `POST http://127.0.0.1:11434/api/chat`
+- streaming is disabled for the first governed adapter so each completed provider response becomes one canonical event
+
+### OpenAI
+
+- transport: Responses API
+- endpoint: `https://api.openai.com/v1/responses`
+- requires both `OPENAI_API_KEY` and `OPENAI_MODEL`
+- status is CONFIGURED without sending a billable probe
+
+ChatGPT subscription billing and API billing are separate. Configure API billing independently if this seat is enabled.
+
+### Kimi / Moonshot
+
+- international base URL: `https://api.moonshot.ai/v1`
+- chat endpoint: `/chat/completions`
+- requires both `KIMI_API_KEY` and `KIMI_MODEL`
+- `KIMI_BASE_URL` may be changed server-side for another Moonshot region
+
+## Setup
+
+    cp .env.example .env
+    npm install
+    npm run bridge
+
+In another terminal:
+
+    npm run dev
+
+The browser Provider Bridge console can then refresh provider status.
+
+## Local-first path
+
+No remote keys are required.
+
+1. start Ollama
+2. run `npm run bridge`
+3. open the Think Tank
+4. REFRESH PROVIDERS
+5. choose a detected Ollama model
+6. SYNC HEALTH → CRANE FLY
+7. pin roles to LOCAL BRAIN if desired
+8. RUN LIVE MODE
+
+## Provider health vs routing authority
+
+Provider health is observational until the operator chooses:
+
+`SYNC HEALTH → CRANE FLY`
+
+That action emits canonical `seat.status` events.
+
+The bridge itself does not silently change routing authority.
+
+## LIVE execution order
+
+1. operator prompt
+2. Crane Fly assignment receipts
+3. routing complete
+4. session started
+5. scheduler plan
+6. round start
+7. provider turn start
+8. provider response or provider failure
+9. Reality Gate
+10. synthesis result
+
+Provider response events use `source: provider`.
+
+They retain:
+- role
+- seat
+- provider model
+- latency
+- provider request id when available
+
+## Failure behavior
+
+Provider transport failure emits:
+
+1. `provider.failed`
+2. `governance.fault`
+3. `synthesis.withheld`
+
+The failed session does not pretend the scheduled queue completed.
+
+ABORT remains available during live requests.
+
+## Reality Gate behavior
+
+PR 7 does not invent an evidence score.
+
+After successful LIVE provider turns, Reality Gate is explicitly recorded as `0.00` because no production evidence scorer exists yet.
+
+Consequences follow existing mode law:
+
+- SOLO: gate informational
+- DREAM: speculative, non-actionable
+- BUILD: DRAFT, non-actionable
+- TRIO / COUNCIL / DEBATE / AUDIT: withheld until an evidence scorer or explicit operator override permits progression
+
+## Cost guardrails
+
+Remote providers are disabled until both key and model are explicitly configured.
+
+`PROVIDER_MAX_OUTPUT_TOKENS` defaults to `1200`.
+
+The status endpoint does not send billable remote inference probes.
+
+## Security notes
+
+- never commit `.env`
+- never put provider keys in `VITE_*` variables
+- do not bind the bridge to `0.0.0.0` unless you understand the network exposure
+- use an exact `THINK_TANK_ORIGIN` for a deployed UI
+- do not expose the provider bridge directly to the public internet
+
+## Acceptance criteria
+
+- Ollama models can be discovered without remote API credentials
+- remote seats remain disconnected until explicitly configured
+- role prompts are provider-neutral
+- provider outputs enter the canonical event stream
+- provider failures become governed faults
+- LIVE sessions replay exactly
+- threshold modes fail closed without a real evidence scorer
+- frontend source contains no API secrets
