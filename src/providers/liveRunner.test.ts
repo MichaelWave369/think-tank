@@ -147,6 +147,65 @@ describe("LIVE provider runner",()=>{
   });
 });
 
+  it("withholds a numerically passing Council when a bound claim lacks a fresh audit",async()=>{
+    const initial=createInitialState();
+    initial.evidenceRefs=[
+      {
+        id:"EV-1",
+        kind:"operator-reference",
+        verification:"operator-attested",
+        label:"Primary reference",
+        uri:"https://example.com/primary",
+        addedBy:"operator"
+      },
+      {
+        id:"EV-2",
+        kind:"operator-reference",
+        verification:"operator-attested",
+        label:"Independent reference",
+        uri:"https://example.com/independent",
+        addedBy:"operator"
+      }
+    ];
+    initial.claims=[{
+      id:"CL-1",
+      text:"A claim that requires Council review.",
+      addedBy:"operator"
+    }];
+    initial.claimBindings=[{
+      id:"CB-1",
+      claimId:"CL-1",
+      evidenceId:"EV-1",
+      relation:"supports",
+      addedBy:"operator"
+    }];
+
+    const events=[] as Parameters<typeof replayEvents>[1];
+
+    const result=await runLiveProviderSession({
+      initialState:initial,
+      seats,
+      prompt:"Run a claim-aware council.",
+      localModel:"local-test",
+      invoke:async request=>({
+        ok:true,
+        seatId:request.seatId,
+        provider:request.seatId==="local"?"Ollama":request.seatId==="openai"?"OpenAI":"Kimi",
+        model:request.model||"remote-test",
+        text:request.roleId.toUpperCase()+" output.",
+        latencyMs:5
+      }),
+      apply:event=>events.push(event)
+    });
+
+    expect(result.state.gateScore).toBe(.8775);
+    expect(result.state.claimGovernance?.passed).toBe(false);
+    expect(result.state.claimGovernance?.missingReviewClaimIds).toEqual(["CL-1"]);
+    expect(result.state.synthesisWithheld).toBe(true);
+    expect(result.state.actionAllowed).toBe(false);
+    expect(events[events.length-1]?.kind).toBe("synthesis.withheld");
+  });
+
 describe("provider-neutral role prompts",()=>{
   it("keeps role identity separate from provider identity",()=>{
     const messages=buildRoleMessages(
