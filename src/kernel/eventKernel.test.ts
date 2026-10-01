@@ -101,6 +101,26 @@ describe("event kernel",()=>{
     expect(replayed.actionAllowed).toBe(true);
   });
 
+  it("rejects an override that invents a different output label",()=>{
+    const initial=createInitialState();
+    const events=buildEventBatch(
+      initial,
+      scenarioEventInputs("Override label test.","council","council-gate-block",initial)
+    );
+    const withheld=events.reduce(projectEvent,initial);
+
+    expect(()=>buildEvent(withheld,{
+      source:"operator",
+      kind:"operator.override",
+      phase:"synthesis",
+      override:true,
+      outputLabel:"AUDIT",
+      actionAllowed:true,
+      governanceReason:"Human operator explicitly overrode the withheld/faulted synthesis state.",
+      message:"Invalid override label."
+    })).toThrow(/override output\/action fields contradict/i);
+  });
+
   it("rejects a forged passing argument-governance receipt",()=>{
     const initial=createInitialState();
     initial.claims=[{id:"CL-1",text:"Excerpt-bearing council claim.",addedBy:"operator"}];
