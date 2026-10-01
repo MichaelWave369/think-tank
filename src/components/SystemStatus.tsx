@@ -2,6 +2,7 @@ import { claimGraphSummary } from "../domain/claims";
 import { claimCoverageSummary } from "../domain/claimCoverage";
 import { evaluateClaimGovernance } from "../domain/claimGovernance";
 import { argumentReviewSummary } from "../domain/argumentReview";
+import { evaluateArgumentGovernance } from "../domain/argumentGovernance";
 import { schedulerStatus } from "../domain/scheduler";
 import type { ThinkTankState } from "../domain/types";
 import type { ReplayReport } from "../kernel/eventKernel";
@@ -30,6 +31,7 @@ export function SystemStatus({
   const coverageSummary=claimCoverageSummary(state);
   const claimPolicy=evaluateClaimGovernance(state,state.mode);
   const argumentSummary=argumentReviewSummary(state);
+  const argumentPolicy=evaluateArgumentGovernance(state,state.mode);
 
   return <section className="system-status">
     <strong>SYSTEM STATUS</strong>
@@ -56,6 +58,7 @@ export function SystemStatus({
     <span>Argument Maps: {argumentSummary.active} active · {argumentSummary.accepted} accepted</span>
     <span>Argument Drafts: {argumentSummary.drafts}</span>
     <span>Argument Stale: {argumentSummary.stale}</span>
+    <span>Argument Policy: {argumentPolicy.passed?"PASS":"BLOCK"}</span>
     <span>Research: {state.researchSearches.length} searches</span>
     <span>Candidates: {state.researchCandidates.length}</span>
     <span>Output: {state.outputLabel??"PENDING"}</span>

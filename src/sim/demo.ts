@@ -1,5 +1,6 @@
 import { evaluateGovernance,initialTurnPlan } from "../domain/scheduler";
 import { evaluateClaimGovernance } from "../domain/claimGovernance";
+import { evaluateArgumentGovernance } from "../domain/argumentGovernance";
 import { createInitialState } from "../domain/state";
 import type { CollaborationMode,RoleId,ThinkTankEventInput,ThinkTankState } from "../domain/types";
 
@@ -25,6 +26,7 @@ export function scenarioEventInputs(
   const targetMode:CollaborationMode=scenario==="council-gate-block"?"council":selectedMode;
   const claimState=governanceState??createInitialState();
   const claimGovernance=evaluateClaimGovernance(claimState,targetMode);
+  const argumentGovernance=evaluateArgumentGovernance(claimState,targetMode);
   const plan=initialTurnPlan(targetMode);
   const inputs:ThinkTankEventInput[]=[];
 
@@ -96,12 +98,15 @@ export function scenarioEventInputs(
       }
     );
 
-    const decision=evaluateGovernance(targetMode,0,.75,0,true,claimGovernance);
+    const decision=evaluateGovernance(
+      targetMode,0,.75,0,true,claimGovernance,argumentGovernance
+    );
     inputs.push({
       source:"system",
       kind:"synthesis.withheld",
       phase:"synthesis",
       claimGovernance,
+      argumentGovernance,
       outputLabel:decision.outputLabel,
       actionAllowed:decision.actionAllowed,
       governanceReason:decision.reason,
@@ -151,13 +156,14 @@ export function scenarioEventInputs(
     message:"Reality Gate scored "+score.toFixed(2)+"."
   });
 
-  const decision=evaluateGovernance(targetMode,score,.75,objectionCount,false,claimGovernance);
+  const decision=evaluateGovernance(targetMode,score,.75,objectionCount,false,claimGovernance,argumentGovernance);
 
   inputs.push({
     source:"system",
     kind:decision.synthesisAllowed?"synthesis.completed":"synthesis.withheld",
     phase:decision.synthesisAllowed?"complete":"synthesis",
     claimGovernance,
+    argumentGovernance,
     outputLabel:decision.outputLabel,
     actionAllowed:decision.actionAllowed,
     governanceReason:decision.reason,

@@ -46,6 +46,7 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
     next.gateScore=null;
     next.gateBreakdown=null;
     next.claimGovernance=null;
+    next.argumentGovernance=null;
     next.synthesisWithheld=false;
     next.outputLabel=null;
     next.actionAllowed=false;
@@ -63,6 +64,7 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
     next.gateScore=null;
     next.gateBreakdown=null;
     next.claimGovernance=null;
+    next.argumentGovernance=null;
     next.outputLabel=null;
     next.actionAllowed=false;
     next.synthesisWithheld=false;
@@ -74,6 +76,7 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
     next.gateScore=null;
     next.gateBreakdown=null;
     next.claimGovernance=null;
+    next.argumentGovernance=null;
     next.outputLabel=null;
     next.actionAllowed=false;
     next.synthesisWithheld=false;
@@ -85,6 +88,7 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
     next.gateScore=null;
     next.gateBreakdown=null;
     next.claimGovernance=null;
+    next.argumentGovernance=null;
     next.outputLabel=null;
     next.actionAllowed=false;
     next.synthesisWithheld=false;
@@ -96,6 +100,7 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
     next.gateScore=null;
     next.gateBreakdown=null;
     next.claimGovernance=null;
+    next.argumentGovernance=null;
     next.outputLabel=null;
     next.actionAllowed=false;
     next.synthesisWithheld=false;
@@ -138,6 +143,7 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
     next.gateScore=null;
     next.gateBreakdown=null;
     next.claimGovernance=null;
+    next.argumentGovernance=null;
     next.outputLabel=null;
     next.actionAllowed=false;
     next.synthesisWithheld=false;
@@ -149,6 +155,7 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
     next.gateScore=null;
     next.gateBreakdown=null;
     next.claimGovernance=null;
+    next.argumentGovernance=null;
     next.outputLabel=null;
     next.actionAllowed=false;
     next.synthesisWithheld=false;
@@ -163,6 +170,7 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
     next.gateScore=null;
     next.gateBreakdown=null;
     next.claimGovernance=null;
+    next.argumentGovernance=null;
     next.outputLabel=null;
     next.actionAllowed=false;
     next.synthesisWithheld=false;
@@ -174,6 +182,7 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
     next.gateScore=null;
     next.gateBreakdown=null;
     next.claimGovernance=null;
+    next.argumentGovernance=null;
     next.outputLabel=null;
     next.actionAllowed=false;
     next.synthesisWithheld=false;
@@ -216,6 +225,8 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
     next.objectionCount=0;
     next.gateScore=null;
     next.gateBreakdown=null;
+    next.claimGovernance=null;
+    next.argumentGovernance=null;
     next.synthesisWithheld=false;
     next.outputLabel=null;
     next.actionAllowed=false;
@@ -284,6 +295,7 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
 
   if(event.kind==="synthesis.withheld"){
     next.claimGovernance=event.claimGovernance??state.claimGovernance;
+    next.argumentGovernance=event.argumentGovernance??state.argumentGovernance;
     next.synthesisWithheld=true;
     next.actionAllowed=false;
     next.outputLabel=event.outputLabel??"WITHHELD";
@@ -292,6 +304,7 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
 
   if(event.kind==="synthesis.completed"){
     next.claimGovernance=event.claimGovernance??state.claimGovernance;
+    next.argumentGovernance=event.argumentGovernance??state.argumentGovernance;
     next.synthesisWithheld=false;
     next.actionAllowed=event.actionAllowed??false;
     next.outputLabel=event.outputLabel??"STANDARD";

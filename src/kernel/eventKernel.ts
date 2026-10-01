@@ -4,6 +4,7 @@ import { evaluateEvidence } from "../domain/evidence";
 import { evaluateGovernance,initialTurnPlan } from "../domain/scheduler";
 import { evaluateClaimCoverage } from "../domain/claimCoverage";
 import { evaluateClaimGovernance } from "../domain/claimGovernance";
+import { evaluateArgumentGovernance } from "../domain/argumentGovernance";
 import {
   argumentReviewBasisFingerprint,
   argumentReviewEligibility,
@@ -1033,13 +1034,22 @@ function assertPolicyEvent(state:ThinkTankState,event:ThinkTankEvent):void{
       throw new KernelIntegrityError("Claim governance receipt does not match deterministic recomputation.",event.seq);
     }
 
+    const expectedArgumentGovernance=evaluateArgumentGovernance(state,state.mode);
+    if(!event.argumentGovernance){
+      throw new KernelIntegrityError("Synthesis resolution requires an argument governance receipt.",event.seq);
+    }
+    if(stableStringify(event.argumentGovernance)!==stableStringify(expectedArgumentGovernance)){
+      throw new KernelIntegrityError("Argument governance receipt does not match deterministic recomputation.",event.seq);
+    }
+
     const decision=evaluateGovernance(
       state.mode,
       state.gateScore??0,
       state.gateThreshold,
       state.objectionCount,
       Boolean(state.faultCode),
-      expectedClaimGovernance
+      expectedClaimGovernance,
+      expectedArgumentGovernance
     );
 
     const expectedKind=decision.synthesisAllowed?"synthesis.completed":"synthesis.withheld";
@@ -1105,6 +1115,7 @@ export function buildEvent(state:ThinkTankState,input:ThinkTankEventInput):Think
     excerptEnd:input.excerptEnd,
     gateBreakdown:input.gateBreakdown,
     claimGovernance:input.claimGovernance,
+    argumentGovernance:input.argumentGovernance,
     message:input.message,
     gateScore:input.gateScore,
     override:input.override,

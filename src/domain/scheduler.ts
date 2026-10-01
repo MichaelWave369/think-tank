@@ -3,6 +3,7 @@ import type {
   CollaborationMode,
   GovernanceLabel,
   ClaimGovernanceReport,
+  ArgumentGovernanceReport,
   ThinkTankState,
   TurnPlan
 } from "./types";
@@ -35,7 +36,8 @@ export function evaluateGovernance(
   threshold:number,
   objectionCount:number,
   timedOut=false,
-  claimGovernance?:ClaimGovernanceReport
+  claimGovernance?:ClaimGovernanceReport,
+  argumentGovernance?:ArgumentGovernanceReport
 ):GovernanceDecision{
   const law=modeDefinition(mode);
 
@@ -101,6 +103,15 @@ export function evaluateGovernance(
       actionAllowed:false,
       outputLabel:"WITHHELD",
       reason:claimGovernance.reason
+    };
+  }
+
+  if(argumentGovernance&&!argumentGovernance.passed){
+    return {
+      synthesisAllowed:false,
+      actionAllowed:false,
+      outputLabel:"WITHHELD",
+      reason:argumentGovernance.reason
     };
   }
 

@@ -7,6 +7,76 @@ import { buildEvent,buildEventBatch,replayEvents,verifyReplay } from "./eventKer
 import { fingerprintProjection } from "./fingerprint";
 
 describe("event kernel",()=>{
+  it("rejects a forged passing argument-governance receipt",()=>{
+    const initial=createInitialState();
+    initial.claims=[{id:"CL-1",text:"Excerpt-bearing council claim.",addedBy:"operator"}];
+    initial.evidenceRefs=[{
+      id:"EV-1",
+      kind:"external-source",
+      verification:"machine-verified",
+      label:"Source",
+      uri:"https://example.com/source",
+      addedBy:"tool",
+      retrieval:{
+        tool:"url-fetch",
+        requestedUri:"https://example.com/source",
+        finalUri:"https://example.com/source",
+        httpStatus:200,
+        contentType:"text/plain",
+        bytes:100,
+        sha256:"a".repeat(64),
+        redirects:0,
+        retrievedAt:"2026-10-01T12:00:00.000Z"
+      }
+    }];
+    initial.claimBindings=[{
+      id:"CB-1",
+      claimId:"CL-1",
+      evidenceId:"EV-1",
+      relation:"supports",
+      addedBy:"operator"
+    }];
+    initial.evidenceExcerpts=[{
+      id:"EX-1",
+      evidenceId:"EV-1",
+      tool:"text-projector",
+      extractor:"text-projection-v1",
+      sourceUri:"https://example.com/source",
+      sourceSha256:"a".repeat(64),
+      projectionSha256:"b".repeat(64),
+      excerptSha256:"c".repeat(64),
+      contentType:"text/plain",
+      startChar:0,
+      endChar:11,
+      text:"Exact quote",
+      extractedAt:"2026-10-01T12:01:00.000Z",
+      addedBy:"tool"
+    }];
+
+    const inputs=scenarioEventInputs(
+      "Test forged argument policy.",
+      "council",
+      "happy",
+      initial
+    );
+    const prefix=inputs.slice(0,-1);
+    const finalInput=inputs[inputs.length-1]!;
+    const prefixEvents=buildEventBatch(initial,prefix);
+    const state=prefixEvents.reduce(projectEvent,initial);
+    const forged={
+      ...finalInput,
+      argumentGovernance:{
+        ...finalInput.argumentGovernance!,
+        passed:true,
+        missingAcceptedClaimIds:[],
+        staleAcceptedClaimIds:[],
+        draftOnlyClaimIds:[],
+        reason:"Forged argument pass."
+      }
+    };
+
+    expect(()=>buildEvent(state,forged)).toThrow(/argument governance receipt does not match/i);
+  });
   it("rejects a forged passing claim-governance receipt",()=>{
     const initial=createInitialState();
     initial.claims=[{id:"CL-1",text:"Unreviewed council claim.",addedBy:"operator"}];

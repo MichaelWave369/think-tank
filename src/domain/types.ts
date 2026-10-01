@@ -19,6 +19,7 @@ export type ClaimStatus="unbound"|"supported"|"challenged"|"contested"|"context-
 export type ClaimCoverageState="unbound"|"thin"|"directional"|"contested"|"context-only";
 export type ClaimPolicyKind="informational"|"bound-fresh"|"all-fresh"|"audit-ready";
 export type ArgumentReviewStatus="draft"|"accepted"|"dismissed";
+export type ArgumentPolicyKind="informational"|"fresh-accepted-on-excerpts";
 export type ClaimCoverageFlag=
   |"no-evidence"
   |"single-source"
@@ -159,6 +160,18 @@ export interface EvidenceRef{
   addedBy:"operator"|"system"|"tool";
 }
 
+export interface ArgumentGovernanceReport{
+  mode:CollaborationMode;
+  policy:ArgumentPolicyKind;
+  applicableClaimIds:string[];
+  freshAcceptedClaimIds:string[];
+  missingAcceptedClaimIds:string[];
+  staleAcceptedClaimIds:string[];
+  draftOnlyClaimIds:string[];
+  passed:boolean;
+  reason:string;
+}
+
 export interface ClaimGovernanceReport{
   mode:CollaborationMode;
   policy:ClaimPolicyKind;
@@ -280,6 +293,7 @@ export interface ThinkTankEvent{
   excerptEnd?:number;
   gateBreakdown?:GateBreakdown;
   claimGovernance?:ClaimGovernanceReport;
+  argumentGovernance?:ArgumentGovernanceReport;
   message?:string;
   gateScore?:number;
   override?:boolean;
@@ -326,6 +340,7 @@ export interface ThinkTankEventInput{
   excerptEnd?:number;
   gateBreakdown?:GateBreakdown;
   claimGovernance?:ClaimGovernanceReport;
+  argumentGovernance?:ArgumentGovernanceReport;
   message?:string;
   gateScore?:number;
   override?:boolean;
@@ -349,6 +364,7 @@ export interface ThinkTankState{
   gateScore:number|null;
   gateBreakdown:GateBreakdown|null;
   claimGovernance:ClaimGovernanceReport|null;
+  argumentGovernance:ArgumentGovernanceReport|null;
   evidenceRefs:EvidenceRef[];
   evidenceExcerpts:EvidenceExcerpt[];
   claims:Claim[];

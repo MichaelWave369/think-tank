@@ -1,6 +1,7 @@
 import { describe,expect,it } from "vitest";
 import { seats } from "../data/terminals";
 import { createInitialState } from "../domain/state";
+import { evaluateClaimCoverage } from "../domain/claimCoverage";
 import type { ThinkTankState } from "../domain/types";
 import { replayEvents } from "../kernel/eventKernel";
 import { runLiveProviderSession } from "./liveRunner";
@@ -203,6 +204,100 @@ describe("LIVE provider runner",()=>{
     expect(result.state.claimGovernance?.missingReviewClaimIds).toEqual(["CL-1"]);
     expect(result.state.synthesisWithheld).toBe(true);
     expect(result.state.actionAllowed).toBe(false);
+    expect(events[events.length-1]?.kind).toBe("synthesis.withheld");
+  });
+
+  it("withholds a passing LIVE Council solely when its accepted argument map is missing",async()=>{
+    const initial=createInitialState();
+    initial.evidenceRefs=[
+      {
+        id:"EV-1",
+        kind:"external-source",
+        verification:"machine-verified",
+        label:"Verified source",
+        uri:"https://example.com/verified",
+        addedBy:"tool",
+        retrieval:{
+          tool:"url-fetch",
+          requestedUri:"https://example.com/verified",
+          finalUri:"https://example.com/verified",
+          httpStatus:200,
+          contentType:"text/plain",
+          bytes:120,
+          sha256:"a".repeat(64),
+          redirects:0,
+          retrievedAt:"2026-10-01T12:00:00.000Z"
+        }
+      },
+      {
+        id:"EV-2",
+        kind:"operator-reference",
+        verification:"operator-attested",
+        label:"Independent reference",
+        uri:"https://example.com/independent",
+        addedBy:"operator"
+      }
+    ];
+    initial.claims=[{
+      id:"CL-1",
+      text:"A reviewed claim with an exact excerpt.",
+      addedBy:"operator"
+    }];
+    initial.claimBindings=[{
+      id:"CB-1",
+      claimId:"CL-1",
+      evidenceId:"EV-1",
+      relation:"supports",
+      addedBy:"operator"
+    }];
+    initial.evidenceExcerpts=[{
+      id:"EX-1",
+      evidenceId:"EV-1",
+      tool:"text-projector",
+      extractor:"text-projection-v1",
+      sourceUri:"https://example.com/verified",
+      sourceSha256:"a".repeat(64),
+      projectionSha256:"b".repeat(64),
+      excerptSha256:"c".repeat(64),
+      contentType:"text/plain",
+      startChar:0,
+      endChar:11,
+      text:"Exact quote",
+      extractedAt:"2026-10-01T12:01:00.000Z",
+      addedBy:"tool"
+    }];
+    initial.claimReviews=[evaluateClaimCoverage(
+      initial,
+      "CL-1",
+      "CR-1",
+      "2026-10-01T12:02:00.000Z"
+    )];
+
+    const events=[] as Parameters<typeof replayEvents>[1];
+
+    const result=await runLiveProviderSession({
+      initialState:initial,
+      seats,
+      prompt:"Run a fully evidenced council with one missing argument map.",
+      localModel:"local-test",
+      invoke:async request=>({
+        ok:true,
+        seatId:request.seatId,
+        provider:request.seatId==="local"?"Ollama":request.seatId==="openai"?"OpenAI":"Kimi",
+        model:request.model||"remote-test",
+        text:request.roleId.toUpperCase()+" output.",
+        latencyMs:5
+      }),
+      apply:event=>events.push(event)
+    });
+
+    expect(result.state.gateScore).toBeGreaterThan(.75);
+    expect(result.state.claimGovernance?.passed).toBe(true);
+    expect(result.state.argumentGovernance?.passed).toBe(false);
+    expect(result.state.argumentGovernance?.missingAcceptedClaimIds).toEqual(["CL-1"]);
+    expect(result.state.synthesisWithheld).toBe(true);
+    expect(result.state.actionAllowed).toBe(false);
+    expect(result.state.governanceReason).toMatch(/missing accepted map/i);
     expect(events[events.length-1]?.kind).toBe("synthesis.withheld");
   });
 

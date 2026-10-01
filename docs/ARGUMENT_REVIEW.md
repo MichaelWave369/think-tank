@@ -205,13 +205,15 @@ It cannot mutate analytical state during active governed execution.
 
 ## Reality Gate / claim policy
 
-PR 15 does not consume argument reviews in Reality Gate or Claim Policy.
+PR 15 itself does not consume argument reviews in Reality Gate or Claim Policy.
 
-Creating, accepting, or dismissing a review does not alter Gate score or action authorization.
+PR 16 now adds a separate Argument Policy for COUNCIL, DEBATE, and AUDIT.
 
-A later explicit governance rung may decide whether a fresh accepted argument map should be required in selected modes.
+Creating, accepting, or dismissing a review still does not add numeric Gate score and does not rewrite historical synthesis receipts.
 
-That future policy is intentionally not smuggled into PR 15.
+A future governed run evaluates the current argument-map state explicitly.
+
+See [ARGUMENT_GOVERNANCE.md](ARGUMENT_GOVERNANCE.md).
 
 ## Non-goals
 
@@ -225,3 +227,12 @@ PR 15 does not:
 - automatically accept model analysis
 - alter Reality Gate weights
 - require an argument review for synthesis
+
+
+## PR 16 authorization role
+
+PR 16 requires fresh ACCEPTED argument maps only in selected rigorous modes and only for claims that actually have a pinned excerpt basis.
+
+The provider review remains provider-authored analysis.
+
+Human acceptance plus freshness satisfies workflow policy, not truth.

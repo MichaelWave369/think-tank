@@ -6,33 +6,31 @@ A governed, event-sourced multi-mind control room. Cognitive roles are staffed b
 
 ## Current rung
 
-**PR 15 — Excerpt-Aware Challenger Argument Review**
+**PR 16 — Argument-Map Governance**
 
-The Think Tank can now ask the assigned Challenger provider to build a structured argument map over exact, hash-locked excerpts while keeping provider reasoning separate from evidence and operator authority.
+The Think Tank now composes fresh human-accepted Challenger argument maps into synthesis authorization for rigorous modes without turning provider reasoning into a truth score.
 
-PR 15 adds:
-- deterministic argument-review basis fingerprints
-- max 12 excerpts / 12,000 characters per review
-- prompt-injection boundary for untrusted source excerpts
-- raw-JSON Challenger review contract
-- one analysis point per eligible excerpt
-- anti-cherry-picking exact excerpt coverage
-- provider provenance on every review
-- DRAFT → ACCEPTED / DISMISSED human lifecycle
-- stale-review detection
-- stale DRAFT acceptance rejection
-- offline Challenger seat rejection
-- claim/excerpt dependency protection
-- Argument Review Console
-- exact canonical quote display beside provider reasoning
-- argument-review telemetry
-- parser + kernel integrity tests
+PR 16 adds:
+- per-mode argument policy
+- informational vs fresh-accepted-on-excerpts laws
+- deterministic ArgumentGovernanceReport receipts
+- applicability only for claims with pinned excerpts on bound evidence
+- fresh accepted / missing / stale / draft-only classification
+- kernel recomputation of argument policy at synthesis
+- forged argument-policy PASS rejection
+- COUNCIL argument-map requirement
+- DEBATE argument-map requirement
+- AUDIT argument-map requirement
+- LIVE + SIM policy composition
+- current vs last argument-policy telemetry
+- preserved FORCE SYNTHESIS override
+- isolated LIVE regression where evidence + structural audit pass but argument policy blocks
 
 ### Important semantic rule
 
-**PROVIDER ARGUMENT MAP ≠ EVIDENCE ≠ TRUTH.**
+**FRESH + ACCEPTED ≠ TRUE.**
 
-The provider analyzes the argument. Exact quotations, claim relations, evidence provenance, and operator acceptance remain separate authorities.
+Acceptance records human approval of a current reasoning artifact. Reality Gate, deterministic structural audit, and argument-map governance remain separate checks.
 
 See:
 - [Architecture](docs/ARCHITECTURE.md)
@@ -50,6 +48,7 @@ See:
 - [Claim-Aware Governance](docs/CLAIM_GOVERNANCE.md)
 - [Hash-Locked Source Excerpts](docs/SOURCE_EXCERPTS.md)
 - [Excerpt-Aware Argument Review](docs/ARGUMENT_REVIEW.md)
+- [Argument-Map Governance](docs/ARGUMENT_GOVERNANCE.md)
 
 ## Local-first setup
 
@@ -72,7 +71,7 @@ Verification:
 
 > **If a light changes, a sequenced event explains why.**
 
-If Challenger analyzes an excerpt, the ledger preserves the exact excerpt basis, provider provenance, structured reasoning map, and human acceptance state.
+If rigorous synthesis depends on an argument map, the ledger preserves both the current deterministic policy and the exact argument-policy receipt used by that run.
 
 ## Build ladder
 
@@ -90,6 +89,7 @@ If Challenger analyzes an excerpt, the ledger preserves the exact excerpt basis,
 12. ✅ Challenger claim coverage audits
 13. ✅ Claim-aware governance policy
 14. ✅ Hash-locked source excerpts
-15. **Excerpt-aware Challenger argument review**
+15. ✅ Excerpt-aware Challenger argument review
+16. **Argument-map governance**
 
 **Φ THINK TANK is a control room, not eight chat cards.**

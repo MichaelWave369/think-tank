@@ -223,6 +223,20 @@ Argument reviews do not alter Reality Gate scoring or Claim Policy in PR 15.
 
 See [ARGUMENT_REVIEW.md](ARGUMENT_REVIEW.md).
 
+## Argument-map governance
+
+PR 16 adds a third independent synthesis check beside Reality Gate and Claim Policy.
+
+COUNCIL, DEBATE, and AUDIT require fresh operator-accepted Challenger argument maps for claims that currently have pinned exact excerpts on bound evidence.
+
+SOLO, TRIO, DREAM, and BUILD keep Argument Policy informational.
+
+Every normal synthesis event carries a deterministic ArgumentGovernanceReport that the kernel recomputes from canonical argument-review state.
+
+Provider analysis still contributes zero numeric Reality Gate points.
+
+See [ARGUMENT_GOVERNANCE.md](ARGUMENT_GOVERNANCE.md).
+
 ## PR ladder
 
 1. ✅ Room shell + operator authority
@@ -239,6 +253,7 @@ See [ARGUMENT_REVIEW.md](ARGUMENT_REVIEW.md).
 12. ✅ Challenger claim coverage audits
 13. ✅ Claim-aware governance policy
 14. ✅ Hash-locked source excerpts
-15. Excerpt-aware Challenger argument review
+15. ✅ Excerpt-aware Challenger argument review
+16. Argument-map governance
 
-Future work can add argument-map governance, proper PDF extraction, authenticated remote deployment, richer provider discovery, streaming, tool execution, and voice without changing the core event contract.
+Future work can add proper PDF extraction, authenticated remote deployment, richer provider discovery, streaming, tool execution, voice, and higher-order synthesis receipts without changing the core event contract.

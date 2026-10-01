@@ -25,15 +25,15 @@ The kernel rejects:
 
 ## Mode laws
 
-| Mode | Active roles | Round cap | Gate law | Claim policy | Result law |
-| --- | --- | ---: | --- | --- | --- |
-| SOLO | Vessie | 1 | informational | informational | synthesis may complete |
-| TRIO | Dreamer, Builder, Challenger | 1 | threshold | bound-fresh | below threshold or failed claim policy = withheld |
-| COUNCIL | all five roles | 1 | threshold | all-fresh | all registered claims need fresh Challenger review |
-| DEBATE | Challenger, Builder, Vessie | 3 | threshold + objection | bound-fresh | objection + threshold + fresh bound claims required |
-| DREAM | Dreamer | 1 | informational | informational | always labeled SPECULATIVE, non-actionable |
-| BUILD | Builder, Challenger, Archivist | 1 | threshold-or-draft | bound-fresh | failed evidence or claim policy = DRAFT, non-actionable |
-| AUDIT | Challenger, Archivist | 1 | threshold | audit-ready | all claims fresh; UNBOUND/THIN claims block action |
+| Mode | Active roles | Round cap | Gate law | Claim policy | Argument policy | Result law |
+| --- | --- | ---: | --- | --- | --- | --- |
+| SOLO | Vessie | 1 | informational | informational | informational | synthesis may complete |
+| TRIO | Dreamer, Builder, Challenger | 1 | threshold | bound-fresh | informational | below threshold or failed claim policy = withheld |
+| COUNCIL | all five roles | 1 | threshold | all-fresh | fresh-accepted-on-excerpts | rigorous excerpt-bearing claims also need fresh accepted argument maps |
+| DEBATE | Challenger, Builder, Vessie | 3 | threshold + objection | bound-fresh | fresh-accepted-on-excerpts | objection + evidence + structural review + current accepted argument maps required |
+| DREAM | Dreamer | 1 | informational | informational | informational | always labeled SPECULATIVE, non-actionable |
+| BUILD | Builder, Challenger, Archivist | 1 | threshold-or-draft | bound-fresh | informational | failed evidence or claim policy = DRAFT, non-actionable |
+| AUDIT | Challenger, Archivist | 1 | threshold | audit-ready | fresh-accepted-on-excerpts | structural audit plus current accepted maps for excerpt-bearing claims |
 
 The seven operator modes remain orthogonal to any 3-6-9 agent kernel.
 
@@ -106,3 +106,23 @@ CONTESTED claims are allowed. Disagreement is surfaced rather than treated as an
 Every normal synthesis event carries a kernel-verified ClaimGovernanceReport.
 
 See [CLAIM_GOVERNANCE.md](CLAIM_GOVERNANCE.md).
+
+
+## Argument policy composition
+
+PR 16 adds a third deterministic synthesis requirement.
+
+- SOLO / TRIO / DREAM / BUILD: argument maps are informational
+- COUNCIL / DEBATE / AUDIT: every claim with a current pinned excerpt basis must have at least one fresh ACCEPTED Challenger argument map
+
+DRAFT is not accepted.
+
+STALE accepted history does not satisfy current policy.
+
+Dismissed reviews do not satisfy policy.
+
+Claims without pinned exact excerpts are not made artificially applicable.
+
+Every normal synthesis event carries a kernel-verified ArgumentGovernanceReport.
+
+See [ARGUMENT_GOVERNANCE.md](ARGUMENT_GOVERNANCE.md).
