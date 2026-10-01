@@ -381,9 +381,11 @@ function assertExcerptEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
     if(!evidence||evidence.verification!=="machine-verified"||!evidence.retrieval){
       throw new KernelIntegrityError("Excerpt request requires machine-verified evidence.",event.seq);
     }
-    if(!Number.isInteger(event.excerptStart)||!Number.isInteger(event.excerptEnd)||
-       event.excerptStart!<0||event.excerptEnd!<=event.excerptStart!||
-       event.excerptEnd!-event.excerptStart!>1600){
+    const start=event.excerptStart;
+    const end=event.excerptEnd;
+    if(typeof start!=="number"||typeof end!=="number"||
+       !Number.isInteger(start)||!Number.isInteger(end)||
+       start<0||end<=start||end-start>1600){
       throw new KernelIntegrityError("Excerpt request range is invalid or exceeds 1600 characters.",event.seq);
     }
     return true;
@@ -427,6 +429,9 @@ function assertExcerptEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
     }
     if(excerpt.sourceUri!==ref.uri||excerpt.sourceSha256!==ref.retrieval.sha256){
       throw new KernelIntegrityError("Excerpt source provenance does not match evidence receipt.",event.seq);
+    }
+    if(excerpt.contentType!==ref.retrieval.contentType){
+      throw new KernelIntegrityError("Excerpt content type does not match evidence receipt.",event.seq);
     }
     if(!/^[a-f0-9]{64}$/.test(excerpt.projectionSha256)||!/^[a-f0-9]{64}$/.test(excerpt.excerptSha256)){
       throw new KernelIntegrityError("Excerpt requires lowercase SHA-256 digests.",event.seq);
