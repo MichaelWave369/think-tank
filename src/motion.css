@@ -1,0 +1,68 @@
+.room-shell>[class]:not(.motion-layer):not(.scanlines),.room-shell>header,.room-shell>section,.room-shell>button{position:relative;z-index:2}
+.motion-layer{position:absolute;inset:0;pointer-events:none;z-index:1;overflow:hidden}
+.motion-wash,.motion-sweep,.motion-rings,.motion-particles{position:absolute;inset:0;pointer-events:none}
+.motion-wash{opacity:0;background:radial-gradient(circle at 50% 35%,rgba(90,255,196,.16),transparent 46%)}
+.motion-sweep{left:-30%;right:auto;width:28%;background:linear-gradient(90deg,transparent,rgba(160,255,225,.12),transparent);opacity:0}
+.motion-rings{display:grid;place-items:center}
+.motion-rings i{position:absolute;width:18vw;min-width:180px;max-width:420px;aspect-ratio:1;border:1px solid rgba(120,255,215,.13);border-radius:50%;opacity:0}
+.motion-rings i:nth-child(2){width:28vw}.motion-rings i:nth-child(3){width:38vw}
+.motion-particles i{position:absolute;width:2px;height:2px;background:#b9ffe7;opacity:0}
+.motion-particles i:nth-child(1){left:8%;top:22%}.motion-particles i:nth-child(2){left:17%;top:71%}.motion-particles i:nth-child(3){left:31%;top:42%}.motion-particles i:nth-child(4){left:47%;top:17%}.motion-particles i:nth-child(5){left:62%;top:63%}.motion-particles i:nth-child(6){left:73%;top:31%}.motion-particles i:nth-child(7){left:85%;top:78%}.motion-particles i:nth-child(8){left:93%;top:48%}
+
+[data-motion="full"] .cue-wake .motion-wash{animation:fx-wake 900ms ease-out both}
+[data-motion="full"] .cue-route .motion-sweep,[data-motion="full"] .cue-speak .motion-sweep,[data-motion="full"] .cue-challenge .motion-sweep{animation:fx-sweep 700ms ease-out both}
+[data-motion="full"] .cue-gate-pass .motion-rings i,[data-motion="full"] .cue-complete .motion-rings i{animation:fx-ring 820ms ease-out both}
+[data-motion="full"] .cue-gate-block .motion-rings i,[data-motion="full"] .cue-fault .motion-rings i,[data-motion="full"] .cue-abort .motion-rings i{animation:fx-ring-alert 760ms ease-out both}
+[data-motion="full"] .cue-override .motion-wash{animation:fx-override 850ms ease-out both}
+[data-motion="full"] .motion-particles i{animation:fx-particle 4.8s linear infinite}
+[data-motion="full"] .motion-particles i:nth-child(2n){animation-delay:-1.3s}
+[data-motion="full"] .motion-particles i:nth-child(3n){animation-delay:-2.7s}
+
+.terminal{position:relative;overflow:hidden}
+.terminal.motion-hit::after{content:"";position:absolute;inset:0;border:1px solid currentColor;pointer-events:none;opacity:0;transform:scale(.985)}
+[data-motion="full"] .terminal.motion-hit::after{animation:terminal-hit 560ms ease-out both}
+[data-motion="full"] .terminal.motion-hit.cue-challenge::after,[data-motion="full"] .terminal.motion-hit.cue-fault::after{animation:terminal-alert 640ms ease-out both}
+
+.commonline-core-wrap{display:grid;grid-template-columns:1fr 160px 1fr;gap:10px;align-items:center}
+.route-trace{position:relative;min-width:70px;height:28px;display:flex;align-items:flex-end;justify-content:center;border-top:1px solid rgba(132,255,215,.25)}
+.route-trace span{font-size:.54rem;opacity:.55;white-space:nowrap}
+.route-trace i{position:absolute;top:-3px;left:0;width:6px;height:6px;border-radius:50%;background:#9fffe1;opacity:0;transform:translateX(0)}
+.route-trace.route-out i{left:auto;right:0}
+.route-trace.active{border-top-color:rgba(132,255,215,.75)}
+[data-motion="full"] .route-trace.route-in.active i{animation:trace-in 520ms ease-out both}
+[data-motion="full"] .route-trace.route-out.active i{animation:trace-out 520ms 180ms ease-out both}
+[data-motion="full"] .motion-core{animation:core-breathe 620ms ease-out both}
+.commonline-cue{display:flex;justify-content:space-between;gap:10px;border-top:1px dashed #285f4f;border-bottom:1px dashed #285f4f;padding:6px 0;margin-bottom:7px;font-size:.6rem;letter-spacing:.06em}
+.commonline-cue strong{text-align:center}
+.commonline-cue span{opacity:.65}
+
+.ledger-new{transform-origin:left center}
+[data-motion="full"] .ledger-new{animation:ledger-print 340ms ease-out both}
+.ledger-paused .ledger-paper{outline:1px dashed rgba(60,42,24,.45);outline-offset:-4px}
+.governance-panel button:disabled,.mode-bar button:disabled{opacity:.35;cursor:not-allowed}
+
+[data-motion="reduced"] .motion-layer{opacity:.35}
+[data-motion="reduced"] .terminal.motion-hit::after{opacity:.28;transform:none}
+[data-motion="reduced"] .route-trace.active i{opacity:1;transform:translateX(50%)}
+[data-motion="reduced"] .motion-core{transform:scale(1.015)}
+
+[data-motion="paused"] .motion-layer,[data-motion="paused"] .terminal.motion-hit::after,[data-motion="paused"] .route-trace i{opacity:0}
+[data-motion="paused"] *{animation-play-state:paused!important}
+
+@keyframes fx-wake{0%{opacity:0;transform:scale(.92)}35%{opacity:.7}100%{opacity:0;transform:scale(1.08)}}
+@keyframes fx-sweep{0%{opacity:0;transform:translateX(0)}22%{opacity:.8}100%{opacity:0;transform:translateX(470%)}}
+@keyframes fx-ring{0%{opacity:0;transform:scale(.55)}35%{opacity:.48}100%{opacity:0;transform:scale(1.38)}}
+@keyframes fx-ring-alert{0%{opacity:0;transform:scale(.72)}25%{opacity:.65}55%{opacity:.18;transform:scale(1.04)}100%{opacity:0;transform:scale(1.24)}}
+@keyframes fx-override{0%{opacity:0;transform:scale(.96)}40%{opacity:.6}100%{opacity:0;transform:scale(1.12)}}
+@keyframes fx-particle{0%{opacity:0;transform:translate3d(0,18px,0)}20%{opacity:.35}80%{opacity:.18}100%{opacity:0;transform:translate3d(12px,-42px,0)}}
+@keyframes terminal-hit{0%{opacity:0;transform:scale(.985)}28%{opacity:.5}100%{opacity:0;transform:scale(1.01)}}
+@keyframes terminal-alert{0%{opacity:0;transform:scale(.98)}22%{opacity:.7}50%{opacity:.15;transform:scale(1.008)}72%{opacity:.5}100%{opacity:0;transform:scale(1.016)}}
+@keyframes trace-in{0%{opacity:0;transform:translateX(0)}18%{opacity:1}100%{opacity:0;transform:translateX(calc(100% - 6px))}}
+@keyframes trace-out{0%{opacity:0;transform:translateX(0)}18%{opacity:1}100%{opacity:0;transform:translateX(calc(-100% + 6px))}}
+@keyframes core-breathe{0%{transform:scale(1)}38%{transform:scale(1.045)}100%{transform:scale(1)}}
+@keyframes ledger-print{0%{opacity:0;transform:translateY(-5px)}100%{opacity:1;transform:translateY(0)}}
+
+@media(max-width:700px){
+  .commonline-core-wrap{grid-template-columns:1fr 110px 1fr}
+  .route-trace span{display:none}
+}
