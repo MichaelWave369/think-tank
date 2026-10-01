@@ -22,6 +22,8 @@ Operational controls do not bypass the ledger. Operator actions are canonical ev
 
 `FORCE SYNTHESIS` only arms when the session is withheld or faulted, and the override is itself ledgered.
 
+During simulated event playback, mutating controls lock while ABORT remains available.
+
 ## Roles are not seats
 
 Cognitive roles:
@@ -40,8 +42,6 @@ An Assignment binds a seat to a role for the current session. Crane Fly routes a
 
 ## Modes + scheduler
 
-PR 4 makes mode semantics executable.
-
 Each mode locks:
 - active role set
 - speaker queue
@@ -55,6 +55,23 @@ Each mode locks:
 The kernel rejects histories that violate that schedule even if someone recomputes replay fingerprints.
 
 See [MODE_GOVERNANCE.md](MODE_GOVERNANCE.md).
+
+## Semantic motion
+
+Motion is a projection of accepted events, not a second state machine.
+
+The global motion policy is:
+- full
+- reduced
+- paused
+
+Hidden tabs pause FX. Reduced motion preserves semantic state without traveling effects.
+
+Animated properties are restricted to transform and opacity.
+
+Simulation batches are pre-sealed by the event kernel and then visually projected one event at a time so routing can actually be observed without changing ledger semantics.
+
+See [MOTION_LAYER.md](MOTION_LAYER.md).
 
 ## Mode semantics
 
@@ -76,24 +93,13 @@ Initial evidence threshold: 0.75.
 
 The gate is interpreted by the selected mode law. A low score may withhold synthesis, preserve only a draft, or remain informational depending on mode.
 
-## Turn model
-
-The scheduler now owns:
-- active roles
-- speaker queue
-- current/max rounds
-- timeout
-- synthesis trigger
-- objection count
-- action authorization
-
 ## PR ladder
 
 1. ✅ Room shell + operator authority
 2. ✅ Terminal identity + speech viewport
 3. ✅ Event kernel + deterministic replay
-4. Modes + scheduler + governance
-5. Motion layer
+4. ✅ Modes + scheduler + governance
+5. Semantic motion layer
 6. Crane Fly role-seat assignment engine
 7. Provider adapters
 
