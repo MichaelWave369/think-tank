@@ -151,6 +151,22 @@ PR 10 does not change Reality Gate scoring. It establishes the graph that future
 
 See [CLAIM_BINDINGS.md](CLAIM_BINDINGS.md).
 
+## Governed research / search
+
+PR 11 adds claim-scoped source discovery through an optional local/admin-configured SearXNG adapter.
+
+The canonical flow is:
+
+`CLAIM → SEARCH REQUEST → QUARANTINED CANDIDATES → MACHINE RETRIEVAL → EVIDENCE → CLAIM BINDING`
+
+Search candidates are fingerprinted and replayable but contribute zero to Reality Gate.
+
+Promotion reuses the PR 9 evidence verifier and preserves candidate lineage.
+
+Duplicate evidence URIs and duplicate machine-content SHA-256 digests are rejected so rediscovery cannot inflate evidence breadth.
+
+See [GOVERNED_RESEARCH.md](GOVERNED_RESEARCH.md).
+
 ## PR ladder
 
 1. ✅ Room shell + operator authority
@@ -162,6 +178,7 @@ See [CLAIM_BINDINGS.md](CLAIM_BINDINGS.md).
 7. ✅ Provider adapters + LIVE execution
 8. ✅ Reality Gate evidence engine
 9. ✅ Machine-verified evidence retrieval
-10. Claim registry + claim-to-source binding
+10. ✅ Claim registry + claim-to-source binding
+11. Governed research / search
 
-Future work can add governed search/research tools, claim discovery, claim-aware gate policy, authenticated remote deployment, richer provider discovery, streaming, tool execution, and voice without changing the core event contract.
+Future work can add claim discovery, Challenger-assisted source assessment, claim-aware gate policy, authenticated remote deployment, richer provider discovery, streaming, tool execution, and voice without changing the core event contract.
