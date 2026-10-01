@@ -1,3 +1,4 @@
+import { claimGraphSummary } from "../domain/claims";
 import { schedulerStatus } from "../domain/scheduler";
 import type { ThinkTankState } from "../domain/types";
 import type { ReplayReport } from "../kernel/eventKernel";
@@ -22,6 +23,7 @@ export function SystemStatus({
   const kernelOk=replayReport.valid&&replayReport.exact;
   const pinCount=Object.keys(state.pinnedAssignments).length;
   const onlineCount=Object.values(state.seatStatus).filter(status=>status!=="offline").length;
+  const claimSummary=claimGraphSummary(state);
 
   return <section className="system-status">
     <strong>SYSTEM STATUS</strong>
@@ -37,6 +39,9 @@ export function SystemStatus({
     <span>Reality Gate: {gate} / {state.gateThreshold.toFixed(2)}</span>
     <span>Gate Cap: {state.gateBreakdown?.cap.toFixed(2)??"—"}</span>
     <span>Evidence: {state.evidenceRefs.length} refs</span>
+    <span>Claims: {claimSummary.total} · {claimSummary.bindings} bindings</span>
+    <span>Claims Unbound: {claimSummary.unbound}</span>
+    <span>Claims Contested: {claimSummary.contested}</span>
     <span>Output: {state.outputLabel??"PENDING"}</span>
     <span>Action: {state.actionAllowed?"AUTHORIZED":"LOCKED"}</span>
     <span>Event Kernel: <b className={kernelOk?"kernel-ok":"kernel-fault"}>{kernelOk?"REPLAY EXACT":"FAULT"}</b></span>
