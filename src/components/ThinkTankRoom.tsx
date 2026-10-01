@@ -1,8 +1,8 @@
-import { useCallback,useMemo,useReducer,useState } from "react";
+import { useCallback,useEffect,useMemo,useReducer,useRef,useState } from "react";
 import { roles,seats } from "../data/terminals";
 import { planAssignments,routingEventInputs,scoreSeatForRole } from "../domain/craneFly";
+import { projectEvent,thinkTankReducer } from "../domain/reducer";
 import { createInitialState } from "../domain/state";
-import { thinkTankReducer } from "../domain/reducer";
 import type {
   CollaborationMode,
   RoleId,
@@ -10,12 +10,16 @@ import type {
   SeatId,
   TerminalState,
   ThinkTankEvent,
-  ThinkTankEventInput
+  ThinkTankEventInput,
+  ThinkTankState
 } from "../domain/types";
 import { buildEvent,buildEventBatch,replayEvents,verifyReplay } from "../kernel/eventKernel";
 import { deriveMotionCue } from "../motion/motion";
 import { useEventPlayback } from "../motion/useEventPlayback";
 import { useMotionPolicy } from "../motion/useMotionPolicy";
+import { fetchProviderStatus,invokeProvider } from "../providers/client";
+import { runLiveProviderSession } from "../providers/liveRunner";
+import type { ProviderStatusResponse } from "../providers/types";
 import { scenarioEventInputs,type DemoScenario } from "../sim/demo";
 import { TerminalPanel } from "./TerminalPanel";
 import { Commonline } from "./Commonline";
@@ -24,6 +28,7 @@ import { GovernancePanel } from "./GovernancePanel";
 import { OperatorRail } from "./OperatorRail";
 import { ModeBar } from "./ModeBar";
 import { MotionLayer } from "./MotionLayer";
+import { ProviderPanel } from "./ProviderPanel";
 import { SystemStatus } from "./SystemStatus";
 import { LedgerRoll } from "./LedgerRoll";
 
@@ -31,14 +36,45 @@ const seatStatePriority:TerminalState[]=["warning","speaking","thinking","select
 
 export function ThinkTankRoom(){
   const [state,dispatch]=useReducer(thinkTankReducer,createInitialState());
+  const stateRef=useRef<ThinkTankState>(state);
+  stateRef.current=state;
+
   const [prompt,setPrompt]=useState("");
+  const [providerStatus,setProviderStatus]=useState<ProviderStatusResponse|null>(null);
+  const [providerError,setProviderError]=useState("");
+  const [localModel,setLocalModel]=useState("");
+  const [liveRunning,setLiveRunning]=useState(false);
+  const liveAbortRef=useRef<AbortController|null>(null);
   const motionMode=useMotionPolicy();
 
   const applyEvent=useCallback((event:ThinkTankEvent)=>{
+    stateRef.current=projectEvent(stateRef.current,event);
     dispatch({type:"APPLY_EVENT",event});
   },[]);
 
   const playback=useEventPlayback(applyEvent,motionMode);
+  const busy=playback.playing||liveRunning;
+
+  const refreshProviders=useCallback(async()=>{
+    try{
+      const next=await fetchProviderStatus();
+      setProviderStatus(next);
+      setProviderError("");
+      const local=next.seats.find(seat=>seat.seatId==="local");
+      setLocalModel(current=>
+        current&&local?.models.includes(current)
+          ?current
+          :(local?.model||local?.models[0]||"")
+      );
+    }catch(error){
+      setProviderStatus(null);
+      setProviderError(error instanceof Error?error.message:String(error));
+    }
+  },[]);
+
+  useEffect(()=>{
+    void refreshProviders();
+  },[refreshProviders]);
 
   const latestEvent=state.events[state.events.length-1];
   const cue=useMemo(()=>deriveMotionCue(latestEvent,state),[latestEvent,state]);
@@ -48,6 +84,19 @@ export function ThinkTankRoom(){
     [state]
   );
   const routeReady=routingPreview.unresolved.length===0;
+
+  const liveReady=useMemo(()=>{
+    if(!providerStatus||!routeReady)return false;
+
+    return routingPreview.decisions.every(decision=>{
+      const provider=providerStatus.seats.find(item=>item.seatId===decision.seatId);
+      if(!provider)return false;
+      if(decision.seatId==="local"){
+        return provider.state==="connected"&&Boolean(localModel);
+      }
+      return provider.state==="configured"||provider.state==="connected";
+    });
+  },[providerStatus,routeReady,routingPreview,localModel]);
 
   const activeRole=useMemo(
     ()=>[...state.events].reverse().find(event=>event.roleId)?.roleId,
@@ -88,43 +137,33 @@ export function ThinkTankRoom(){
   };
 
   const emitInput=(input:ThinkTankEventInput)=>{
-    const event=buildEvent(state,input);
+    const base=stateRef.current;
+    const event=buildEvent(base,input);
     applyEvent(event);
   };
 
   const playInputs=(inputs:ThinkTankEventInput[])=>{
-    if(playback.playing)return;
-    const events=buildEventBatch(state,inputs);
+    if(busy)return;
+    const events=buildEventBatch(stateRef.current,inputs);
     playback.play(events);
   };
 
-  const runAutoRoute=()=>{
-    playInputs(routingEventInputs(routingPreview));
-  };
+  const runAutoRoute=()=>playInputs(routingEventInputs(routingPreview));
 
   const pinRole=(roleId:RoleId,seatId:SeatId)=>{
-    if(playback.playing)return;
+    if(busy)return;
     const seat=seats.find(candidate=>candidate.id===seatId);
     if(!seat||state.seatStatus[seatId]==="offline")return;
 
     const score=scoreSeatForRole(roleId,seat,state,0);
     playInputs([
       {
-        source:"operator",
-        kind:"role.pinned",
-        phase:"routing",
-        roleId,
-        seatId,
+        source:"operator",kind:"role.pinned",phase:"routing",roleId,seatId,
         message:"Operator pinned "+roleId.toUpperCase()+" to "+seatId.toUpperCase()+"."
       },
       {
-        source:"system",
-        kind:"role.assigned",
-        phase:"routing",
-        roleId,
-        seatId,
-        assignmentScore:score,
-        assignmentOrigin:"operator-pin",
+        source:"system",kind:"role.assigned",phase:"routing",roleId,seatId,
+        assignmentScore:score,assignmentOrigin:"operator-pin",
         assignmentReason:"Operator pin is authoritative; Crane Fly recorded the forced staffing assignment.",
         message:"Pinned staffing applied: "+roleId.toUpperCase()+" → "+seatId.toUpperCase()+"."
       }
@@ -132,30 +171,44 @@ export function ThinkTankRoom(){
   };
 
   const unpinRole=(roleId:RoleId)=>{
-    if(playback.playing||!state.pinnedAssignments[roleId])return;
+    if(busy||!state.pinnedAssignments[roleId])return;
     emitInput({
-      source:"operator",
-      kind:"role.unpinned",
-      phase:"routing",
-      roleId,
+      source:"operator",kind:"role.unpinned",phase:"routing",roleId,
       message:"Operator removed pin from "+roleId.toUpperCase()+"."
     });
   };
 
   const setSeatStatus=(seatId:SeatId,seatStatus:SeatAvailability)=>{
-    if(playback.playing||state.seatStatus[seatId]===seatStatus)return;
+    if(busy||state.seatStatus[seatId]===seatStatus)return;
     emitInput({
-      source:"operator",
-      kind:"seat.status",
-      phase:"routing",
-      seatId,
-      seatStatus,
+      source:"operator",kind:"seat.status",phase:"routing",seatId,seatStatus,
       message:"Operator set "+seatId.toUpperCase()+" seat to "+seatStatus.toUpperCase()+"."
     });
   };
 
+  const syncProviderHealth=()=>{
+    if(busy||!providerStatus)return;
+    const inputs:ThinkTankEventInput[]=providerStatus.seats
+      .map(provider=>{
+        const seatStatus:SeatAvailability=
+          provider.state==="connected"||provider.state==="configured"?"online":"offline";
+        return {provider,seatStatus};
+      })
+      .filter(({provider,seatStatus})=>state.seatStatus[provider.seatId]!==seatStatus)
+      .map(({provider,seatStatus})=>({
+        source:"operator" as const,
+        kind:"seat.status" as const,
+        phase:"routing" as const,
+        seatId:provider.seatId,
+        seatStatus,
+        message:"Operator synced "+provider.seatId.toUpperCase()+" to "+seatStatus.toUpperCase()+" from provider bridge health."
+      }));
+
+    if(inputs.length)playInputs(inputs);
+  };
+
   const runScenario=(scenario:DemoScenario)=>{
-    if(playback.playing)return;
+    if(busy)return;
 
     const targetMode:CollaborationMode=scenario==="council-gate-block"?"council":state.mode;
     const routePlan=planAssignments(state,seats,targetMode);
@@ -173,23 +226,49 @@ export function ThinkTankRoom(){
     setPrompt("");
   };
 
+  const runLive=async()=>{
+    if(busy||!liveReady)return;
+
+    const controller=new AbortController();
+    liveAbortRef.current=controller;
+    setLiveRunning(true);
+    setProviderError("");
+    const livePrompt=prompt;
+    setPrompt("");
+
+    try{
+      const result=await runLiveProviderSession({
+        initialState:stateRef.current,
+        seats,
+        prompt:livePrompt,
+        localModel,
+        signal:controller.signal,
+        invoke:invokeProvider,
+        apply:applyEvent
+      });
+
+      if(result.error&&!result.aborted)setProviderError(result.error);
+    }finally{
+      liveAbortRef.current=null;
+      setLiveRunning(false);
+      void refreshProviders();
+    }
+  };
+
   const selectMode=(mode:CollaborationMode)=>{
-    if(playback.playing)return;
+    if(busy)return;
     emitInput({
-      source:"operator",
-      kind:"mode.selected",
-      mode,
-      phase:"intake",
+      source:"operator",kind:"mode.selected",mode,phase:"intake",
       message:"Operator selected "+mode.toUpperCase()+" mode."
     });
   };
 
   const abort=()=>{
+    liveAbortRef.current?.abort();
     playback.cancel();
+    setLiveRunning(false);
     emitInput({
-      source:"operator",
-      kind:"session.aborted",
-      phase:"aborted",
+      source:"operator",kind:"session.aborted",phase:"aborted",
       message:"Operator abort. Session halted."
     });
   };
@@ -197,35 +276,29 @@ export function ThinkTankRoom(){
   const canForce=state.synthesisWithheld||Boolean(state.faultCode);
 
   const force=()=>{
-    if(playback.playing||!canForce)return;
+    if(busy||!canForce)return;
     emitInput({
-      source:"operator",
-      kind:"operator.override",
-      phase:"synthesis",
-      override:true,
-      outputLabel:state.mode==="audit"?"AUDIT":"STANDARD",
-      actionAllowed:true,
+      source:"operator",kind:"operator.override",phase:"synthesis",override:true,
+      outputLabel:state.mode==="audit"?"AUDIT":"STANDARD",actionAllowed:true,
       governanceReason:"Human operator explicitly overrode the withheld/faulted synthesis state.",
       message:"Operator override recorded: FORCE SYNTHESIS."
     });
   };
 
   const replayExact=()=>{
-    if(playback.playing)return;
+    if(busy)return;
     const restored=replayEvents(createInitialState(),state.events);
+    stateRef.current=restored;
     dispatch({type:"RESET",state:restored});
   };
 
   const focusRouter=()=>{
-    document.getElementById("crane-fly-panel")?.scrollIntoView({behavior:motionMode==="full"?"smooth":"auto",block:"center"});
+    document.getElementById("crane-fly-panel")?.scrollIntoView({
+      behavior:motionMode==="full"?"smooth":"auto",block:"center"
+    });
   };
 
-  return <main
-    className="room-shell"
-    data-motion={motionMode}
-    data-cue={cue.kind}
-    data-seq={cue.seq}
-  >
+  return <main className="room-shell" data-motion={motionMode} data-cue={cue.kind} data-seq={cue.seq}>
     <div className="scanlines" aria-hidden="true"/>
     <MotionLayer cue={cue} mode={motionMode}/>
 
@@ -266,28 +339,34 @@ export function ThinkTankRoom(){
       </aside>
 
       <div className="center-stack">
-        <Commonline
-          assignments={state.assignments}
-          activeRole={activeRole}
-          seats={seats}
-          cue={cue}
-          motionMode={motionMode}
-        />
+        <Commonline assignments={state.assignments} activeRole={activeRole} seats={seats} cue={cue} motionMode={motionMode}/>
 
         <CraneFlyPanel
           state={state}
           seats={seats}
           preview={routingPreview}
-          busy={playback.playing}
+          busy={busy}
           onAutoRoute={runAutoRoute}
           onPin={pinRole}
           onUnpin={unpinRole}
           onSeatStatus={setSeatStatus}
         />
 
+        <ProviderPanel
+          status={providerStatus}
+          error={providerError}
+          localModel={localModel}
+          liveBusy={liveRunning}
+          liveReady={liveReady}
+          onLocalModel={setLocalModel}
+          onRefresh={()=>void refreshProviders()}
+          onSync={syncProviderHealth}
+          onRunLive={()=>void runLive()}
+        />
+
         <GovernancePanel
           state={state}
-          busy={playback.playing}
+          busy={busy}
           onGateBlock={()=>runScenario("council-gate-block")}
           onTimeout={()=>runScenario("timeout")}
         />
@@ -303,7 +382,7 @@ export function ThinkTankRoom(){
           prompt={prompt}
           canForce={canForce}
           canRun={routeReady}
-          busy={playback.playing}
+          busy={busy}
           onPrompt={setPrompt}
           onSend={()=>runScenario("happy")}
           onAbort={abort}
@@ -311,24 +390,19 @@ export function ThinkTankRoom(){
           onForce={force}
         />
 
-        <ModeBar mode={state.mode} disabled={playback.playing} onChange={selectMode}/>
+        <ModeBar mode={state.mode} disabled={busy} onChange={selectMode}/>
       </div>
 
       <SystemStatus
         state={state}
         replayReport={replayReport}
         motionMode={motionMode}
-        playing={playback.playing}
+        playing={busy}
         routeReady={routeReady}
         unresolvedCount={routingPreview.unresolved.length}
       />
     </section>
 
-    <LedgerRoll
-      events={state.events}
-      replayReport={replayReport}
-      busy={playback.playing}
-      onReplay={replayExact}
-    />
+    <LedgerRoll events={state.events} replayReport={replayReport} busy={busy} onReplay={replayExact}/>
   </main>;
 }

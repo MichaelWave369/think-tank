@@ -124,6 +124,12 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
     next.governanceReason=event.governanceReason??"Scheduled turn timed out.";
   }
 
+  if(event.kind==="provider.failed"){
+    next.currentSpeaker=null;
+    next.faultCode=event.faultCode??"PROVIDER_FAILED";
+    next.governanceReason=event.governanceReason??event.message??"Provider execution failed.";
+  }
+
   if(event.roleId&&event.message&&(event.kind==="utterance.complete"||event.kind==="challenge.raised")){
     next.lastUtterance={...state.lastUtterance,[event.roleId]:event.message};
     next.currentSpeaker=null;

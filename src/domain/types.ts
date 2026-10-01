@@ -46,6 +46,7 @@ export type ThinkTankEventKind=
   |"role.unpinned"
   |"role.assigned"
   |"routing.completed"
+  |"provider.failed"
   |"schedule.planned"
   |"round.started"
   |"turn.started"
@@ -74,6 +75,9 @@ export interface ThinkTankEvent{
   assignmentScore?:number;
   assignmentReason?:string;
   assignmentOrigin?:AssignmentOrigin;
+  providerModel?:string;
+  providerLatencyMs?:number;
+  providerRequestId?:string;
   message?:string;
   gateScore?:number;
   override?:boolean;
@@ -98,6 +102,9 @@ export interface ThinkTankEventInput{
   assignmentScore?:number;
   assignmentReason?:string;
   assignmentOrigin?:AssignmentOrigin;
+  providerModel?:string;
+  providerLatencyMs?:number;
+  providerRequestId?:string;
   message?:string;
   gateScore?:number;
   override?:boolean;
