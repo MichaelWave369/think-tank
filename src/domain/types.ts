@@ -5,21 +5,39 @@ export type CollaborationMode="solo"|"trio"|"council"|"debate"|"dream"|"build"|"
 export type RouterPolicy="manual"|"auto-trio"|"council-broadcast"|"debate-round-robin"|"dream-forward"|"build-forward"|"audit-forward";
 export type SessionPhase="intake"|"routing"|"independent"|"challenge"|"revision"|"synthesis"|"action"|"complete"|"aborted";
 export type EventSource="operator"|"system"|"simulator"|"provider";
+export type SynthesisTrigger="all-replied"|"gate-passed"|"operator-force"|"timeout";
+export type GateBehavior="informational"|"threshold"|"threshold-or-draft"|"threshold-and-objection";
+export type GovernanceLabel="STANDARD"|"SPECULATIVE"|"DRAFT"|"READY"|"AUDIT"|"WITHHELD";
 
 export interface RoleTerminal{ id:RoleId; name:string; accent:string; verbs:string[]; motif:string; }
 export interface Seat{ id:SeatId; name:string; model:string; provider:string; accent:string; capabilities:Record<string,number>; }
 export interface Assignment{ roleId:RoleId; seatId:SeatId; }
-export interface TurnPlan{ phase:SessionPhase; speakerQueue:RoleId[]; round:number; maxRounds:number; timeoutMs:number; synthesisTrigger:"all-replied"|"gate-passed"|"operator-force"|"timeout"; }
+
+export interface TurnPlan{
+  activeRoles:RoleId[];
+  speakerQueue:RoleId[];
+  round:number;
+  maxRounds:number;
+  timeoutMs:number;
+  synthesisTrigger:SynthesisTrigger;
+  gateBehavior:GateBehavior;
+  outputLabel:GovernanceLabel;
+  objectionRequired:boolean;
+}
 
 export type ThinkTankEventKind=
   |"mode.selected"
   |"session.started"
   |"operator.prompt"
   |"role.assigned"
+  |"schedule.planned"
+  |"round.started"
   |"turn.started"
+  |"turn.timeout"
   |"utterance.complete"
   |"challenge.raised"
   |"gate.scored"
+  |"governance.fault"
   |"synthesis.withheld"
   |"synthesis.completed"
   |"operator.override"
@@ -39,6 +57,12 @@ export interface ThinkTankEvent{
   message?:string;
   gateScore?:number;
   override?:boolean;
+  turnPlan?:TurnPlan;
+  round?:number;
+  faultCode?:string;
+  outputLabel?:GovernanceLabel;
+  actionAllowed?:boolean;
+  governanceReason?:string;
   stateBefore:string;
   stateAfter:string;
 }
@@ -53,6 +77,12 @@ export interface ThinkTankEventInput{
   message?:string;
   gateScore?:number;
   override?:boolean;
+  turnPlan?:TurnPlan;
+  round?:number;
+  faultCode?:string;
+  outputLabel?:GovernanceLabel;
+  actionAllowed?:boolean;
+  governanceReason?:string;
 }
 
 export interface ThinkTankState{
@@ -69,5 +99,14 @@ export interface ThinkTankState{
   assignments:Assignment[];
   terminalStates:Record<RoleId,TerminalState>;
   lastUtterance:Partial<Record<RoleId,string>>;
+  turnPlan:TurnPlan|null;
+  currentRound:number;
+  speakerIndex:number;
+  currentSpeaker:RoleId|null;
+  objectionCount:number;
+  outputLabel:GovernanceLabel|null;
+  actionAllowed:boolean;
+  governanceReason:string;
+  faultCode:string|null;
   events:ThinkTankEvent[];
 }

@@ -15,7 +15,16 @@ export function projectionSnapshot(state:ThinkTankState){
     synthesisWithheld:state.synthesisWithheld,
     assignments:state.assignments,
     terminalStates:state.terminalStates,
-    lastUtterance:state.lastUtterance
+    lastUtterance:state.lastUtterance,
+    turnPlan:state.turnPlan,
+    currentRound:state.currentRound,
+    speakerIndex:state.speakerIndex,
+    currentSpeaker:state.currentSpeaker,
+    objectionCount:state.objectionCount,
+    outputLabel:state.outputLabel,
+    actionAllowed:state.actionAllowed,
+    governanceReason:state.governanceReason,
+    faultCode:state.faultCode
   };
 }
 

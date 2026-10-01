@@ -20,5 +20,14 @@ export const createInitialState=():ThinkTankState=>({
   ],
   terminalStates:{vessie:"idle",dreamer:"idle",builder:"idle",challenger:"idle",archivist:"idle"},
   lastUtterance:{},
+  turnPlan:null,
+  currentRound:0,
+  speakerIndex:0,
+  currentSpeaker:null,
+  objectionCount:0,
+  outputLabel:null,
+  actionAllowed:false,
+  governanceReason:"",
+  faultCode:null,
   events:[]
 });

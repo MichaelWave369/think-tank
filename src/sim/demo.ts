@@ -1,109 +1,167 @@
-import type { ThinkTankEventInput } from "../domain/types";
+import { evaluateGovernance,initialTurnPlan } from "../domain/scheduler";
+import type { CollaborationMode,RoleId,ThinkTankEventInput } from "../domain/types";
 
-export const demoEventInputs=(prompt:string):ThinkTankEventInput[]=>[
-  {
-    source:"operator",
-    kind:"operator.prompt",
-    phase:"intake",
-    message:prompt.trim()||"Run deterministic Council demonstration."
-  },
-  {
-    source:"system",
-    kind:"session.started",
-    phase:"routing",
-    message:"Multi-mind session opened."
-  },
-  {
-    source:"simulator",
-    kind:"turn.started",
-    phase:"independent",
-    roleId:"dreamer",
-    seatId:"kimi",
-    message:"Dreamer begins."
-  },
-  {
-    source:"simulator",
-    kind:"utterance.complete",
-    phase:"independent",
-    roleId:"dreamer",
-    seatId:"kimi",
-    message:"What if the interface makes routing itself visible instead of hiding the handoff?"
-  },
-  {
-    source:"simulator",
-    kind:"turn.started",
-    phase:"independent",
-    roleId:"builder",
-    seatId:"local",
-    message:"Builder begins."
-  },
-  {
-    source:"simulator",
-    kind:"utterance.complete",
-    phase:"independent",
-    roleId:"builder",
-    seatId:"local",
-    message:"Every visible terminal state should be a projection of the same sequenced session events."
-  },
-  {
-    source:"simulator",
-    kind:"turn.started",
-    phase:"challenge",
-    roleId:"challenger",
-    seatId:"openai",
-    message:"Challenger begins."
-  },
-  {
-    source:"simulator",
-    kind:"challenge.raised",
-    phase:"challenge",
-    roleId:"challenger",
-    seatId:"openai",
-    message:"Objection logged: decorative motion must never imply evidence or routing that did not occur."
-  },
-  {
-    source:"simulator",
-    kind:"turn.started",
-    phase:"revision",
-    roleId:"archivist",
-    seatId:"kimi",
-    message:"Archivist begins."
-  },
-  {
-    source:"simulator",
-    kind:"utterance.complete",
-    phase:"revision",
-    roleId:"archivist",
-    seatId:"kimi",
-    message:"Ledger sequence and visible state remain aligned; replay can reconstruct the room."
-  },
-  {
-    source:"simulator",
-    kind:"turn.started",
-    phase:"synthesis",
-    roleId:"vessie",
-    seatId:"local",
-    message:"Vessie Prime begins synthesis review."
-  },
-  {
-    source:"simulator",
-    kind:"utterance.complete",
-    phase:"synthesis",
-    roleId:"vessie",
-    seatId:"local",
-    message:"Council round complete. Evidence scoring now determines whether synthesis may proceed."
-  },
-  {
+export type DemoScenario="happy"|"council-gate-block"|"timeout";
+
+const utteranceFor=(roleId:RoleId,mode:CollaborationMode):string=>{
+  const lines:Record<RoleId,string>={
+    dreamer:"I am exploring the prompt for latent structure, alternatives, and useful leaps.",
+    builder:"I am translating the prompt into an implementable structure with explicit seams.",
+    challenger:"Objection logged: assumptions and unsupported transitions must survive scrutiny.",
+    archivist:"I am checking continuity, provenance, and whether the ledger can reconstruct the decision.",
+    vessie:"I am aligning the scheduled voices and preparing the governed synthesis."
+  };
+  return lines[roleId]+" MODE="+mode.toUpperCase()+".";
+};
+
+export function scenarioEventInputs(
+  prompt:string,
+  selectedMode:CollaborationMode,
+  scenario:DemoScenario
+):ThinkTankEventInput[]{
+  const targetMode:CollaborationMode=scenario==="council-gate-block"?"council":selectedMode;
+  const plan=initialTurnPlan(targetMode);
+  const inputs:ThinkTankEventInput[]=[];
+
+  if(targetMode!==selectedMode){
+    inputs.push({
+      source:"operator",
+      kind:"mode.selected",
+      mode:targetMode,
+      phase:"intake",
+      message:"Governance drill selected COUNCIL mode."
+    });
+  }
+
+  inputs.push(
+    {
+      source:"operator",
+      kind:"operator.prompt",
+      phase:"intake",
+      message:prompt.trim()||("Run "+targetMode.toUpperCase()+" governed demonstration.")
+    },
+    {
+      source:"system",
+      kind:"session.started",
+      phase:"routing",
+      message:"Governed "+targetMode.toUpperCase()+" session opened."
+    },
+    {
+      source:"system",
+      kind:"schedule.planned",
+      phase:"routing",
+      turnPlan:plan,
+      message:"Scheduler locked "+plan.speakerQueue.join(" → ")+"; max rounds "+plan.maxRounds+"."
+    },
+    {
+      source:"system",
+      kind:"round.started",
+      phase:"independent",
+      round:1,
+      message:"Round 1 started."
+    }
+  );
+
+  if(scenario==="timeout"){
+    const roleId=plan.speakerQueue[0];
+    inputs.push(
+      {
+        source:"simulator",
+        kind:"turn.started",
+        phase:"independent",
+        roleId,
+        message:roleId.toUpperCase()+" turn started."
+      },
+      {
+        source:"system",
+        kind:"turn.timeout",
+        phase:"independent",
+        roleId,
+        faultCode:"TURN_TIMEOUT",
+        governanceReason:"Scheduled speaker exceeded the turn timeout.",
+        message:"Turn timeout recorded for "+roleId.toUpperCase()+"."
+      },
+      {
+        source:"system",
+        kind:"governance.fault",
+        phase:"synthesis",
+        faultCode:"TURN_TIMEOUT",
+        governanceReason:"Scheduler could not complete the required speaker queue.",
+        message:"Governance fault: required queue did not complete."
+      }
+    );
+
+    const decision=evaluateGovernance(targetMode,0,.75,0,true);
+    inputs.push({
+      source:"system",
+      kind:"synthesis.withheld",
+      phase:"synthesis",
+      outputLabel:decision.outputLabel,
+      actionAllowed:decision.actionAllowed,
+      governanceReason:decision.reason,
+      message:"Synthesis withheld after timeout."
+    });
+
+    return inputs;
+  }
+
+  let objectionCount=0;
+
+  for(const roleId of plan.speakerQueue){
+    inputs.push({
+      source:"simulator",
+      kind:"turn.started",
+      phase:roleId==="challenger"?"challenge":"independent",
+      roleId,
+      message:roleId.toUpperCase()+" turn started."
+    });
+
+    if(roleId==="challenger"){
+      objectionCount+=1;
+      inputs.push({
+        source:"simulator",
+        kind:"challenge.raised",
+        phase:"challenge",
+        roleId,
+        message:utteranceFor(roleId,targetMode)
+      });
+    }else{
+      inputs.push({
+        source:"simulator",
+        kind:"utterance.complete",
+        phase:roleId==="vessie"?"synthesis":"independent",
+        roleId,
+        message:utteranceFor(roleId,targetMode)
+      });
+    }
+  }
+
+  const score=scenario==="council-gate-block"?.52:.88;
+  inputs.push({
     source:"system",
     kind:"gate.scored",
     phase:"synthesis",
-    gateScore:.63,
-    message:"Evidence score below threshold."
-  },
-  {
+    gateScore:score,
+    message:"Reality Gate scored "+score.toFixed(2)+"."
+  });
+
+  const decision=evaluateGovernance(targetMode,score,.75,objectionCount,false);
+
+  inputs.push({
     source:"system",
-    kind:"synthesis.withheld",
-    phase:"synthesis",
-    message:"Synthesis withheld until threshold or operator override."
-  }
-];
+    kind:decision.synthesisAllowed?"synthesis.completed":"synthesis.withheld",
+    phase:decision.synthesisAllowed?"complete":"synthesis",
+    outputLabel:decision.outputLabel,
+    actionAllowed:decision.actionAllowed,
+    governanceReason:decision.reason,
+    message:decision.synthesisAllowed
+      ?"Governed synthesis completed as "+decision.outputLabel+"."
+      :"Governed synthesis withheld."
+  });
+
+  return inputs;
+}
+
+/** Compatibility alias for kernel tests and older callers. */
+export const demoEventInputs=(prompt:string):ThinkTankEventInput[]=>
+  scenarioEventInputs(prompt,"council","council-gate-block");
