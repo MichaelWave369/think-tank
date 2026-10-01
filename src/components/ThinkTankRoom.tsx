@@ -5,6 +5,7 @@ import { projectEvent,thinkTankReducer } from "../domain/reducer";
 import { createInitialState } from "../domain/state";
 import type {
   CollaborationMode,
+  ClaimRelation,
   EvidenceRef,
   RoleId,
   SeatAvailability,
@@ -24,6 +25,7 @@ import type { ProviderStatusResponse } from "../providers/types";
 import { scenarioEventInputs,type DemoScenario } from "../sim/demo";
 import { TerminalPanel } from "./TerminalPanel";
 import { Commonline } from "./Commonline";
+import { ClaimBoard } from "./ClaimBoard";
 import { CraneFlyPanel } from "./CraneFlyPanel";
 import { EvidencePanel } from "./EvidencePanel";
 import { GovernancePanel } from "./GovernancePanel";
@@ -232,8 +234,67 @@ export function ThinkTankRoom(){
     }
   };
 
-  const removeEvidence=(evidenceId:string)=>{
+  const addClaim=(text:string)=>{
     if(busy)return;
+    const claim={
+      id:"CL-"+String(stateRef.current.seq+1).padStart(4,"0"),
+      text,
+      addedBy:"operator" as const
+    };
+    emitInput({
+      source:"operator",
+      kind:"claim.added",
+      phase:"intake",
+      claim,
+      message:"Operator registered claim "+claim.id+": "+text
+    });
+  };
+
+  const removeClaim=(claimId:string)=>{
+    if(busy||stateRef.current.claimBindings.some(binding=>binding.claimId===claimId))return;
+    emitInput({
+      source:"operator",
+      kind:"claim.removed",
+      phase:"intake",
+      claimId,
+      message:"Operator removed claim "+claimId+"."
+    });
+  };
+
+  const bindEvidence=(claimId:string,evidenceId:string,relation:ClaimRelation,note:string)=>{
+    if(busy)return;
+    const claimBinding={
+      id:"CB-"+String(stateRef.current.seq+1).padStart(4,"0"),
+      claimId,
+      evidenceId,
+      relation,
+      note:note||undefined,
+      addedBy:"operator" as const
+    };
+    emitInput({
+      source:"operator",
+      kind:"evidence.bound",
+      phase:"intake",
+      claimBinding,
+      message:
+        "Operator bound "+evidenceId+" "+relation.toUpperCase()+" "+claimId+
+        (note?" · "+note:"")+"."
+    });
+  };
+
+  const unbindEvidence=(claimBindingId:string)=>{
+    if(busy)return;
+    emitInput({
+      source:"operator",
+      kind:"evidence.unbound",
+      phase:"intake",
+      claimBindingId,
+      message:"Operator removed claim binding "+claimBindingId+"."
+    });
+  };
+
+  const removeEvidence=(evidenceId:string)=>{
+    if(busy||stateRef.current.claimBindings.some(binding=>binding.evidenceId===evidenceId))return;
     emitInput({
       source:"operator",
       kind:"evidence.removed",
@@ -471,9 +532,21 @@ export function ThinkTankRoom(){
           busy={busy}
           verifyBusy={evidenceFetching}
           verifyError={evidenceToolError}
+          boundEvidenceIds={state.claimBindings.map(binding=>binding.evidenceId)}
           onAdd={addEvidence}
           onVerify={(label,uri,note)=>void verifyEvidence(label,uri,note)}
           onRemove={removeEvidence}
+        />
+
+        <ClaimBoard
+          claims={state.claims}
+          bindings={state.claimBindings}
+          evidence={state.evidenceRefs}
+          busy={busy}
+          onAdd={addClaim}
+          onRemove={removeClaim}
+          onBind={bindEvidence}
+          onUnbind={unbindEvidence}
         />
 
         <GovernancePanel
