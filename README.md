@@ -6,33 +6,29 @@ A governed, event-sourced multi-mind control room. Cognitive roles are staffed b
 
 ## Current rung
 
-**PR 12 — Challenger Claim Coverage Audits**
+**PR 13 — Claim-Aware Governance Policy**
 
-The Think Tank can now deterministically audit the structural coverage around every registered claim without pretending that evidence structure is the same thing as factual truth.
+The Think Tank now composes numeric Reality Gate results with deterministic claim-review requirements at synthesis time.
 
-PR 12 adds:
-- deterministic Challenger structural audits
-- canonical claim review request/completion events
-- immutable claim review receipts
-- per-claim basis fingerprints
-- FRESH / STALE / UNREVIEWED review state
-- UNBOUND / THIN / DIRECTIONAL / CONTESTED / CONTEXT-ONLY coverage states
-- support / contradiction / context counts
-- machine-verified / attested / unverified counts
-- research-lineage counts
-- explicit structural flags
-- kernel recomputation of every review receipt
-- forged review rejection
-- graph-change-during-review rejection
-- exact review replay
-- Claim Coverage Matrix UI
-- System Status audit freshness telemetry
+PR 13 adds:
+- explicit claim policy per collaboration mode
+- informational / bound-fresh / all-fresh / audit-ready policies
+- canonical ClaimGovernanceReport receipts
+- kernel recomputation of every synthesis claim-policy receipt
+- forged policy receipt rejection
+- claim-policy-aware LIVE and SIM execution
+- COUNCIL all-claims freshness requirement
+- TRIO / DEBATE fresh review requirement for bound claims
+- BUILD downgrade to DRAFT when claim policy fails
+- AUDIT fresh-review + non-THIN/non-UNBOUND requirement
+- Governance panel claim-policy telemetry
+- preserved human FORCE SYNTHESIS override
 
 ### Important semantic rule
 
-**COVERAGE ≠ TRUTH.**
+**REALITY GATE PASS ≠ CLAIM POLICY PASS.**
 
-PR 12 deliberately leaves Reality Gate weights and authorization behavior unchanged.
+Both are governance checks. Neither is a truth oracle.
 
 See:
 - [Architecture](docs/ARCHITECTURE.md)
@@ -47,6 +43,7 @@ See:
 - [Claim Registry + Bindings](docs/CLAIM_BINDINGS.md)
 - [Governed Research / Search](docs/GOVERNED_RESEARCH.md)
 - [Challenger Claim Coverage](docs/CHALLENGER_COVERAGE.md)
+- [Claim-Aware Governance](docs/CLAIM_GOVERNANCE.md)
 
 ## Local-first setup
 
@@ -69,7 +66,7 @@ Verification:
 
 > **If a light changes, a sequenced event explains why.**
 
-If Challenger says a claim was reviewed, an immutable deterministic receipt explains exactly what graph it reviewed.
+If synthesis is authorized or withheld, deterministic receipts explain both the numeric Reality Gate result and the claim-review policy result.
 
 ## Build ladder
 
@@ -84,6 +81,7 @@ If Challenger says a claim was reviewed, an immutable deterministic receipt expl
 9. ✅ Machine-verified evidence retrieval
 10. ✅ Claim registry + claim-to-source binding
 11. ✅ Governed research / search
-12. **Challenger claim coverage audits**
+12. ✅ Challenger claim coverage audits
+13. **Claim-aware governance policy**
 
 **Φ THINK TANK is a control room, not eight chat cards.**
