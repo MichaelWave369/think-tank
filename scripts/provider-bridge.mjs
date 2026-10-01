@@ -1,4 +1,5 @@
 import http from "node:http";
+import https from "node:https";
 import {createHash} from "node:crypto";
 import {lookup} from "node:dns/promises";
 import {isIP} from "node:net";
@@ -96,13 +97,16 @@ const assertPublicHttpUrl=async(raw)=>{
   try{url=new URL(raw);}catch{throw new Error("Evidence URI must be a valid absolute URL.");}
   if(url.protocol!=="https:"&&url.protocol!=="http:")throw new Error("Evidence URI must use http or https.");
   if(url.username||url.password)throw new Error("Evidence URI must not contain credentials.");
-  if(url.port&&url.port!=="80"&&url.port!=="443")throw new Error("Evidence URI may only use ports 80 or 443.");
+  if(url.protocol==="http:"&&url.port&&url.port!=="80")throw new Error("HTTP evidence URI may only use port 80.");
+  if(url.protocol==="https:"&&url.port&&url.port!=="443")throw new Error("HTTPS evidence URI may only use port 443.");
 
-  const host=url.hostname;
-  const direct=isIP(host);
+  const rawHost=url.hostname.startsWith("[")&&url.hostname.endsWith("]")
+    ?url.hostname.slice(1,-1)
+    :url.hostname;
+  const direct=isIP(rawHost);
   const addresses=direct
-    ?[{address:host,family:direct}]
-    :await lookup(host,{all:true,verbatim:true});
+    ?[{address:rawHost,family:direct}]
+    :await lookup(rawHost,{all:true,verbatim:true});
 
   if(!addresses.length)throw new Error("Evidence host did not resolve.");
 
@@ -111,27 +115,7 @@ const assertPublicHttpUrl=async(raw)=>{
     if(blocked)throw new Error("Evidence host resolves to a private, local, multicast, or reserved address.");
   }
 
-  return url;
-};
-
-const readBodyLimited=async(response,maxBytes)=>{
-  if(!response.body)return Buffer.alloc(0);
-  const reader=response.body.getReader();
-  const chunks=[];
-  let total=0;
-
-  while(true){
-    const {done,value}=await reader.read();
-    if(done)break;
-    total+=value.byteLength;
-    if(total>maxBytes){
-      try{await reader.cancel();}catch{}
-      throw new Error("Evidence response exceeds the configured byte limit.");
-    }
-    chunks.push(Buffer.from(value));
-  }
-
-  return Buffer.concat(chunks,total);
+  return {url,address:addresses[0].address,family:addresses[0].family};
 };
 
 const allowedEvidenceType=(contentType)=>{
@@ -145,79 +129,97 @@ const allowedEvidenceType=(contentType)=>{
   );
 };
 
+const requestPinned=({url,address,family},maxBytes)=>new Promise((resolve,reject)=>{
+  const transport=url.protocol==="https:"?https:http;
+  let settled=false;
+
+  const finishError=(error)=>{
+    if(settled)return;
+    settled=true;
+    reject(error);
+  };
+
+  const request=transport.request(url,{
+    method:"GET",
+    headers:{
+      "accept":"text/html,text/plain,application/json,application/xml,application/pdf;q=0.8,*/*;q=0.2",
+      "user-agent":"PhiThinkTank-EvidenceVerifier/0.2"
+    },
+    timeout:20_000,
+    servername:url.hostname,
+    lookup:(_hostname,_options,callback)=>callback(null,address,family)
+  },response=>{
+    const chunks=[];
+    let total=0;
+
+    response.on("data",chunk=>{
+      total+=chunk.length;
+      if(total>maxBytes){
+        response.destroy(new Error("Evidence response exceeds the configured byte limit."));
+        return;
+      }
+      chunks.push(chunk);
+    });
+
+    response.on("end",()=>{
+      if(settled)return;
+      settled=true;
+      resolve({
+        status:response.statusCode||0,
+        headers:response.headers,
+        body:Buffer.concat(chunks,total)
+      });
+    });
+
+    response.on("error",finishError);
+  });
+
+  request.on("timeout",()=>request.destroy(new Error("Evidence retrieval timed out.")));
+  request.on("error",finishError);
+  request.end();
+});
+
 const fetchEvidenceReceipt=async(requestedUri)=>{
-  let current=await assertPublicHttpUrl(requestedUri);
+  let target=await assertPublicHttpUrl(requestedUri);
   let redirects=0;
 
   while(true){
-    const response=await fetch(current,{
-      method:"GET",
-      redirect:"manual",
-      headers:{
-        "accept":"text/html,text/plain,application/json,application/xml,application/pdf;q=0.8,*/*;q=0.2",
-        "user-agent":"PhiThinkTank-EvidenceVerifier/0.1"
-      },
-      signal:AbortSignal.timeout(20_000)
-    });
+    const response=await requestPinned(target,EVIDENCE_MAX_BYTES);
+    const status=response.status;
 
-    if([301,302,303,307,308].includes(response.status)){
+    if([301,302,303,307,308].includes(status)){
       if(redirects>=EVIDENCE_MAX_REDIRECTS)throw new Error("Evidence redirect limit exceeded.");
-      const location=response.headers.get("location");
+      const location=Array.isArray(response.headers.location)
+        ?response.headers.location[0]
+        :response.headers.location;
       if(!location)throw new Error("Evidence redirect did not include a Location header.");
-      current=await assertPublicHttpUrl(new URL(location,current).toString());
+      target=await assertPublicHttpUrl(new URL(location,target.url).toString());
       redirects+=1;
       continue;
     }
 
-    if(!response.ok)throw new Error("Evidence fetch returned HTTP "+response.status+".");
+    if(status<200||status>=300)throw new Error("Evidence fetch returned HTTP "+status+".");
 
-    const contentType=response.headers.get("content-type")||"application/octet-stream";
+    const contentType=String(response.headers["content-type"]||"application/octet-stream");
     if(!allowedEvidenceType(contentType)){
       throw new Error("Evidence content type is not allowed: "+contentType+".");
     }
 
-    const body=await readBodyLimited(response,EVIDENCE_MAX_BYTES);
-    const sha256=createHash("sha256").update(body).digest("hex");
+    const sha256=createHash("sha256").update(response.body).digest("hex");
 
     return {
       ok:true,
       tool:"url-fetch",
       requestedUri,
-      finalUri:current.toString(),
-      httpStatus:response.status,
+      finalUri:target.url.toString(),
+      httpStatus:status,
       contentType,
-      bytes:body.length,
+      bytes:response.body.length,
       sha256,
       redirects,
       retrievedAt:new Date().toISOString()
     };
   }
-};
-
-const normalizeMessages=(messages)=>{
-  if(!Array.isArray(messages)||messages.length===0)throw new Error("messages must be a non-empty array.");
-  return messages.map((message,index)=>{
-    const role=message?.role;
-    const content=message?.content;
-    if(!["system","user","assistant"].includes(role))throw new Error("Invalid message role at index "+index+".");
-    if(typeof content!=="string"||!content.trim())throw new Error("Invalid message content at index "+index+".");
-    if(content.length>120_000)throw new Error("Message content exceeds provider bridge limit.");
-    return {role,content};
-  });
-};
-
-const fetchJson=async(url,init,timeoutMs)=>{
-  const response=await fetch(url,{...init,signal:AbortSignal.timeout(timeoutMs)});
-  const text=await response.text();
-  let body={};
-  try{body=text?JSON.parse(text):{};}catch{body={raw:text};}
-  if(!response.ok){
-    const message=body?.error?.message||body?.message||body?.raw||("HTTP "+response.status);
-    const error=new Error(String(message));
-    error.status=response.status;
-    throw error;
-  }
-  return {body,response};
 };
 
 const ollamaStatus=async()=>{
