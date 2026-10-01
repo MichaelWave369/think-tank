@@ -2,8 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   assertPublicHttpUrl,
+  buildSearxngSearchUrl,
   isBlockedIpv4,
-  isBlockedIpv6
+  isBlockedIpv6,
+  normalizeMessages,
+  normalizeSearchResults
 } from "./provider-bridge.mjs";
 
 test("blocks private and local IPv4 ranges",()=>{
@@ -61,4 +64,53 @@ test("accepts a syntactically valid public direct-IP URL without fetching it",as
   assert.equal(target.address,"8.8.8.8");
   assert.equal(target.family,4);
   assert.equal(target.url.protocol,"https:");
+});
+
+
+test("normalizes provider messages and rejects malformed roles",()=>{
+  assert.deepEqual(
+    normalizeMessages([
+      {role:"system",content:"  system  "},
+      {role:"user",content:" hello "}
+    ]),
+    [
+      {role:"system",content:"system"},
+      {role:"user",content:"hello"}
+    ]
+  );
+
+  assert.throws(
+    ()=>normalizeMessages([{role:"tool",content:"nope"}]),
+    /invalid role/i
+  );
+});
+
+test("builds the documented SearXNG JSON search URL",()=>{
+  const url=new URL(buildSearxngSearchUrl("http://127.0.0.1:8888","claim source test"));
+  assert.equal(url.pathname,"/search");
+  assert.equal(url.searchParams.get("q"),"claim source test");
+  assert.equal(url.searchParams.get("format"),"json");
+  assert.equal(url.searchParams.get("safesearch"),"1");
+});
+
+test("normalizes, filters, deduplicates, ranks, and caps search candidates",()=>{
+  const results=normalizeSearchResults({
+    results:[
+      {title:" First ",url:"https://example.com/a",content:"alpha",engine:"engine-a"},
+      {title:"Duplicate",url:"https://example.com/a",content:"dup",engine:"engine-b"},
+      {title:"Bad scheme",url:"file:///etc/passwd",content:"bad",engine:"bad"},
+      {title:"Credentials",url:"https://u:p@example.com/private",content:"bad",engine:"bad"},
+      {title:"Second",url:"https://example.com/b",content:"beta",engines:["engine-b"]},
+      {title:"Third",url:"https://example.com/c",content:"gamma",engine:"engine-c"}
+    ]
+  },2);
+
+  assert.equal(results.length,2);
+  assert.deepEqual(results.map(item=>item.rank),[1,2]);
+  assert.deepEqual(results.map(item=>item.uri),[
+    "https://example.com/a",
+    "https://example.com/b"
+  ]);
+  assert.equal(results[0].title,"First");
+  assert.equal(results[1].engine,"engine-b");
 });
