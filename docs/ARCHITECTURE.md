@@ -181,6 +181,20 @@ PR 12 does not alter Reality Gate policy.
 
 See [CHALLENGER_COVERAGE.md](CHALLENGER_COVERAGE.md).
 
+## Claim-aware governance
+
+PR 13 composes claim-review policy with the existing numeric Reality Gate at synthesis time.
+
+Each mode owns a frozen claim policy. Every normal synthesis resolution carries a deterministic ClaimGovernanceReport that the kernel recomputes from canonical claims, bindings, and Challenger reviews.
+
+The numeric evidence score is unchanged.
+
+A high Reality Gate score cannot bypass missing/stale claim-review requirements in rigorous modes.
+
+BUILD degrades to DRAFT on claim-policy failure; TRIO, COUNCIL, DEBATE, and AUDIT fail closed. SOLO and DREAM remain informational.
+
+See [CLAIM_GOVERNANCE.md](CLAIM_GOVERNANCE.md).
+
 ## PR ladder
 
 1. ✅ Room shell + operator authority
@@ -194,6 +208,7 @@ See [CHALLENGER_COVERAGE.md](CHALLENGER_COVERAGE.md).
 9. ✅ Machine-verified evidence retrieval
 10. ✅ Claim registry + claim-to-source binding
 11. ✅ Governed research / search
-12. Challenger claim coverage audits
+12. ✅ Challenger claim coverage audits
+13. Claim-aware governance policy
 
-Future work can add claim-aware gate policy, source-content extraction, provider-assisted argument review, authenticated remote deployment, richer provider discovery, streaming, tool execution, and voice without changing the core event contract.
+Future work can add source-content extraction, provider-assisted argument review, authenticated remote deployment, richer provider discovery, streaming, tool execution, and voice without changing the core event contract.

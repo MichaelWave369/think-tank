@@ -11,6 +11,7 @@ export const createInitialState=():ThinkTankState=>({
   gateThreshold:.75,
   gateScore:null,
   gateBreakdown:null,
+  claimGovernance:null,
   evidenceRefs:[],
   claims:[],
   claimBindings:[],

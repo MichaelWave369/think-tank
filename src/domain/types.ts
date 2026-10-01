@@ -17,6 +17,7 @@ export type EvidenceVerification="unverified"|"operator-attested"|"machine-verif
 export type ClaimRelation="supports"|"contradicts"|"context";
 export type ClaimStatus="unbound"|"supported"|"challenged"|"contested"|"context-only";
 export type ClaimCoverageState="unbound"|"thin"|"directional"|"contested"|"context-only";
+export type ClaimPolicyKind="informational"|"bound-fresh"|"all-fresh"|"audit-ready";
 export type ClaimCoverageFlag=
   |"no-evidence"
   |"single-source"
@@ -118,6 +119,18 @@ export interface EvidenceRef{
   addedBy:"operator"|"system"|"tool";
 }
 
+export interface ClaimGovernanceReport{
+  mode:CollaborationMode;
+  policy:ClaimPolicyKind;
+  applicableClaimIds:string[];
+  freshClaimIds:string[];
+  missingReviewClaimIds:string[];
+  staleReviewClaimIds:string[];
+  coverageBlockedClaimIds:string[];
+  passed:boolean;
+  reason:string;
+}
+
 export interface GateBreakdown{
   provenance:number;
   roleCoverage:number;
@@ -211,6 +224,7 @@ export interface ThinkTankEvent{
   evidenceId?:string;
   evidenceUri?:string;
   gateBreakdown?:GateBreakdown;
+  claimGovernance?:ClaimGovernanceReport;
   message?:string;
   gateScore?:number;
   override?:boolean;
@@ -250,6 +264,7 @@ export interface ThinkTankEventInput{
   evidenceId?:string;
   evidenceUri?:string;
   gateBreakdown?:GateBreakdown;
+  claimGovernance?:ClaimGovernanceReport;
   message?:string;
   gateScore?:number;
   override?:boolean;
@@ -272,6 +287,7 @@ export interface ThinkTankState{
   gateThreshold:number;
   gateScore:number|null;
   gateBreakdown:GateBreakdown|null;
+  claimGovernance:ClaimGovernanceReport|null;
   evidenceRefs:EvidenceRef[];
   claims:Claim[];
   claimBindings:ClaimBinding[];

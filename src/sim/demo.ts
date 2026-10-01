@@ -1,5 +1,7 @@
 import { evaluateGovernance,initialTurnPlan } from "../domain/scheduler";
-import type { CollaborationMode,RoleId,ThinkTankEventInput } from "../domain/types";
+import { evaluateClaimGovernance } from "../domain/claimGovernance";
+import { createInitialState } from "../domain/state";
+import type { CollaborationMode,RoleId,ThinkTankEventInput,ThinkTankState } from "../domain/types";
 
 export type DemoScenario="happy"|"council-gate-block"|"timeout";
 
@@ -17,9 +19,12 @@ const utteranceFor=(roleId:RoleId,mode:CollaborationMode):string=>{
 export function scenarioEventInputs(
   prompt:string,
   selectedMode:CollaborationMode,
-  scenario:DemoScenario
+  scenario:DemoScenario,
+  governanceState?:ThinkTankState
 ):ThinkTankEventInput[]{
   const targetMode:CollaborationMode=scenario==="council-gate-block"?"council":selectedMode;
+  const claimState=governanceState??createInitialState();
+  const claimGovernance=evaluateClaimGovernance(claimState,targetMode);
   const plan=initialTurnPlan(targetMode);
   const inputs:ThinkTankEventInput[]=[];
 
@@ -91,11 +96,12 @@ export function scenarioEventInputs(
       }
     );
 
-    const decision=evaluateGovernance(targetMode,0,.75,0,true);
+    const decision=evaluateGovernance(targetMode,0,.75,0,true,claimGovernance);
     inputs.push({
       source:"system",
       kind:"synthesis.withheld",
       phase:"synthesis",
+      claimGovernance,
       outputLabel:decision.outputLabel,
       actionAllowed:decision.actionAllowed,
       governanceReason:decision.reason,
@@ -145,12 +151,13 @@ export function scenarioEventInputs(
     message:"Reality Gate scored "+score.toFixed(2)+"."
   });
 
-  const decision=evaluateGovernance(targetMode,score,.75,objectionCount,false);
+  const decision=evaluateGovernance(targetMode,score,.75,objectionCount,false,claimGovernance);
 
   inputs.push({
     source:"system",
     kind:decision.synthesisAllowed?"synthesis.completed":"synthesis.withheld",
     phase:decision.synthesisAllowed?"complete":"synthesis",
+    claimGovernance,
     outputLabel:decision.outputLabel,
     actionAllowed:decision.actionAllowed,
     governanceReason:decision.reason,

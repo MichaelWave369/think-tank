@@ -169,9 +169,13 @@ Creating a review does not:
 - alter claim bindings
 - authorize action
 
-A later explicit governance rung may decide whether review freshness or coverage conditions should constrain synthesis.
+PR 13 now consumes review freshness as explicit mode policy.
 
-That policy is intentionally not smuggled into PR 12.
+The review receipt itself remains observational and immutable. The later synthesis decision decides whether the selected mode requires that review to be fresh.
+
+AUDIT additionally blocks UNBOUND / THIN claim coverage.
+
+See [CLAIM_GOVERNANCE.md](CLAIM_GOVERNANCE.md).
 
 ## UI
 

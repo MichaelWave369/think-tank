@@ -25,15 +25,15 @@ The kernel rejects:
 
 ## Mode laws
 
-| Mode | Active roles | Round cap | Gate law | Result law |
-| --- | --- | ---: | --- | --- |
-| SOLO | Vessie | 1 | informational | synthesis may complete |
-| TRIO | Dreamer, Builder, Challenger | 1 | threshold | below threshold = withheld |
-| COUNCIL | all five roles | 1 | threshold | all scheduled voices land before gate |
-| DEBATE | Challenger, Builder, Vessie | 3 | threshold + objection | at least one objection required |
-| DREAM | Dreamer | 1 | informational | always labeled SPECULATIVE, non-actionable |
-| BUILD | Builder, Challenger, Archivist | 1 | threshold-or-draft | below threshold = DRAFT, non-actionable |
-| AUDIT | Challenger, Archivist | 1 | threshold | action remains locked below threshold |
+| Mode | Active roles | Round cap | Gate law | Claim policy | Result law |
+| --- | --- | ---: | --- | --- | --- |
+| SOLO | Vessie | 1 | informational | informational | synthesis may complete |
+| TRIO | Dreamer, Builder, Challenger | 1 | threshold | bound-fresh | below threshold or failed claim policy = withheld |
+| COUNCIL | all five roles | 1 | threshold | all-fresh | all registered claims need fresh Challenger review |
+| DEBATE | Challenger, Builder, Vessie | 3 | threshold + objection | bound-fresh | objection + threshold + fresh bound claims required |
+| DREAM | Dreamer | 1 | informational | informational | always labeled SPECULATIVE, non-actionable |
+| BUILD | Builder, Challenger, Archivist | 1 | threshold-or-draft | bound-fresh | failed evidence or claim policy = DRAFT, non-actionable |
+| AUDIT | Challenger, Archivist | 1 | threshold | audit-ready | all claims fresh; UNBOUND/THIN claims block action |
 
 The seven operator modes remain orthogonal to any 3-6-9 agent kernel.
 
@@ -89,3 +89,20 @@ CI covers:
 - turn-order rejection
 - premature gate rejection
 - round-cap rejection
+
+
+## Claim policy composition
+
+PR 13 adds a second deterministic governance check beside the numeric Reality Gate.
+
+- SOLO / DREAM: informational only
+- TRIO / DEBATE: every bound claim must have a fresh Challenger audit
+- BUILD: same requirement, but failure degrades to DRAFT
+- COUNCIL: every registered claim must have a fresh Challenger audit
+- AUDIT: every registered claim must have a fresh audit and no claim may remain UNBOUND or THIN
+
+CONTESTED claims are allowed. Disagreement is surfaced rather than treated as an automatic failure.
+
+Every normal synthesis event carries a kernel-verified ClaimGovernanceReport.
+
+See [CLAIM_GOVERNANCE.md](CLAIM_GOVERNANCE.md).

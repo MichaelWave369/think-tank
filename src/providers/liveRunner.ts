@@ -1,5 +1,6 @@
 import { planAssignments,routingEventInputs } from "../domain/craneFly";
 import { evaluateEvidence } from "../domain/evidence";
+import { evaluateClaimGovernance } from "../domain/claimGovernance";
 import { projectEvent } from "../domain/reducer";
 import { evaluateGovernance,initialTurnPlan } from "../domain/scheduler";
 import type { RoleId,Seat,ThinkTankEvent,ThinkTankEventInput,ThinkTankState } from "../domain/types";
@@ -139,11 +140,15 @@ export async function runLiveProviderSession(options:LiveRunnerOptions):Promise<
           message:"Governance fault after provider failure."
         });
 
-        const decision=evaluateGovernance(working.mode,0,working.gateThreshold,working.objectionCount,true);
+        const claimGovernance=evaluateClaimGovernance(working,working.mode);
+        const decision=evaluateGovernance(
+          working.mode,0,working.gateThreshold,working.objectionCount,true,claimGovernance
+        );
         emit({
           source:"system",
           kind:"synthesis.withheld",
           phase:"synthesis",
+          claimGovernance,
           outputLabel:decision.outputLabel,
           actionAllowed:decision.actionAllowed,
           governanceReason:decision.reason,
@@ -166,17 +171,20 @@ export async function runLiveProviderSession(options:LiveRunnerOptions):Promise<
         " (raw "+gateBreakdown.rawScore.toFixed(2)+", cap "+gateBreakdown.cap.toFixed(2)+")."
     });
 
+    const claimGovernance=evaluateClaimGovernance(working,working.mode);
     const decision=evaluateGovernance(
       working.mode,
       gateBreakdown.finalScore,
       working.gateThreshold,
       working.objectionCount,
-      false
+      false,
+      claimGovernance
     );
 
     emit({
       source:"system",
       kind:decision.synthesisAllowed?"synthesis.completed":"synthesis.withheld",
+      claimGovernance,
       phase:decision.synthesisAllowed?"complete":"synthesis",
       outputLabel:decision.outputLabel,
       actionAllowed:decision.actionAllowed,

@@ -2,6 +2,7 @@ import { modeDefinition } from "./modes";
 import type {
   CollaborationMode,
   GovernanceLabel,
+  ClaimGovernanceReport,
   ThinkTankState,
   TurnPlan
 } from "./types";
@@ -33,7 +34,8 @@ export function evaluateGovernance(
   score:number,
   threshold:number,
   objectionCount:number,
-  timedOut=false
+  timedOut=false,
+  claimGovernance?:ClaimGovernanceReport
 ):GovernanceDecision{
   const law=modeDefinition(mode);
 
@@ -75,12 +77,30 @@ export function evaluateGovernance(
     };
   }
 
+  if(law.gateBehavior==="threshold-or-draft"&&claimGovernance&&!claimGovernance.passed){
+    return {
+      synthesisAllowed:true,
+      actionAllowed:false,
+      outputLabel:"DRAFT",
+      reason:"Claim review policy is not satisfied; BUILD output is retained only as DRAFT. "+claimGovernance.reason
+    };
+  }
+
   if(score<threshold){
     return {
       synthesisAllowed:false,
       actionAllowed:false,
       outputLabel:"WITHHELD",
       reason:"Reality Gate score is below the required threshold."
+    };
+  }
+
+  if(claimGovernance&&!claimGovernance.passed){
+    return {
+      synthesisAllowed:false,
+      actionAllowed:false,
+      outputLabel:"WITHHELD",
+      reason:claimGovernance.reason
     };
   }
 
