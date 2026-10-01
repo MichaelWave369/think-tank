@@ -1,0 +1,18 @@
+.evidence-panel{border:1px solid #6b5534;background:linear-gradient(180deg,#171108,#080603);box-shadow:0 0 0 4px #12100b inset;padding:12px;color:#f3d89a}
+.evidence-panel header{display:flex;justify-content:space-between;gap:12px;align-items:center;border-bottom:1px solid #6b5534;padding-bottom:8px}
+.evidence-panel header>div{display:grid;gap:3px}.evidence-panel header span{font-size:.6rem;opacity:.66}.evidence-panel header>b{border:1px solid currentColor;padding:5px 8px;font-size:.68rem}
+.evidence-pass{color:#9ff0b9}.evidence-hold{color:#ffad7e}
+.evidence-entry{display:grid;grid-template-columns:1fr 1.2fr 1.2fr auto;gap:8px;align-items:end;margin-top:10px}
+.evidence-entry label{display:grid;gap:4px}.evidence-entry label span{font-size:.53rem;opacity:.6;letter-spacing:.08em}
+.evidence-entry input,.evidence-entry button{background:#0d0904;color:#f5e2b5;border:1px solid #6b5534;padding:7px;font-size:.62rem}
+.evidence-entry button:disabled,.evidence-list button:disabled{opacity:.35;cursor:not-allowed}
+.evidence-list{display:grid;gap:6px;margin-top:10px}
+.evidence-list article{display:flex;justify-content:space-between;gap:12px;border:1px solid #40321f;background:#0b0804;padding:8px}
+.evidence-list article>div{display:grid;gap:3px}.evidence-list article span,.evidence-list article small{font-size:.55rem;opacity:.64}.evidence-list article p{margin:2px 0 0;font-size:.62rem;line-height:1.35}
+.evidence-list button{align-self:center;background:#160d07;color:#f0c598;border:1px solid #70452e;padding:5px 7px;font-size:.55rem}
+.evidence-empty{margin:0;border:1px dashed #514126;padding:8px;font-size:.62rem;opacity:.7}
+.evidence-score-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;margin-top:10px}
+.evidence-score-grid>div{border:1px solid #43351f;background:#0a0703;padding:7px;display:grid;gap:3px}.evidence-score-grid small{font-size:.49rem;opacity:.58}.evidence-score-grid span{font-size:.68rem}
+.evidence-panel footer{margin-top:9px;border-top:1px dashed #6b5534;padding-top:8px;font-size:.58rem}.evidence-panel footer p{margin:4px 0 0;line-height:1.35;opacity:.72}
+@media(max-width:1000px){.evidence-entry{grid-template-columns:1fr 1fr}.evidence-score-grid{grid-template-columns:repeat(4,1fr)}}
+@media(max-width:700px){.evidence-panel header{align-items:flex-start;flex-direction:column}.evidence-entry{grid-template-columns:1fr}.evidence-score-grid{grid-template-columns:repeat(2,1fr)}}
