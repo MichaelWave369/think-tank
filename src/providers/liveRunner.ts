@@ -1,6 +1,7 @@
 import { planAssignments,routingEventInputs } from "../domain/craneFly";
 import { evaluateEvidence } from "../domain/evidence";
 import { evaluateClaimGovernance } from "../domain/claimGovernance";
+import { evaluateArgumentGovernance } from "../domain/argumentGovernance";
 import { projectEvent } from "../domain/reducer";
 import { evaluateGovernance,initialTurnPlan } from "../domain/scheduler";
 import type { RoleId,Seat,ThinkTankEvent,ThinkTankEventInput,ThinkTankState } from "../domain/types";
@@ -141,14 +142,17 @@ export async function runLiveProviderSession(options:LiveRunnerOptions):Promise<
         });
 
         const claimGovernance=evaluateClaimGovernance(working,working.mode);
+        const argumentGovernance=evaluateArgumentGovernance(working,working.mode);
         const decision=evaluateGovernance(
-          working.mode,0,working.gateThreshold,working.objectionCount,true,claimGovernance
+          working.mode,0,working.gateThreshold,working.objectionCount,true,
+          claimGovernance,argumentGovernance
         );
         emit({
           source:"system",
           kind:"synthesis.withheld",
           phase:"synthesis",
           claimGovernance,
+          argumentGovernance,
           outputLabel:decision.outputLabel,
           actionAllowed:decision.actionAllowed,
           governanceReason:decision.reason,
@@ -172,19 +176,22 @@ export async function runLiveProviderSession(options:LiveRunnerOptions):Promise<
     });
 
     const claimGovernance=evaluateClaimGovernance(working,working.mode);
+    const argumentGovernance=evaluateArgumentGovernance(working,working.mode);
     const decision=evaluateGovernance(
       working.mode,
       gateBreakdown.finalScore,
       working.gateThreshold,
       working.objectionCount,
       false,
-      claimGovernance
+      claimGovernance,
+      argumentGovernance
     );
 
     emit({
       source:"system",
       kind:decision.synthesisAllowed?"synthesis.completed":"synthesis.withheld",
       claimGovernance,
+      argumentGovernance,
       phase:decision.synthesisAllowed?"complete":"synthesis",
       outputLabel:decision.outputLabel,
       actionAllowed:decision.actionAllowed,
