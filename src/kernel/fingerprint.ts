@@ -23,6 +23,7 @@ export function projectionSnapshot(state:ThinkTankState){
     dossierTransparencyCheckpoints:state.dossierTransparencyCheckpoints,
     dossierTransparencyWitnesses:state.dossierTransparencyWitnesses,
     dossierTransparencyWitnessVerifications:state.dossierTransparencyWitnessVerifications,
+    dossierRfc3161Timestamps:state.dossierRfc3161Timestamps,
     evidenceRefs:state.evidenceRefs,
     evidenceExcerpts:state.evidenceExcerpts,
     claims:state.claims,
