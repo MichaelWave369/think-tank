@@ -114,3 +114,34 @@ The dossier is historical and immutable.
 FORCE SYNTHESIS creates a separate DecisionOverrideReceipt linked to the latest withheld dossier; it does not mutate the normal decision receipt.
 
 See [DECISION_DOSSIER.md](DECISION_DOSSIER.md).
+
+
+## Cryptographic dossier seal events
+
+PR 18 adds governed tool events:
+
+- dossier.seal.requested
+- dossier.seal.completed
+- dossier.seal.failed
+- dossier.verify.requested
+- dossier.verify.completed
+- dossier.verify.failed
+
+The synchronous kernel validates:
+- operator request authority
+- tool result provenance
+- dossier/seal references
+- supported metadata
+- digest/fingerprint shape
+- one seal per dossier/key
+- one terminal result per request
+- verification receipt linkage
+- replay integrity
+
+The kernel does not reimplement Ed25519.
+
+Actual cryptographic verification occurs in the local Node bridge and is represented by a DossierSealVerificationReceipt.
+
+A stored seal without a positive verification receipt is not displayed as VERIFIED.
+
+See [CRYPTOGRAPHIC_SEALING.md](CRYPTOGRAPHIC_SEALING.md).
