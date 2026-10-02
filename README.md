@@ -6,29 +6,28 @@ A governed, event-sourced multi-mind control room. Cognitive roles are staffed b
 
 ## Current rung
 
-**PR 19 — Local Dossier Transparency Journal**
+**PR 20 — Portable Checkpoints + Detached Witnesses**
 
-The Think Tank can now append cryptographically sealed decision dossiers to an optional persistent local JSONL journal whose entries are SHA-256 hash-linked.
+The Think Tank can now freeze an accepted transparency-journal head into a portable checkpoint, export it for independent signing, then import and cryptographically verify a detached Ed25519 witness receipt.
 
-PR 19 adds:
-- operator-authorized transparency append events
-- persistent local JSONL journal storage
-- SHA-256 entry hashing
-- previous-entry hash chaining
-- duplicate-seal rejection
-- full-chain verification before every append
-- full-chain verification after every append
-- explicit local-clock / local-journal trust labels
-- governed replayable transparency receipts
-- Decision Dossier transparency UI
-- dossier export with transparency receipts
+PR 20 adds:
+- governed journal-head checkpoint creation
+- SHA-256 checkpoint digests
+- portable checkpoint JSON export
+- independent Ed25519 witness key tooling
+- detached off-machine checkpoint signing
+- witness private-key isolation from the Think Tank bridge
+- governed witness submission and verification events
+- multiple independent witness keys per checkpoint
+- Decision Dossier checkpoint/witness UI
+- dossier export with checkpoint/witness receipts
 - bridge and kernel tamper-detection tests
 
 ### Important semantic rule
 
-**LOGGED ≠ TRUSTED TIME ≠ TRUSTED SIGNER ≠ TRUE DECISION.**
+**WITNESSED ≠ TRUSTED WITNESS ≠ TRUSTED TIME ≠ TRUE DECISION.**
 
-The journal proves local hash-chain continuity for the entries it contains. It does not prove that the local clock is trustworthy, that the journal was externally witnessed, that a key owner has a real-world identity, or that the decision is factually correct.
+A verified detached witness proves that a particular Ed25519 key signed a particular portable checkpoint. It does not establish the real-world identity or trustworthiness of the key owner, trusted time, factual truth, or decision correctness.
 
 See:
 - [Architecture](docs/ARCHITECTURE.md)
@@ -50,6 +49,7 @@ See:
 - [Synthesis Decision Dossier](docs/DECISION_DOSSIER.md)
 - [Cryptographic Dossier Sealing](docs/CRYPTOGRAPHIC_SEALING.md)
 - [Local Dossier Transparency Journal](docs/TRANSPARENCY_JOURNAL.md)
+- [Portable Checkpoints + Detached Witnesses](docs/DETACHED_WITNESS.md)
 
 ## Local-first setup
 
@@ -72,7 +72,7 @@ Verification:
 
 > **If a light changes, a sequenced event explains why.**
 
-Every normal synthesis carries a deterministic dossier; it can be Ed25519-sealed and the seal can be appended to a persistent local SHA-256 transparency journal.
+Every normal synthesis carries a deterministic dossier; it can be Ed25519-sealed, appended to a local SHA-256 transparency journal, frozen into a portable head checkpoint, and independently witnessed with a detached Ed25519 receipt.
 
 ## Build ladder
 
@@ -94,6 +94,7 @@ Every normal synthesis carries a deterministic dossier; it can be Ed25519-sealed
 16. ✅ Argument-map governance
 17. ✅ Synthesis decision dossier
 18. ✅ Cryptographic dossier sealing
-19. **Local dossier transparency journal**
+19. ✅ Local dossier transparency journal
+20. **Portable checkpoints + detached witnesses**
 
 **Φ THINK TANK is a control room, not eight chat cards.**
