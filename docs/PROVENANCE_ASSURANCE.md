@@ -302,3 +302,24 @@ PR 23 does not:
 - claim publication permanence
 - make provenance evidence equivalent to factual evidence
 - make a decision true
+
+## PR 24 governed release relationship
+
+PR 23 evaluates provenance assurance.
+
+PR 24 can use one accepted fresh passing assurance report as the prerequisite for a separate operator-authorized release manifest.
+
+Assurance does not automatically release anything.
+
+The flow remains explicit:
+
+```
+ASSURANCE REPORT
+  → operator release request
+  → deterministic release manifest
+  → governed release-package export
+```
+
+If the assurance later becomes stale, the historical release manifest remains immutable but is no longer considered current.
+
+See [Assurance-Gated Release Manifest](ASSURANCE_GATED_RELEASE.md).
