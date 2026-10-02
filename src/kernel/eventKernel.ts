@@ -84,8 +84,9 @@ function assertDossierSealEvent(state:ThinkTankState,event:ThinkTankEvent):boole
     ){
       throw new KernelIntegrityError("Dossier seal metadata is invalid.",event.seq);
     }
+    const expectedSealId="SEAL-"+dossier.id+"-"+seal.publicKeyFingerprintSha256.slice(0,12);
     if(
-      !seal.id.trim()||
+      seal.id!==expectedSealId||
       !/^[a-f0-9]{64}$/.test(seal.digestSha256)||
       !/^[a-f0-9]{64}$/.test(seal.publicKeyFingerprintSha256)||
       !seal.signatureBase64.trim()||
@@ -170,9 +171,14 @@ function assertDossierSealEvent(state:ThinkTankState,event:ThinkTankEvent):boole
       receipt.algorithm!=="Ed25519"||
       receipt.digestSha256!==seal.digestSha256||
       receipt.publicKeyFingerprintSha256!==seal.publicKeyFingerprintSha256||
+      typeof receipt.verified!=="boolean"||
       Number.isNaN(Date.parse(receipt.verifiedAt))
     ){
       throw new KernelIntegrityError("Dossier verification receipt does not match its seal.",event.seq);
+    }
+
+    if(state.dossierSealVerifications.some(existing=>existing.id===receipt.id)){
+      throw new KernelIntegrityError("Dossier verification receipt id already exists.",event.seq);
     }
 
     const request=[...state.events].reverse().find(item=>
