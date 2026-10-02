@@ -332,3 +332,24 @@ PR 27 does not:
 - change synthesis governance
 - automatically publish anything
 - make content true
+
+## PR 28 durability extension
+
+PR 27 proves one successful publication + exact public read-back.
+
+PR 28 can later reconstruct that exact historical RPUB package and repeat the public retrieval without using publisher credentials.
+
+The extended path is:
+
+```
+RPUB
+  → RAUD-1
+  → RAUD-2
+  → RAUD-3
+```
+
+Each RAUD is a distinct observation that the exact RPUB package remained publicly retrievable at that check.
+
+RAUD does not become part of the published package and therefore does not mutate the package basis it audits.
+
+See [Release Publication Durability Audit](RELEASE_DURABILITY.md).
