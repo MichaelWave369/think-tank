@@ -355,6 +355,41 @@ export interface DossierCheckpointPublicationReceipt{
   trust:"externally-retrieved-publication";
 }
 
+export type ProvenanceAssurancePolicyKind=
+  |"integrity"
+  |"witnessed"
+  |"time-attested"
+  |"published"
+  |"full-provenance";
+
+export type ProvenanceAssuranceRequirementKind=
+  |"verified-seal"
+  |"journal-entry"
+  |"checkpoint"
+  |"verified-witness"
+  |"rfc3161-time"
+  |"verified-publication";
+
+export interface ProvenanceAssuranceRequirementResult{
+  requirement:ProvenanceAssuranceRequirementKind;
+  satisfied:boolean;
+  evidenceIds:string[];
+}
+
+export interface DossierProvenanceAssuranceReport{
+  id:string;
+  dossierId:string;
+  policy:ProvenanceAssurancePolicyKind;
+  basisFingerprint:string;
+  checkpointId:string;
+  journalHeadStatus:"current"|"historical"|"unavailable";
+  requirements:ProvenanceAssuranceRequirementResult[];
+  missing:ProvenanceAssuranceRequirementKind[];
+  passed:boolean;
+  reason:string;
+  truthAuthority:false;
+}
+
 export interface DecisionOverrideReceipt{
   id:string;
   dossierId:string;
@@ -491,6 +526,8 @@ export type ThinkTankEventKind=
   |"dossier.publication.requested"
   |"dossier.publication.completed"
   |"dossier.publication.failed"
+  |"dossier.assurance.requested"
+  |"dossier.assurance.completed"
   |"session.aborted";
 
 export interface ThinkTankEvent{
@@ -545,6 +582,8 @@ export interface ThinkTankEvent{
   dossierWitnessVerification?:DossierTransparencyWitnessVerificationReceipt;
   dossierTimestamp?:DossierRfc3161TimestampReceipt;
   dossierPublication?:DossierCheckpointPublicationReceipt;
+  provenancePolicy?:ProvenanceAssurancePolicyKind;
+  provenanceAssurance?:DossierProvenanceAssuranceReport;
   message?:string;
   gateScore?:number;
   override?:boolean;
@@ -606,6 +645,8 @@ export interface ThinkTankEventInput{
   dossierWitnessVerification?:DossierTransparencyWitnessVerificationReceipt;
   dossierTimestamp?:DossierRfc3161TimestampReceipt;
   dossierPublication?:DossierCheckpointPublicationReceipt;
+  provenancePolicy?:ProvenanceAssurancePolicyKind;
+  provenanceAssurance?:DossierProvenanceAssuranceReport;
   message?:string;
   gateScore?:number;
   override?:boolean;
@@ -640,6 +681,7 @@ export interface ThinkTankState{
   dossierTransparencyWitnessVerifications:DossierTransparencyWitnessVerificationReceipt[];
   dossierRfc3161Timestamps:DossierRfc3161TimestampReceipt[];
   dossierCheckpointPublications:DossierCheckpointPublicationReceipt[];
+  dossierProvenanceAssurances:DossierProvenanceAssuranceReport[];
   evidenceRefs:EvidenceRef[];
   evidenceExcerpts:EvidenceExcerpt[];
   claims:Claim[];

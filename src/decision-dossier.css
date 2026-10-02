@@ -27,3 +27,13 @@
 .dossier-publication{margin-top:8px;border:1px solid #4e5e64;background:#080c0e;padding:8px;display:grid;gap:7px}
 .dossier-publication.publication-verified{border-color:#4f7b68}.dossier-publication.publication-error{border-color:#8b4141}
 .dossier-publication>p{margin:0;font-size:.53rem;line-height:1.42;opacity:.78}
+
+.dossier-assurance{margin-top:8px;border:1px solid #555a67;background:#08090d;padding:8px;display:grid;gap:8px}
+.dossier-assurance.assurance-pass{border-color:#4f7b68}.dossier-assurance.assurance-block{border-color:#8b6541}
+.dossier-assurance-controls{display:flex;gap:8px;align-items:end;flex-wrap:wrap}
+.dossier-assurance-controls label{display:grid;gap:3px;font-size:.5rem;letter-spacing:.08em}
+.dossier-assurance-controls select{min-width:170px;background:#0a0c12;color:inherit;border:1px solid #555a67;padding:6px}
+.dossier-assurance-report{display:grid;gap:4px}.dossier-assurance-report>p{margin:0;font-size:.53rem;line-height:1.42}
+.dossier-assurance-requirements{display:grid;gap:4px;margin:4px 0}
+.dossier-assurance-requirements>div{display:grid;grid-template-columns:58px minmax(130px,1fr);gap:4px 8px;border-top:1px solid #272b34;padding-top:4px;font-size:.5rem}
+.dossier-assurance-requirements small{grid-column:2;opacity:.68;overflow-wrap:anywhere}

@@ -1,7 +1,13 @@
 import {useRef,useState} from "react";
-import type { DossierTransparencyCheckpoint,DossierTransparencyWitnessReceipt,ThinkTankState } from "../domain/types";
+import type { DossierTransparencyCheckpoint,DossierTransparencyWitnessReceipt,ProvenanceAssurancePolicyKind,ThinkTankState } from "../domain/types";
 import type { DossierPublicationStatusResponse,DossierRfc3161StatusResponse,DossierSealStatusResponse,DossierTransparencyStatusResponse } from "../providers/types";
 import { latestDecisionDossier,overrideForDossier } from "../domain/decisionDossier";
+import {
+  PROVENANCE_ASSURANCE_POLICIES,
+  PROVENANCE_ASSURANCE_POLICY_LABELS,
+  PROVENANCE_ASSURANCE_REQUIREMENT_LABELS,
+  provenanceAssuranceIsFresh
+} from "../domain/provenanceAssurance";
 
 const short=(value:string)=>value.replace("fnv1a32:","").slice(0,10)+"…";
 
@@ -35,6 +41,7 @@ const exportDossier=(state:ThinkTankState)=>{
   const witnessVerifications=state.dossierTransparencyWitnessVerifications.filter(item=>witnessIds.has(item.witnessId));
   const rfc3161Timestamps=state.dossierRfc3161Timestamps.filter(item=>checkpointIds.has(item.checkpointId));
   const checkpointPublications=state.dossierCheckpointPublications.filter(item=>checkpointIds.has(item.checkpointId));
+  const provenanceAssurances=state.dossierProvenanceAssurances.filter(item=>item.dossierId===dossier.id);
   downloadJson(
     dossier.id.toLowerCase()+"-decision-dossier.json",
     {
@@ -47,7 +54,8 @@ const exportDossier=(state:ThinkTankState)=>{
       witnesses,
       witnessVerifications,
       rfc3161Timestamps,
-      checkpointPublications
+      checkpointPublications,
+      provenanceAssurances
     }
   );
 };
@@ -76,7 +84,8 @@ export function DecisionDossierPanel({
   onCheckpoint,
   onWitnessImport,
   onTimestamp,
-  onPublish
+  onPublish,
+  onAssurance
 }:{
   state:ThinkTankState;
   sealStatus:DossierSealStatusResponse|null;
@@ -102,9 +111,11 @@ export function DecisionDossierPanel({
   onWitnessImport:(checkpointId:string,witness:DossierTransparencyWitnessReceipt)=>void;
   onTimestamp:(checkpointId:string)=>void;
   onPublish:(checkpointId:string)=>void;
+  onAssurance:(dossierId:string,policy:ProvenanceAssurancePolicyKind)=>void;
 }){
   const witnessFileRef=useRef<HTMLInputElement>(null);
   const [witnessImportError,setWitnessImportError]=useState("");
+  const [assurancePolicy,setAssurancePolicy]=useState<ProvenanceAssurancePolicyKind>("full-provenance");
   const dossier=latestDecisionDossier(state);
 
   if(!dossier){
@@ -203,6 +214,13 @@ export function DecisionDossierPanel({
       :publicationStatus?.state==="error"
         ?"PUBLISHER ERROR"
         :"PUBLISHER DISABLED";
+  const assuranceReports=state.dossierProvenanceAssurances.filter(item=>
+    item.dossierId===dossier.id&&item.policy===assurancePolicy
+  );
+  const currentAssurance=assuranceReports[assuranceReports.length-1]??null;
+  const assuranceFresh=currentAssurance
+    ?provenanceAssuranceIsFresh(state,currentAssurance)
+    :false;
 
   const importWitnessFile=async(file:File|null)=>{
     if(!file||!latestCheckpoint)return;
@@ -581,12 +599,79 @@ export function DecisionDossierPanel({
               </button>
             </div>
           </div>
+
+          <div className={"dossier-assurance "+(
+            currentAssurance?.passed&&assuranceFresh
+              ?"assurance-pass"
+              :currentAssurance&&!currentAssurance.passed&&assuranceFresh
+                ?"assurance-block"
+                :""
+          )}>
+            <div className="dossier-transparency-head">
+              <div>
+                <small>PROVENANCE ASSURANCE POLICY</small>
+                <strong>
+                  {currentAssurance
+                    ?assuranceFresh
+                      ?currentAssurance.passed?"POLICY SATISFIED":"POLICY NOT SATISFIED"
+                      :"REPORT STALE"
+                    :"NOT EVALUATED"}
+                </strong>
+              </div>
+              <span>{PROVENANCE_ASSURANCE_POLICY_LABELS[assurancePolicy].toUpperCase()}</span>
+            </div>
+
+            <div className="dossier-assurance-controls">
+              <label>
+                <span>POLICY</span>
+                <select
+                  value={assurancePolicy}
+                  disabled={busy}
+                  onChange={event=>setAssurancePolicy(event.currentTarget.value as ProvenanceAssurancePolicyKind)}
+                >
+                  {(Object.keys(PROVENANCE_ASSURANCE_POLICIES) as ProvenanceAssurancePolicyKind[])
+                    .map(policy=><option key={policy} value={policy}>
+                      {PROVENANCE_ASSURANCE_POLICY_LABELS[policy]}
+                    </option>)}
+                </select>
+              </label>
+              <button
+                type="button"
+                disabled={busy||Boolean(currentAssurance&&assuranceFresh)}
+                onClick={()=>onAssurance(dossier.id,assurancePolicy)}
+              >
+                {currentAssurance&&assuranceFresh?"CURRENT REPORT FRESH":"EVALUATE ASSURANCE"}
+              </button>
+            </div>
+
+            {currentAssurance
+              ?<div className="dossier-assurance-report">
+                <p><b>Report</b> {currentAssurance.id}</p>
+                <p><b>Basis</b> {currentAssurance.basisFingerprint}</p>
+                <p><b>Checkpoint</b> {currentAssurance.checkpointId||"NONE"}</p>
+                <p><b>Journal head</b> {currentAssurance.journalHeadStatus.toUpperCase()}</p>
+                <p><b>Freshness</b> {assuranceFresh?"FRESH":"STALE · RE-EVALUATE"}</p>
+                <div className="dossier-assurance-requirements">
+                  {currentAssurance.requirements.map(item=><div key={item.requirement}>
+                    <span>{item.satisfied?"MET":"MISSING"}</span>
+                    <b>{PROVENANCE_ASSURANCE_REQUIREMENT_LABELS[item.requirement]}</b>
+                    <small>{item.evidenceIds.length?item.evidenceIds.join(" · "):"NO LINKED RECEIPT"}</small>
+                  </div>)}
+                </div>
+                <p><b>Result</b> {currentAssurance.reason}</p>
+                <p><b>Truth authority</b> NONE · policy satisfaction is provenance evidence only.</p>
+              </div>
+              :<p>
+                Evaluate the selected policy against canonical dossier, seal, journal, checkpoint,
+                witness, timestamp, and publication receipts. No numeric trust score is produced.
+              </p>}
+          </div>
         </div>
       </div>
     </div>
 
     <footer>
-      <span>Integrity chain: dossier → seal → journal → checkpoint → witness / RFC3161 time / verified external publication. None of these provenance layers grants factual truth authority.</span>
+      <span>Integrity chain: dossier → seal → journal → checkpoint → witness / RFC3161 time / publication → assurance policy. Policy satisfaction still does not grant factual truth authority.</span>
       <button type="button" onClick={()=>exportDossier(state)}>TEAR / EXPORT DOSSIER</button>
     </footer>
   </section>;

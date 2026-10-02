@@ -23,6 +23,7 @@ export const createInitialState=():ThinkTankState=>({
   dossierTransparencyWitnessVerifications:[],
   dossierRfc3161Timestamps:[],
   dossierCheckpointPublications:[],
+  dossierProvenanceAssurances:[],
   evidenceRefs:[],
   evidenceExcerpts:[],
   claims:[],

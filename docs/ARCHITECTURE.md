@@ -367,6 +367,31 @@ The publisher's claimed publication time is retained as untrusted publisher meta
 
 See [CHECKPOINT_PUBLICATION.md](CHECKPOINT_PUBLICATION.md).
 
+## Provenance assurance policy
+
+PR 23 composes the existing provenance receipts into explicit deterministic policy evaluations without creating a trust score.
+
+Policies:
+- integrity
+- witnessed
+- time-attested
+- published
+- full-provenance
+
+Every policy requires one coherent linked provenance chain. External layers attached to different checkpoints cannot be combined to manufacture a pass.
+
+The evaluator is a pure domain function with no provider, bridge, network, or clock dependency.
+
+The kernel independently recomputes each supplied report before acceptance.
+
+Reports carry a deterministic provenance-basis fingerprint and become STALE when linked provenance changes, while remaining immutable historical receipts.
+
+A checkpoint may refer to a historical journal head without making the assurance report stale. Historical validity and report freshness are separate concepts.
+
+Every report explicitly stores `truthAuthority: false`.
+
+See [PROVENANCE_ASSURANCE.md](PROVENANCE_ASSURANCE.md).
+
 ## PR ladder
 
 1. ✅ Room shell + operator authority
@@ -390,6 +415,7 @@ See [CHECKPOINT_PUBLICATION.md](CHECKPOINT_PUBLICATION.md).
 19. ✅ Local dossier transparency journal
 20. ✅ Portable checkpoints + detached witnesses
 21. ✅ RFC 3161 trusted timestamp attestation
-22. Verified external checkpoint publication
+22. ✅ Verified external checkpoint publication
+23. Provenance assurance policy
 
-Future work can add proper PDF extraction, authenticated remote deployment, richer provider discovery, streaming, tool execution, voice, witness trust policies, publication durability checks, multi-publisher policy, TSA trust-store management, and external signer identity attestation without changing the core event contract.
+Future work can add proper PDF extraction, authenticated remote deployment, richer provider discovery, streaming, tool execution, voice, assurance-gated release workflows, witness trust registries, publication durability checks, multi-publisher policy, TSA trust-store management, and external signer identity attestation without changing the core event contract.
