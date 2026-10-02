@@ -4,8 +4,8 @@ import {createHash,createPrivateKey,createPublicKey,sign as cryptoSign,verify as
 import {lookup} from "node:dns/promises";
 import {isIP} from "node:net";
 import {pathToFileURL} from "node:url";
-import {readFileSync} from "node:fs";
-import {resolve} from "node:path";
+import {appendFileSync,existsSync,mkdirSync,readFileSync} from "node:fs";
+import {dirname,resolve} from "node:path";
 
 try{process.loadEnvFile(".env");}catch{}
 
@@ -23,6 +23,7 @@ const SEARXNG_URL=(process.env.SEARXNG_URL||"").replace(/\/$/,"");
 const RESEARCH_MAX_RESULTS=Math.max(1,Math.min(10,Number(process.env.RESEARCH_MAX_RESULTS||5)));
 const DOSSIER_SIGNING_PRIVATE_KEY_FILE=(process.env.DOSSIER_SIGNING_PRIVATE_KEY_FILE||"").trim();
 const DOSSIER_SIGNING_KEY_LABEL=(process.env.DOSSIER_SIGNING_KEY_LABEL||"local-bridge").trim()||"local-bridge";
+const DOSSIER_TRANSPARENCY_LOG_FILE=(process.env.DOSSIER_TRANSPARENCY_LOG_FILE||"").trim();
 
 const explicitOrigins=(process.env.THINK_TANK_ORIGIN||"")
   .split(",").map(value=>value.trim()).filter(Boolean);
@@ -238,6 +239,233 @@ const dossierSignerStatus=()=>{
   };
 };
 
+
+
+const ZERO_SHA256="0".repeat(64);
+
+const transparencySealFields=(seal)=>{
+  if(
+    !seal||
+    typeof seal!=="object"||
+    typeof seal.id!=="string"||
+    !seal.id.trim()||
+    typeof seal.dossierId!=="string"||
+    !seal.dossierId.trim()||
+    !/^[a-f0-9]{64}$/.test(seal.digestSha256||"")||
+    !/^[a-f0-9]{64}$/.test(seal.publicKeyFingerprintSha256||"")
+  ){
+    throw bridgeError("Transparency journal requires a complete dossier seal receipt.",400);
+  }
+  return {
+    sealId:seal.id,
+    dossierId:seal.dossierId,
+    dossierSha256:seal.digestSha256,
+    publicKeyFingerprintSha256:seal.publicKeyFingerprintSha256
+  };
+};
+
+export const buildDossierTransparencyReceipt=(
+  seal,
+  sequence,
+  previousEntrySha256,
+  loggedAt=new Date().toISOString()
+)=>{
+  const linked=transparencySealFields(seal);
+  if(!Number.isInteger(sequence)||sequence<1){
+    throw bridgeError("Transparency journal sequence must be a positive integer.",400);
+  }
+  if(!/^[a-f0-9]{64}$/.test(previousEntrySha256||"")){
+    throw bridgeError("Transparency journal previous-entry digest is invalid.",400);
+  }
+  if(Number.isNaN(Date.parse(loggedAt))){
+    throw bridgeError("Transparency journal timestamp is invalid.",400);
+  }
+
+  const basis={
+    schemaVersion:1,
+    ...linked,
+    tool:"sha256-dossier-transparency-journal",
+    canonicalization:"json-stable-v1",
+    sequence,
+    previousEntrySha256,
+    loggedAt,
+    clock:"untrusted-local-clock",
+    trust:"tamper-evident-local-journal",
+    journalVerifiedAtAppend:true
+  };
+  const entrySha256=createHash("sha256")
+    .update(stableCanonicalJson(basis),"utf8")
+    .digest("hex");
+
+  return {
+    id:"TLOG-"+String(sequence).padStart(6,"0")+"-"+entrySha256.slice(0,12),
+    dossierId:linked.dossierId,
+    sealId:linked.sealId,
+    tool:"sha256-dossier-transparency-journal",
+    canonicalization:"json-stable-v1",
+    sequence,
+    previousEntrySha256,
+    entrySha256,
+    dossierSha256:linked.dossierSha256,
+    publicKeyFingerprintSha256:linked.publicKeyFingerprintSha256,
+    loggedAt,
+    clock:"untrusted-local-clock",
+    trust:"tamper-evident-local-journal",
+    journalVerifiedAtAppend:true
+  };
+};
+
+export const verifyDossierTransparencyEntries=(entries)=>{
+  if(!Array.isArray(entries)){
+    return {verified:false,entryCount:0,headSha256:null,headEntryId:null,reason:"Journal is not an array."};
+  }
+
+  let previous=ZERO_SHA256;
+  const seals=new Set();
+
+  for(let index=0;index<entries.length;index++){
+    const entry=entries[index];
+    if(!entry||typeof entry!=="object"){
+      return {verified:false,entryCount:entries.length,headSha256:null,headEntryId:null,reason:"Journal entry is not an object."};
+    }
+    if(entry.sequence!==index+1){
+      return {verified:false,entryCount:entries.length,headSha256:null,headEntryId:null,reason:"Journal sequence is discontinuous."};
+    }
+    if(entry.previousEntrySha256!==previous){
+      return {verified:false,entryCount:entries.length,headSha256:null,headEntryId:null,reason:"Journal hash chain is broken."};
+    }
+    if(seals.has(entry.sealId)){
+      return {verified:false,entryCount:entries.length,headSha256:null,headEntryId:null,reason:"Journal contains a duplicate dossier seal."};
+    }
+
+    let expected;
+    try{
+      expected=buildDossierTransparencyReceipt(
+        {
+          id:entry.sealId,
+          dossierId:entry.dossierId,
+          digestSha256:entry.dossierSha256,
+          publicKeyFingerprintSha256:entry.publicKeyFingerprintSha256
+        },
+        entry.sequence,
+        entry.previousEntrySha256,
+        entry.loggedAt
+      );
+    }catch(error){
+      return {
+        verified:false,
+        entryCount:entries.length,
+        headSha256:null,
+        headEntryId:null,
+        reason:error instanceof Error?error.message:String(error)
+      };
+    }
+
+    if(stableCanonicalJson(entry)!==stableCanonicalJson(expected)){
+      return {verified:false,entryCount:entries.length,headSha256:null,headEntryId:null,reason:"Journal entry digest or metadata is invalid."};
+    }
+
+    seals.add(entry.sealId);
+    previous=entry.entrySha256;
+  }
+
+  const head=entries[entries.length-1]||null;
+  return {
+    verified:true,
+    entryCount:entries.length,
+    headSha256:head?.entrySha256??ZERO_SHA256,
+    headEntryId:head?.id??null,
+    reason:entries.length
+      ?"SHA-256 transparency journal chain verified."
+      :"Transparency journal is empty."
+  };
+};
+
+const transparencyJournalPath=()=>DOSSIER_TRANSPARENCY_LOG_FILE
+  ?resolve(DOSSIER_TRANSPARENCY_LOG_FILE)
+  :null;
+
+const readTransparencyJournal=(file)=>{
+  if(!existsSync(file))return [];
+  const text=readFileSync(file,"utf8");
+  if(!text.trim())return [];
+  return text.split(/\r?\n/)
+    .filter(line=>line.trim())
+    .map((line,index)=>{
+      try{return JSON.parse(line);}
+      catch{throw bridgeError("Transparency journal contains invalid JSON at line "+(index+1)+".",409);}
+    });
+};
+
+const transparencyJournalStatus=()=>{
+  const file=transparencyJournalPath();
+  if(!file){
+    return {
+      ok:true,
+      state:"disabled",
+      entryCount:0,
+      headSha256:null,
+      headEntryId:null,
+      clock:"untrusted-local-clock",
+      trust:"tamper-evident-local-journal",
+      detail:"Set DOSSIER_TRANSPARENCY_LOG_FILE to enable the local transparency journal."
+    };
+  }
+
+  try{
+    const verification=verifyDossierTransparencyEntries(readTransparencyJournal(file));
+    return {
+      ok:true,
+      state:verification.verified?"ready":"corrupt",
+      entryCount:verification.entryCount,
+      headSha256:verification.headSha256,
+      headEntryId:verification.headEntryId,
+      clock:"untrusted-local-clock",
+      trust:"tamper-evident-local-journal",
+      detail:verification.reason
+    };
+  }catch(error){
+    return {
+      ok:true,
+      state:"corrupt",
+      entryCount:0,
+      headSha256:null,
+      headEntryId:null,
+      clock:"untrusted-local-clock",
+      trust:"tamper-evident-local-journal",
+      detail:error instanceof Error?error.message:String(error)
+    };
+  }
+};
+
+const appendDossierTransparencyReceipt=(seal)=>{
+  const file=transparencyJournalPath();
+  if(!file)throw bridgeError("Transparency journal is disabled.",503);
+
+  const entries=readTransparencyJournal(file);
+  const before=verifyDossierTransparencyEntries(entries);
+  if(!before.verified){
+    throw bridgeError("Transparency journal failed integrity verification before append: "+before.reason,409);
+  }
+  if(entries.some(entry=>entry.sealId===seal?.id)){
+    throw bridgeError("This dossier seal is already present in the transparency journal.",409);
+  }
+
+  const receipt=buildDossierTransparencyReceipt(
+    seal,
+    entries.length+1,
+    entries.length?entries[entries.length-1].entrySha256:ZERO_SHA256
+  );
+
+  mkdirSync(dirname(file),{recursive:true});
+  appendFileSync(file,JSON.stringify(receipt)+"\n",{encoding:"utf8",mode:0o600});
+
+  const after=verifyDossierTransparencyEntries(readTransparencyJournal(file));
+  if(!after.verified||after.headSha256!==receipt.entrySha256){
+    throw bridgeError("Transparency journal failed integrity verification after append.",500);
+  }
+  return receipt;
+};
 
 export const normalizeMessages=(raw)=>{
   if(!Array.isArray(raw)||raw.length===0)throw bridgeError("Provider messages must be a non-empty array.",400);
@@ -790,7 +1018,7 @@ const server=http.createServer(async(req,res)=>{
 
   try{
     if(req.method==="GET"&&req.url==="/health"){
-      send(res,200,{ok:true,service:"phi-think-tank-provider-bridge",version:"0.5.0"},origin);
+      send(res,200,{ok:true,service:"phi-think-tank-provider-bridge",version:"0.6.0"},origin);
       return;
     }
 
@@ -832,6 +1060,18 @@ const server=http.createServer(async(req,res)=>{
         publicKeyFingerprintSha256:raw.seal?.publicKeyFingerprintSha256??"",
         verifiedAt:new Date().toISOString()
       },origin);
+      return;
+    }
+
+    if(req.method==="GET"&&req.url==="/dossier/transparency/status"){
+      send(res,200,transparencyJournalStatus(),origin);
+      return;
+    }
+
+    if(req.method==="POST"&&req.url==="/dossier/transparency/append"){
+      const raw=await readJson(req);
+      const entry=appendDossierTransparencyReceipt(raw.seal);
+      send(res,200,{ok:true,entry},origin);
       return;
     }
 
