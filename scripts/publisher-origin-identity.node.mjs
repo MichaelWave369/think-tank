@@ -161,6 +161,21 @@ test("rejects public-key fingerprint mismatch",()=>{
   );
 });
 
+test("rejects unsigned extra descriptor fields",()=>{
+  const descriptor={
+    ...signedDescriptor(),
+    unsignedDecoration:"not part of the signed envelope"
+  };
+
+  assert.throws(
+    ()=>verifyPublisherOriginIdentityDescriptor(
+      descriptor,
+      "https://public.example.test"
+    ),
+    /unsupported or missing fields/i
+  );
+});
+
 test("builds POID bound to exact historical RPUB and fixed well-known URL",()=>{
   const pkg=packageValue();
   const publication=publicationFor(pkg);
