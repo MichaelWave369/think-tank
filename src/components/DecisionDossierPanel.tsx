@@ -1,6 +1,6 @@
 import {useRef,useState} from "react";
 import type { DossierReleaseManifest,DossierTransparencyCheckpoint,DossierTransparencyWitnessReceipt,ProvenanceAssurancePolicyKind,ThinkTankState } from "../domain/types";
-import type { DossierPublicationStatusResponse,DossierReleaseSealStatusResponse,DossierRfc3161StatusResponse,DossierSealStatusResponse,DossierTransparencyStatusResponse } from "../providers/types";
+import type { DossierPublicationStatusResponse,DossierReleasePublicationStatusResponse,DossierReleaseSealStatusResponse,DossierRfc3161StatusResponse,DossierSealStatusResponse,DossierTransparencyStatusResponse } from "../providers/types";
 import { latestDecisionDossier,overrideForDossier } from "../domain/decisionDossier";
 import {
   PROVENANCE_ASSURANCE_POLICIES,
@@ -9,6 +9,11 @@ import {
   provenanceAssuranceIsFresh
 } from "../domain/provenanceAssurance";
 import {releaseManifestIsCurrent} from "../domain/releaseManifest";
+import {
+  buildDossierReleasePackage,
+  releasePackageBasisFingerprint,
+  releasePackageHasVerifiedSeal
+} from "../domain/releasePackage";
 
 const short=(value:string)=>value.replace("fnv1a32:","").slice(0,10)+"…";
 
@@ -27,54 +32,9 @@ const exportCheckpoint=(checkpoint:DossierTransparencyCheckpoint)=>{
 };
 
 const exportReleasePackage=(state:ThinkTankState,manifest:DossierReleaseManifest)=>{
-  const candidates:unknown[]=[
-    ...state.decisionDossiers,
-    ...state.decisionOverrides,
-    ...state.dossierSeals,
-    ...state.dossierSealVerifications,
-    ...state.dossierTransparencyEntries,
-    ...state.dossierTransparencyCheckpoints,
-    ...state.dossierTransparencyWitnesses,
-    ...state.dossierTransparencyWitnessVerifications,
-    ...state.dossierRfc3161Timestamps,
-    ...state.dossierCheckpointPublications,
-    ...state.dossierProvenanceAssurances
-  ];
-  const index=new Map<string,unknown>();
-
-  for(const candidate of candidates){
-    if(
-      candidate&&
-      typeof candidate==="object"&&
-      "id" in candidate&&
-      typeof (candidate as {id?:unknown}).id==="string"
-    ){
-      index.set((candidate as {id:string}).id,candidate);
-    }
-  }
-
-  const artifacts=manifest.artifactIds.map(id=>{
-    const artifact=index.get(id);
-    if(!artifact)throw new Error("Release manifest references missing artifact "+id+".");
-    return artifact;
-  });
-  const releaseSeals=state.dossierReleaseSeals.filter(item=>item.releaseId===manifest.id);
-  const releaseSealIds=new Set(releaseSeals.map(item=>item.id));
-  const releaseSealVerifications=state.dossierReleaseSealVerifications
-    .filter(item=>releaseSealIds.has(item.sealId));
-  const releaseRfc3161Timestamps=state.dossierReleaseRfc3161Timestamps
-    .filter(item=>releaseSealIds.has(item.sealId));
-
   downloadJson(
     manifest.id.toLowerCase()+"-release-package.json",
-    {
-      schemaVersion:1,
-      releaseManifest:manifest,
-      releaseSeals,
-      releaseSealVerifications,
-      releaseRfc3161Timestamps,
-      artifacts
-    }
+    buildDossierReleasePackage(state,manifest.id)
   );
 };
 
@@ -103,6 +63,8 @@ const exportDossier=(state:ThinkTankState)=>{
     .filter(item=>releaseSealIds.has(item.sealId));
   const releaseRfc3161Timestamps=state.dossierReleaseRfc3161Timestamps
     .filter(item=>releaseSealIds.has(item.sealId));
+  const releasePublications=state.dossierReleasePublications
+    .filter(item=>releaseIds.has(item.releaseId));
   downloadJson(
     dossier.id.toLowerCase()+"-decision-dossier.json",
     {
@@ -120,7 +82,8 @@ const exportDossier=(state:ThinkTankState)=>{
       releaseManifests,
       releaseSeals,
       releaseSealVerifications,
-      releaseRfc3161Timestamps
+      releaseRfc3161Timestamps,
+      releasePublications
     }
   );
 };
@@ -132,6 +95,7 @@ export function DecisionDossierPanel({
   rfc3161Status,
   publicationStatus,
   releaseSealStatus,
+  releasePublicationStatus,
   busy,
   sealBusy,
   transparencyBusy,
@@ -142,6 +106,7 @@ export function DecisionDossierPanel({
   releaseSealBusy,
   releaseVerifyBusy,
   releaseTimestampBusy,
+  releasePublicationBusy,
   error,
   transparencyError,
   witnessError,
@@ -149,6 +114,7 @@ export function DecisionDossierPanel({
   publicationError,
   releaseSealError,
   releaseTimestampError,
+  releasePublicationError,
   onSeal,
   onVerify,
   onTransparencyAppend,
@@ -160,7 +126,8 @@ export function DecisionDossierPanel({
   onRelease,
   onReleaseSeal,
   onReleaseVerify,
-  onReleaseTimestamp
+  onReleaseTimestamp,
+  onReleasePublish
 }:{
   state:ThinkTankState;
   sealStatus:DossierSealStatusResponse|null;
@@ -168,6 +135,7 @@ export function DecisionDossierPanel({
   rfc3161Status:DossierRfc3161StatusResponse|null;
   publicationStatus:DossierPublicationStatusResponse|null;
   releaseSealStatus:DossierReleaseSealStatusResponse|null;
+  releasePublicationStatus:DossierReleasePublicationStatusResponse|null;
   busy:boolean;
   sealBusy:boolean;
   transparencyBusy:boolean;
@@ -178,6 +146,7 @@ export function DecisionDossierPanel({
   releaseSealBusy:boolean;
   releaseVerifyBusy:boolean;
   releaseTimestampBusy:boolean;
+  releasePublicationBusy:boolean;
   error:string;
   transparencyError:string;
   witnessError:string;
@@ -185,6 +154,7 @@ export function DecisionDossierPanel({
   publicationError:string;
   releaseSealError:string;
   releaseTimestampError:string;
+  releasePublicationError:string;
   onSeal:(dossierId:string)=>void;
   onVerify:(dossierId:string,sealId:string)=>void;
   onTransparencyAppend:(dossierId:string,sealId:string)=>void;
@@ -197,6 +167,7 @@ export function DecisionDossierPanel({
   onReleaseSeal:(releaseId:string)=>void;
   onReleaseVerify:(releaseId:string,sealId:string)=>void;
   onReleaseTimestamp:(releaseId:string,sealId:string)=>void;
+  onReleasePublish:(releaseId:string)=>void;
 }){
   const witnessFileRef=useRef<HTMLInputElement>(null);
   const [witnessImportError,setWitnessImportError]=useState("");
@@ -367,6 +338,34 @@ export function DecisionDossierPanel({
         :rfc3161Status?.state==="error"
           ?"TSA ERROR"
           :"TSA DISABLED";
+  const currentReleasePackageFingerprint=currentRelease
+    ?releasePackageBasisFingerprint(state,currentRelease.id)
+    :null;
+  const releasePublishEligible=currentRelease
+    ?releasePackageHasVerifiedSeal(state,currentRelease.id)
+    :false;
+  const releasePublications=currentRelease
+    ?state.dossierReleasePublications.filter(item=>item.releaseId===currentRelease.id)
+    :[];
+  const currentReleasePublication=(
+    currentReleasePackageFingerprint&&
+    releasePublicationStatus?.publisherUrl
+  )
+    ?[...releasePublications].reverse().find(item=>
+      item.packageBasisFingerprint===currentReleasePackageFingerprint&&
+      item.publisherUrl===releasePublicationStatus.publisherUrl
+    )??null
+    :null;
+  const latestReleasePublication=releasePublications[releasePublications.length-1]??null;
+  const releasePublicationState=!releasePublishEligible
+    ?"VERIFIED RELEASE SEAL REQUIRED"
+    :currentReleasePublication
+      ?"PUBLISHED · READ-BACK VERIFIED"
+      :releasePublicationStatus?.state==="configured"
+        ?"PUBLISHER READY"
+        :releasePublicationStatus?.state==="error"
+          ?"PUBLISHER ERROR"
+          :"PUBLISHER DISABLED";
 
   const importWitnessFile=async(file:File|null)=>{
     if(!file||!latestCheckpoint)return;
@@ -998,6 +997,57 @@ export function DecisionDossierPanel({
                     </button>
                   </div>
                 </div>
+
+                <div className={"dossier-release-publication "+(currentReleasePublication?"release-publication-verified":"")}>
+                  <div className="dossier-transparency-head">
+                    <div>
+                      <small>EXTERNAL RELEASE PUBLICATION</small>
+                      <strong>{releasePublicationState}</strong>
+                    </div>
+                    <span>{releasePublicationStatus?.protocol??"phi-release-publication-v1"}</span>
+                  </div>
+
+                  {latestReleasePublication
+                    ?<div className="dossier-seal-details">
+                      <p><b>Receipt</b> {latestReleasePublication.id}</p>
+                      <p><b>Package basis</b> {latestReleasePublication.packageBasisFingerprint}</p>
+                      <p><b>Package SHA-256</b> {latestReleasePublication.packageSha256}</p>
+                      <p><b>Manifest SHA-256</b> {latestReleasePublication.manifestSha256}</p>
+                      <p><b>Publication</b> {latestReleasePublication.publicationId}</p>
+                      <p><b>Publisher</b> {latestReleasePublication.publisherUrl}</p>
+                      <p><b>Retrieval</b> {latestReleasePublication.retrievalUrl}</p>
+                      <p><b>Publisher claimed time</b> {latestReleasePublication.publisherClaimedAt}</p>
+                      <p><b>Read-back verified</b> {latestReleasePublication.retrievalVerifiedAt}</p>
+                      <p><b>Receipt SHA-256</b> {latestReleasePublication.receiptSha256}</p>
+                    </div>
+                    :<p>
+                      Publish the exact canonical release package to the configured external publisher,
+                      then independently read it back before accepting an RPUB receipt.
+                    </p>}
+
+                  {releasePublicationStatus?.detail&&<p className="dossier-tool-detail">{releasePublicationStatus.detail}</p>}
+                  {releasePublicationError&&<div className="dossier-seal-error">{releasePublicationError}</div>}
+
+                  <div className="dossier-seal-actions">
+                    <button
+                      type="button"
+                      disabled={
+                        busy||
+                        !currentRelease||
+                        !releasePublishEligible||
+                        releasePublicationStatus?.state!=="configured"||
+                        Boolean(currentReleasePublication)
+                      }
+                      onClick={()=>currentRelease&&onReleasePublish(currentRelease.id)}
+                    >
+                      {releasePublicationBusy
+                        ?"PUBLISHING + VERIFYING…"
+                        :currentReleasePublication
+                          ?"RELEASE PUBLICATION VERIFIED"
+                          :"PUBLISH + VERIFY RELEASE"}
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1006,7 +1056,7 @@ export function DecisionDossierPanel({
     </div>
 
     <footer>
-      <span>Integrity chain: dossier → provenance → assurance → REL → RSEAL → RVER → optional RFC3161 trusted release time. Trusted time still does not establish signer identity or content truth.</span>
+      <span>Integrity chain: dossier → provenance → assurance → REL → RSEAL → RVER → optional RTSA → optional verified external RPUB. Publication proves retrievability of one exact package, not permanence or truth.</span>
       <button type="button" onClick={()=>exportDossier(state)}>TEAR / EXPORT DOSSIER</button>
     </footer>
   </section>;
