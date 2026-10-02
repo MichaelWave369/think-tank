@@ -201,6 +201,22 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
     next.dossierTransparencyEntries=[...state.dossierTransparencyEntries,event.dossierTransparency];
   }
 
+  if(event.kind==="dossier.checkpoint.completed"&&event.dossierCheckpoint){
+    next.dossierTransparencyCheckpoints=[...state.dossierTransparencyCheckpoints,event.dossierCheckpoint];
+  }
+
+  if(
+    event.kind==="dossier.witness.completed"&&
+    event.dossierWitness&&
+    event.dossierWitnessVerification
+  ){
+    next.dossierTransparencyWitnesses=[...state.dossierTransparencyWitnesses,event.dossierWitness];
+    next.dossierTransparencyWitnessVerifications=[
+      ...state.dossierTransparencyWitnessVerifications,
+      event.dossierWitnessVerification
+    ];
+  }
+
   if(event.kind==="seat.status"&&event.seatId&&event.seatStatus){
     next.seatStatus={...state.seatStatus,[event.seatId]:event.seatStatus};
   }
