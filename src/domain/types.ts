@@ -391,6 +391,7 @@ export interface DossierProvenanceAssuranceReport{
 }
 
 export interface DossierReleaseManifest{
+  schemaVersion:1;
   id:string;
   dossierId:string;
   policy:ProvenanceAssurancePolicyKind;
