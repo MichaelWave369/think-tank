@@ -13,6 +13,7 @@ import type {
   EvidenceRef,
   DossierTransparencyWitnessReceipt,
   ProvenanceAssurancePolicyKind,
+  ReleaseAvailabilityAssurancePolicyKind,
   ResearchCandidate,
   RoleId,
   SeatAvailability,
@@ -23,6 +24,7 @@ import type {
   ThinkTankState
 } from "../domain/types";
 import { evaluateProvenanceAssurance } from "../domain/provenanceAssurance";
+import { evaluateReleaseAvailabilityAssurance } from "../domain/releaseAvailabilityAssurance";
 import { buildDossierReleaseManifest } from "../domain/releaseManifest";
 import {
   buildDossierReleasePackage,
@@ -1311,6 +1313,53 @@ export function ThinkTankRoom(){
     });
   };
 
+  const evaluateReleaseAvailability=(
+    releaseId:string,
+    packageSha256:string,
+    policy:ReleaseAvailabilityAssurancePolicyKind
+  )=>{
+    if(busy)return;
+
+    const report=evaluateReleaseAvailabilityAssurance(
+      stateRef.current,
+      releaseId,
+      packageSha256,
+      policy
+    );
+    if(stateRef.current.dossierReleaseAvailabilityAssurances.some(item=>item.id===report.id))return;
+
+    emitInput({
+      source:"operator",
+      kind:"dossier.release.availability.requested",
+      phase:stateRef.current.phase,
+      dossierReleaseId:releaseId,
+      releaseAvailabilityPolicy:policy,
+      releaseAvailabilityPackageSha256:packageSha256,
+      message:
+        "Operator requested "+policy+" release availability assurance for "+
+        releaseId+" package "+packageSha256.slice(0,16)+"…."
+    });
+
+    const evaluated=evaluateReleaseAvailabilityAssurance(
+      stateRef.current,
+      releaseId,
+      packageSha256,
+      policy
+    );
+    emitInput({
+      source:"system",
+      kind:"dossier.release.availability.completed",
+      phase:stateRef.current.phase,
+      dossierReleaseId:releaseId,
+      releaseAvailabilityPolicy:policy,
+      releaseAvailabilityPackageSha256:packageSha256,
+      releaseAvailabilityAssurance:evaluated,
+      message:
+        "Release availability assurance "+evaluated.id+" · "+
+        (evaluated.passed?"POLICY SATISFIED":"POLICY NOT SATISFIED")+"."
+    });
+  };
+
   const sealReleaseManifest=async(releaseId:string)=>{
     if(busy)return;
     const manifest=stateRef.current.dossierReleaseManifests.find(item=>item.id===releaseId);
@@ -1965,6 +2014,9 @@ export function ThinkTankRoom(){
           onReleaseTimestamp={(releaseId,sealId)=>void requestReleaseTimestamp(releaseId,sealId)}
           onReleasePublish={releaseId=>void publishReleasePackage(releaseId)}
           onReleaseAudit={publicationId=>void auditReleasePublication(publicationId)}
+          onReleaseAvailability={(releaseId,packageSha256,policy)=>
+            evaluateReleaseAvailability(releaseId,packageSha256,policy)
+          }
         />
 
         {state.synthesisWithheld&&<div className="gate-block">

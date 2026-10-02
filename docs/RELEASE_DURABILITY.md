@@ -302,3 +302,23 @@ PR 28 does not:
 - modify assurance
 - modify synthesis governance
 - make content true
+
+## PR 29 policy extension
+
+PR 28 records individual repeat retrieval observations as RAUD receipts.
+
+PR 29 adds a separate deterministic RAVA policy layer above those observations:
+
+```
+RPUB
+  → RAUD observations
+  → RAVA availability policy
+```
+
+RAVA does not create a network observation. It evaluates canonical RPUB/RAUD evidence already present in the ledger.
+
+Available profiles range from one verified publication through repeated and multi-origin observations.
+
+Even the strongest Resilient policy explicitly refuses continuous-availability, immutability, origin-independence, and truth authority.
+
+See [Release Availability Assurance Policy](RELEASE_AVAILABILITY_ASSURANCE.md).

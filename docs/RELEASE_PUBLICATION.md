@@ -353,3 +353,13 @@ Each RAUD is a distinct observation that the exact RPUB package remained publicl
 RAUD does not become part of the published package and therefore does not mutate the package basis it audits.
 
 See [Release Publication Durability Audit](RELEASE_DURABILITY.md).
+
+## PR 29 assurance relationship
+
+PR 29 can evaluate one exact RPUB package SHA-256 across all canonical RPUB and RAUD receipts for that package.
+
+The RAVA layer is deterministic and offline. It does not change RPUB and does not contact any publisher.
+
+Multiple distinct retrieval origins may satisfy multi-origin requirements, but distinct URL origins do not establish independent operator control.
+
+See [Release Availability Assurance Policy](RELEASE_AVAILABILITY_ASSURANCE.md).

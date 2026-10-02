@@ -6,28 +6,29 @@ A governed, event-sourced multi-mind control room. Cognitive roles are staffed b
 
 ## Current rung
 
-**PR 28 — Release Publication Durability Audit**
+**PR 29 — Release Availability Assurance Policy**
 
-The Think Tank can now reconstruct the exact historical package named by an RPUB receipt and perform fresh credential-free public read-back audits over time.
+The Think Tank can now deterministically evaluate explicit post-publication availability policies over canonical RPUB + RAUD evidence for one exact release-package SHA-256.
 
-PR 28 adds:
-- exact historical RPUB package reconstruction
-- repeat public retrieval without publisher credentials
-- RPUB revalidation before every durability GET
-- phi-release-publication-audit-v1 receipt protocol
-- fresh package SHA-256 read-back comparison
-- repeat RAUD receipts with explicit local/untrusted check time
-- operator-authorized durability audit events
-- deterministic RAUD replay state
-- publication durability UI + dossier export
-- bridge version 0.13.0
-- historical evolution / tamper / repeat-audit tests
+PR 29 adds:
+- deterministic RAVA assurance reports
+- Published / Rechecked / Repeated / Multi-origin / Resilient policies
+- exact RPUB/RAUD evidence-id explanations
+- distinct HTTPS origin evaluation
+- two-qualifying-origin logic without penalizing extra copies
+- current vs historical package status
+- package-specific assurance freshness
+- explicit continuous-availability / immutability / origin-independence / truth non-authority
+- governed operator request + system recomputation events
+- release availability assurance UI + dossier export
+- no bridge/network changes; bridge remains 0.13.0
+- policy/freshness/kernel/replay tests
 
 ### Important semantic rule
 
-**AVAILABLE AGAIN ≠ PERMANENT ≠ IMMUTABLE ≠ CONTENT TRUE.**
+**ASSURANCE MET ≠ CONTINUOUS UPTIME ≠ IMMUTABILITY ≠ ORIGIN INDEPENDENCE ≠ CONTENT TRUE.**
 
-A successful RAUD receipt proves one exact historical RPUB package was publicly retrievable again at that check and still matched its original package SHA-256. It does not prove continuous availability between checks or future permanence.
+A passing RAVA report proves only that the selected structural policy is satisfied by recorded RPUB/RAUD observations for one exact package SHA-256. It does not manufacture availability in the gaps or turn distinct origins into independent authorities.
 
 See:
 - [Architecture](docs/ARCHITECTURE.md)
@@ -58,6 +59,7 @@ See:
 - [RFC 3161 Trusted Release Timestamp](docs/RFC3161_RELEASE_TIMESTAMP.md)
 - [Verified External Release Publication](docs/RELEASE_PUBLICATION.md)
 - [Release Publication Durability Audit](docs/RELEASE_DURABILITY.md)
+- [Release Availability Assurance Policy](docs/RELEASE_AVAILABILITY_ASSURANCE.md)
 
 ## Local-first setup
 
@@ -80,7 +82,7 @@ Verification:
 
 > **If a light changes, a sequenced event explains why.**
 
-Every normal synthesis carries a deterministic dossier; it can be sealed, journaled, checkpointed, witnessed, time-attested, externally published, evaluated against an explicit provenance policy, authorized for governed release/export, Ed25519-sealed, RFC 3161 time-attested, externally published as an exact verified release package, and re-audited for later public availability.
+Every normal synthesis carries a deterministic dossier; it can be sealed, journaled, checkpointed, witnessed, time-attested, externally published, evaluated against an explicit provenance policy, authorized for governed release/export, Ed25519-sealed, RFC 3161 time-attested, externally published as an exact verified release package, re-audited for later public availability, and evaluated against explicit release-availability policies.
 
 ## Build ladder
 
@@ -111,6 +113,7 @@ Every normal synthesis carries a deterministic dossier; it can be sealed, journa
 25. ✅ Cryptographic release sealing
 26. ✅ RFC 3161 trusted release timestamp
 27. ✅ Verified external release publication
-28. **Release publication durability audit**
+28. ✅ Release publication durability audit
+29. **Release availability assurance policy**
 
 **Φ THINK TANK is a control room, not eight chat cards.**

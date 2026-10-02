@@ -503,6 +503,27 @@ The audit check time is local and explicitly untrusted. Repeated successful retr
 
 See [RELEASE_DURABILITY.md](RELEASE_DURABILITY.md).
 
+## Release availability assurance policy
+
+PR 29 adds a deterministic policy layer over RPUB and RAUD evidence for one exact release-package SHA-256.
+
+It introduces five explicit profiles:
+- Published
+- Rechecked
+- Repeated
+- Multi-origin
+- Resilient
+
+The evaluator is pure domain logic and performs no network access. It groups only canonical publications and successful durability audits for the selected REL + package digest.
+
+Multi-origin policies use distinct HTTPS retrieval origins. Distinct origins are topology evidence only; RAVA explicitly carries originIndependenceAuthority: false.
+
+Reports also carry continuousAvailability: false, immutabilityAuthority: false, and truthAuthority: false.
+
+A matching new RPUB or RAUD changes the deterministic basis and makes an older report stale. Evidence for another package SHA does not.
+
+See [RELEASE_AVAILABILITY_ASSURANCE.md](RELEASE_AVAILABILITY_ASSURANCE.md).
+
 ## PR ladder
 
 1. ✅ Room shell + operator authority
@@ -532,6 +553,7 @@ See [RELEASE_DURABILITY.md](RELEASE_DURABILITY.md).
 25. ✅ Cryptographic release sealing
 26. ✅ RFC 3161 trusted release timestamp
 27. ✅ Verified external release publication
-28. Release publication durability audit
+28. ✅ Release publication durability audit
+29. Release availability assurance policy
 
-Future work can add proper PDF extraction, authenticated remote deployment, richer provider discovery, streaming, tool execution, voice, witness trust registries, scheduled durability monitoring, multi-publisher quorum policy, TSA trust-store management, external signer identity attestation, and public release durability policy without changing the core event contract.
+Future work can add proper PDF extraction, authenticated remote deployment, richer provider discovery, streaming, tool execution, voice, witness trust registries, scheduled durability monitoring, publisher identity/administrative-domain evidence, TSA trust-store management, external signer identity attestation, and optional post-release policy automation without changing the core event contract.

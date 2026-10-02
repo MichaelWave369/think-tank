@@ -29,6 +29,10 @@ import {
   releasePackageBasisFingerprint,
   releasePackageHasVerifiedSeal
 } from "../domain/releasePackage";
+import {
+  evaluateReleaseAvailabilityAssurance,
+  RELEASE_AVAILABILITY_ASSURANCE_POLICIES
+} from "../domain/releaseAvailabilityAssurance";
 import { fingerprintProjection } from "./fingerprint";
 import { stableStringify } from "./stable";
 
@@ -1779,6 +1783,150 @@ function assertDossierReleasePublicationAuditEvent(state:ThinkTankState,event:Th
   return false;
 }
 
+function assertDossierReleaseAvailabilityEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
+  const action=[
+    "dossier.release.availability.requested",
+    "dossier.release.availability.completed"
+  ].includes(event.kind);
+
+  if(
+    action&&
+    state.phase!=="intake"&&
+    state.phase!=="synthesis"&&
+    state.phase!=="complete"&&
+    state.phase!=="aborted"
+  ){
+    throw new KernelIntegrityError(
+      "Release availability assurance cannot run during active governed execution.",
+      event.seq
+    );
+  }
+
+  const release=event.dossierReleaseId
+    ?state.dossierReleaseManifests.find(item=>item.id===event.dossierReleaseId)
+    :undefined;
+  const policy=event.releaseAvailabilityPolicy;
+  const packageSha256=event.releaseAvailabilityPackageSha256;
+
+  if(event.kind==="dossier.release.availability.requested"){
+    if(event.source!=="operator"){
+      throw new KernelIntegrityError(
+        "Release availability assurance requests are operator-authorized.",
+        event.seq
+      );
+    }
+    if(!release||!policy||!packageSha256){
+      throw new KernelIntegrityError(
+        "Release availability assurance requires REL, package SHA-256, and policy.",
+        event.seq
+      );
+    }
+    if(!RELEASE_AVAILABILITY_ASSURANCE_POLICIES[policy]){
+      throw new KernelIntegrityError(
+        "Release availability assurance request has an unsupported policy.",
+        event.seq
+      );
+    }
+    if(!/^[a-f0-9]{64}$/.test(packageSha256)){
+      throw new KernelIntegrityError(
+        "Release availability assurance package digest must be lowercase SHA-256.",
+        event.seq
+      );
+    }
+    if(!state.dossierReleasePublications.some(item=>
+      item.releaseId===release.id&&item.packageSha256===packageSha256
+    )){
+      throw new KernelIntegrityError(
+        "Release availability assurance requires an existing RPUB for this package SHA-256.",
+        event.seq
+      );
+    }
+    return true;
+  }
+
+  if(event.kind==="dossier.release.availability.completed"){
+    if(event.source!=="system"){
+      throw new KernelIntegrityError(
+        "Release availability assurance completion must be system-originated.",
+        event.seq
+      );
+    }
+    if(!release||!policy||!packageSha256||!event.releaseAvailabilityAssurance){
+      throw new KernelIntegrityError(
+        "Release availability assurance completion requires REL, package, policy, and report.",
+        event.seq
+      );
+    }
+
+    let expected;
+    try{
+      expected=evaluateReleaseAvailabilityAssurance(
+        state,
+        release.id,
+        packageSha256,
+        policy
+      );
+    }catch(error){
+      throw new KernelIntegrityError(
+        error instanceof Error?error.message:String(error),
+        event.seq
+      );
+    }
+
+    if(stableStringify(event.releaseAvailabilityAssurance)!==stableStringify(expected)){
+      throw new KernelIntegrityError(
+        "Release availability assurance report does not match deterministic recomputation.",
+        event.seq
+      );
+    }
+    if(
+      event.releaseAvailabilityAssurance.continuousAvailability!==false||
+      event.releaseAvailabilityAssurance.immutabilityAuthority!==false||
+      event.releaseAvailabilityAssurance.originIndependenceAuthority!==false||
+      event.releaseAvailabilityAssurance.truthAuthority!==false
+    ){
+      throw new KernelIntegrityError(
+        "Release availability assurance report contains invalid authority claims.",
+        event.seq
+      );
+    }
+    if(state.dossierReleaseAvailabilityAssurances.some(item=>item.id===expected.id)){
+      throw new KernelIntegrityError(
+        "This release/package/policy availability basis already has an assurance report.",
+        event.seq
+      );
+    }
+
+    const request=[...state.events].reverse().find(item=>
+      item.kind==="dossier.release.availability.requested"&&
+      item.dossierReleaseId===release.id&&
+      item.releaseAvailabilityPolicy===policy&&
+      item.releaseAvailabilityPackageSha256===packageSha256
+    );
+    if(!request){
+      throw new KernelIntegrityError(
+        "Release availability assurance completion has no matching operator request.",
+        event.seq
+      );
+    }
+    const terminal=[...state.events].reverse().find(item=>
+      item.kind==="dossier.release.availability.completed"&&
+      item.dossierReleaseId===release.id&&
+      item.releaseAvailabilityPolicy===policy&&
+      item.releaseAvailabilityPackageSha256===packageSha256
+    );
+    if(terminal&&terminal.seq>request.seq){
+      throw new KernelIntegrityError(
+        "Release availability assurance request is already resolved.",
+        event.seq
+      );
+    }
+    return true;
+  }
+
+  return false;
+}
+
 function assertArgumentReviewEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
   const action=[
     "argument.review.requested",
@@ -2659,6 +2807,7 @@ function assertRoutingEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
 }
 
 function assertPolicyEvent(state:ThinkTankState,event:ThinkTankEvent):void{
+  if(assertDossierReleaseAvailabilityEvent(state,event))return;
   if(assertDossierReleasePublicationAuditEvent(state,event))return;
   if(assertDossierReleasePublicationEvent(state,event))return;
   if(assertDossierReleaseTimestampEvent(state,event))return;
@@ -2946,6 +3095,9 @@ export function buildEvent(state:ThinkTankState,input:ThinkTankEventInput):Think
     dossierReleasePublication:input.dossierReleasePublication,
     dossierReleasePublicationId:input.dossierReleasePublicationId,
     dossierReleasePublicationAudit:input.dossierReleasePublicationAudit,
+    releaseAvailabilityPolicy:input.releaseAvailabilityPolicy,
+    releaseAvailabilityPackageSha256:input.releaseAvailabilityPackageSha256,
+    releaseAvailabilityAssurance:input.releaseAvailabilityAssurance,
     message:input.message,
     gateScore:input.gateScore,
     override:input.override,

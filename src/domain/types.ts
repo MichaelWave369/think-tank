@@ -499,6 +499,56 @@ export interface DossierReleasePublicationAuditReceipt{
   trust:"repeat-external-retrieval";
 }
 
+export type ReleaseAvailabilityAssurancePolicyKind=
+  |"published"
+  |"rechecked"
+  |"repeated"
+  |"multi-origin"
+  |"resilient";
+
+export type ReleaseAvailabilityAssuranceRequirementKind=
+  |"verified-release-publication"
+  |"successful-recheck"
+  |"multiple-rechecks"
+  |"multiple-retrieval-origins"
+  |"rechecked-each-origin"
+  |"multiple-rechecks-each-origin";
+
+export interface ReleaseAvailabilityAssuranceRequirementResult{
+  requirement:ReleaseAvailabilityAssuranceRequirementKind;
+  satisfied:boolean;
+  evidenceIds:string[];
+}
+
+export interface ReleaseAvailabilityPublicationSummary{
+  publicationReceiptId:string;
+  retrievalOrigin:string;
+  auditCount:number;
+  auditIds:string[];
+}
+
+export interface DossierReleaseAvailabilityAssuranceReport{
+  id:string;
+  releaseId:string;
+  packageBasisFingerprint:string;
+  packageSha256:string;
+  policy:ReleaseAvailabilityAssurancePolicyKind;
+  basisFingerprint:string;
+  packageStatus:"current"|"historical";
+  requirements:ReleaseAvailabilityAssuranceRequirementResult[];
+  missing:ReleaseAvailabilityAssuranceRequirementKind[];
+  publicationIds:string[];
+  auditIds:string[];
+  retrievalOrigins:string[];
+  publications:ReleaseAvailabilityPublicationSummary[];
+  passed:boolean;
+  reason:string;
+  continuousAvailability:false;
+  immutabilityAuthority:false;
+  originIndependenceAuthority:false;
+  truthAuthority:false;
+}
+
 export interface DecisionOverrideReceipt{
   id:string;
   dossierId:string;
@@ -654,6 +704,8 @@ export type ThinkTankEventKind=
   |"dossier.release.publication.audit.requested"
   |"dossier.release.publication.audit.completed"
   |"dossier.release.publication.audit.failed"
+  |"dossier.release.availability.requested"
+  |"dossier.release.availability.completed"
   |"session.aborted";
 
 export interface ThinkTankEvent{
@@ -721,6 +773,9 @@ export interface ThinkTankEvent{
   dossierReleasePublication?:DossierReleasePublicationReceipt;
   dossierReleasePublicationId?:string;
   dossierReleasePublicationAudit?:DossierReleasePublicationAuditReceipt;
+  releaseAvailabilityPolicy?:ReleaseAvailabilityAssurancePolicyKind;
+  releaseAvailabilityPackageSha256?:string;
+  releaseAvailabilityAssurance?:DossierReleaseAvailabilityAssuranceReport;
   message?:string;
   gateScore?:number;
   override?:boolean;
@@ -795,6 +850,9 @@ export interface ThinkTankEventInput{
   dossierReleasePublication?:DossierReleasePublicationReceipt;
   dossierReleasePublicationId?:string;
   dossierReleasePublicationAudit?:DossierReleasePublicationAuditReceipt;
+  releaseAvailabilityPolicy?:ReleaseAvailabilityAssurancePolicyKind;
+  releaseAvailabilityPackageSha256?:string;
+  releaseAvailabilityAssurance?:DossierReleaseAvailabilityAssuranceReport;
   message?:string;
   gateScore?:number;
   override?:boolean;
@@ -836,6 +894,7 @@ export interface ThinkTankState{
   dossierReleaseRfc3161Timestamps:DossierReleaseRfc3161TimestampReceipt[];
   dossierReleasePublications:DossierReleasePublicationReceipt[];
   dossierReleasePublicationAudits:DossierReleasePublicationAuditReceipt[];
+  dossierReleaseAvailabilityAssurances:DossierReleaseAvailabilityAssuranceReport[];
   evidenceRefs:EvidenceRef[];
   evidenceExcerpts:EvidenceExcerpt[];
   claims:Claim[];
