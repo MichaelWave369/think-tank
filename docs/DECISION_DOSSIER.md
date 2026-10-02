@@ -280,3 +280,24 @@ The timestamp receipt preserves:
 This is time-attestation evidence, not a change to the synthesis decision or governance result.
 
 See [RFC3161_TIMESTAMP.md](RFC3161_TIMESTAMP.md).
+
+## Verified external checkpoint publication receipts
+
+PR 22 extends exported dossier packages with verified external publication receipts linked to included transparency checkpoints.
+
+Each receipt preserves:
+- checkpoint linkage
+- publisher endpoint
+- external retrieval URL
+- publisher-defined publication id
+- publisher-claimed time
+- exact stable-canonical checkpoint payload SHA-256
+- retrieval status/content type
+- local read-back verification time
+- publication receipt SHA-256
+
+The publisher's claimed time is not trusted time. RFC 3161 receipts remain the timestamp-attestation layer.
+
+Publication is additive provenance evidence and does not rewrite the dossier, journal, checkpoint, witness, timestamp, governance result, or human override.
+
+See [CHECKPOINT_PUBLICATION.md](CHECKPOINT_PUBLICATION.md).
