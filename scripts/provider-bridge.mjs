@@ -1261,8 +1261,20 @@ const normalizedConfiguredPublication=()=>{
   let publisher;
   try{publisher=new URL(CHECKPOINT_PUBLISH_URL);}
   catch{throw bridgeError("CHECKPOINT_PUBLISH_URL is invalid.",500);}
-  if(publisher.protocol!=="https:"||publisher.username||publisher.password||publisher.hash){
-    throw bridgeError("CHECKPOINT_PUBLISH_URL must be an HTTPS URL without credentials or fragments.",500);
+  if(
+    publisher.protocol!=="https:"||
+    (publisher.port&&publisher.port!=="443")||
+    publisher.username||
+    publisher.password||
+    publisher.hash
+  ){
+    throw bridgeError(
+      "CHECKPOINT_PUBLISH_URL must be an HTTPS URL on the standard port without credentials or fragments.",
+      500
+    );
+  }
+  if(CHECKPOINT_PUBLISH_BEARER_TOKEN.length>8192){
+    throw bridgeError("CHECKPOINT_PUBLISH_BEARER_TOKEN exceeds the 8192 character limit.",500);
   }
 
   let retrievalOrigin;
@@ -1272,6 +1284,7 @@ const normalizedConfiguredPublication=()=>{
     catch{throw bridgeError("CHECKPOINT_PUBLISH_RETRIEVAL_ORIGIN is invalid.",500);}
     if(
       configured.protocol!=="https:"||
+      (configured.port&&configured.port!=="443")||
       configured.username||
       configured.password||
       configured.hash||
