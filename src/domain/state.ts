@@ -24,6 +24,7 @@ export const createInitialState=():ThinkTankState=>({
   dossierRfc3161Timestamps:[],
   dossierCheckpointPublications:[],
   dossierProvenanceAssurances:[],
+  dossierReleaseManifests:[],
   evidenceRefs:[],
   evidenceExcerpts:[],
   claims:[],
