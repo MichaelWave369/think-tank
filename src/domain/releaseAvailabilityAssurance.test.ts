@@ -202,6 +202,25 @@ describe("release availability assurance",()=>{
     expect(report.originIndependenceAuthority).toBe(false);
   });
 
+  it("does not let an extra unaudited origin invalidate two qualifying origins",()=>{
+    const state0=base();
+    const a=publication(state0,"1","https://a.example.test/pkg.json");
+    const b=publication(state0,"2","https://b.example.test/pkg.json");
+    const cPub=publication(state0,"7","https://c.example.test/pkg.json");
+    const state={
+      ...state0,
+      dossierReleasePublications:[a,b,cPub],
+      dossierReleasePublicationAudits:[
+        audit(a,"3"),
+        audit(b,"4")
+      ]
+    };
+
+    expect(evaluateReleaseAvailabilityAssurance(
+      state,manifest.id,packageSha,"multi-origin"
+    ).passed).toBe(true);
+  });
+
   it("requires two repeat observations on each origin for resilient assurance",()=>{
     const state0=base();
     const a=publication(state0,"1","https://a.example.test/pkg.json");
