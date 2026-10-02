@@ -337,6 +337,24 @@ export interface DossierRfc3161TimestampReceipt{
   trust:"configured-rfc3161-trust-anchor";
 }
 
+export interface DossierCheckpointPublicationReceipt{
+  id:string;
+  checkpointId:string;
+  tool:"verified-checkpoint-publisher";
+  protocol:"phi-checkpoint-publication-v1";
+  checkpointSha256:string;
+  publisherUrl:string;
+  retrievalUrl:string;
+  publicationId:string;
+  publisherClaimedAt:string;
+  payloadSha256:string;
+  retrievalHttpStatus:number;
+  retrievalContentType:string;
+  retrievalVerifiedAt:string;
+  receiptSha256:string;
+  trust:"externally-retrieved-publication";
+}
+
 export interface DecisionOverrideReceipt{
   id:string;
   dossierId:string;
@@ -470,6 +488,9 @@ export type ThinkTankEventKind=
   |"dossier.timestamp.requested"
   |"dossier.timestamp.completed"
   |"dossier.timestamp.failed"
+  |"dossier.publication.requested"
+  |"dossier.publication.completed"
+  |"dossier.publication.failed"
   |"session.aborted";
 
 export interface ThinkTankEvent{
@@ -523,6 +544,7 @@ export interface ThinkTankEvent{
   dossierWitness?:DossierTransparencyWitnessReceipt;
   dossierWitnessVerification?:DossierTransparencyWitnessVerificationReceipt;
   dossierTimestamp?:DossierRfc3161TimestampReceipt;
+  dossierPublication?:DossierCheckpointPublicationReceipt;
   message?:string;
   gateScore?:number;
   override?:boolean;
@@ -583,6 +605,7 @@ export interface ThinkTankEventInput{
   dossierWitness?:DossierTransparencyWitnessReceipt;
   dossierWitnessVerification?:DossierTransparencyWitnessVerificationReceipt;
   dossierTimestamp?:DossierRfc3161TimestampReceipt;
+  dossierPublication?:DossierCheckpointPublicationReceipt;
   message?:string;
   gateScore?:number;
   override?:boolean;
@@ -616,6 +639,7 @@ export interface ThinkTankState{
   dossierTransparencyWitnesses:DossierTransparencyWitnessReceipt[];
   dossierTransparencyWitnessVerifications:DossierTransparencyWitnessVerificationReceipt[];
   dossierRfc3161Timestamps:DossierRfc3161TimestampReceipt[];
+  dossierCheckpointPublications:DossierCheckpointPublicationReceipt[];
   evidenceRefs:EvidenceRef[];
   evidenceExcerpts:EvidenceExcerpt[];
   claims:Claim[];

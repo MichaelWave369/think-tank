@@ -29,6 +29,9 @@ const DOSSIER_TRANSPARENCY_LOG_FILE=(process.env.DOSSIER_TRANSPARENCY_LOG_FILE||
 const RFC3161_TSA_URL=(process.env.RFC3161_TSA_URL||"").trim();
 const RFC3161_TSA_CA_FILE=(process.env.RFC3161_TSA_CA_FILE||"").trim();
 const RFC3161_OPENSSL_BIN=(process.env.RFC3161_OPENSSL_BIN||"openssl").trim()||"openssl";
+const CHECKPOINT_PUBLISH_URL=(process.env.CHECKPOINT_PUBLISH_URL||"").trim();
+const CHECKPOINT_PUBLISH_RETRIEVAL_ORIGIN=(process.env.CHECKPOINT_PUBLISH_RETRIEVAL_ORIGIN||"").trim();
+const CHECKPOINT_PUBLISH_BEARER_TOKEN=(process.env.CHECKPOINT_PUBLISH_BEARER_TOKEN||"").trim();
 
 const explicitOrigins=(process.env.THINK_TANK_ORIGIN||"")
   .split(",").map(value=>value.trim()).filter(Boolean);
@@ -1177,6 +1180,377 @@ const requestPinned=({url,address,family},maxBytes)=>new Promise((resolve,reject
   request.end();
 });
 
+const requestPinnedPublication=({url,address,family},{
+  method,
+  headers={},
+  body,
+  maxBytes=256_000
+})=>new Promise((resolve,reject)=>{
+  const transport=url.protocol==="https:"?https:http;
+  let settled=false;
+
+  const finishError=(error)=>{
+    if(settled)return;
+    settled=true;
+    reject(error);
+  };
+
+  const request=transport.request(url,{
+    method,
+    headers:{
+      "user-agent":"PhiThinkTank-CheckpointPublisher/0.1",
+      ...headers
+    },
+    timeout:20_000,
+    servername:url.hostname,
+    lookup:(_hostname,_options,callback)=>callback(null,address,family)
+  },response=>{
+    const chunks=[];
+    let total=0;
+
+    response.on("data",chunk=>{
+      total+=chunk.length;
+      if(total>maxBytes){
+        response.destroy(new Error("Checkpoint publication response exceeds the byte limit."));
+        return;
+      }
+      chunks.push(chunk);
+    });
+
+    response.on("end",()=>{
+      if(settled)return;
+      settled=true;
+      resolve({
+        status:response.statusCode||0,
+        headers:response.headers,
+        body:Buffer.concat(chunks,total)
+      });
+    });
+
+    response.on("error",finishError);
+  });
+
+  request.on("timeout",()=>request.destroy(new Error("Checkpoint publication request timed out.")));
+  request.on("error",finishError);
+  if(body)request.write(body);
+  request.end();
+});
+
+const assertPublicationHttpsTarget=async(raw,label)=>{
+  let target;
+  try{target=await assertPublicHttpUrl(raw);}
+  catch(error){
+    throw bridgeError(
+      label+" is not an allowed public-network URL: "+
+      (error instanceof Error?error.message:String(error)),
+      400
+    );
+  }
+  if(target.url.protocol!=="https:"){
+    throw bridgeError(label+" must use HTTPS.",400);
+  }
+  if(target.url.hash){
+    throw bridgeError(label+" must not contain a fragment.",400);
+  }
+  return target;
+};
+
+const normalizedConfiguredPublication=()=>{
+  if(!CHECKPOINT_PUBLISH_URL)return null;
+
+  let publisher;
+  try{publisher=new URL(CHECKPOINT_PUBLISH_URL);}
+  catch{throw bridgeError("CHECKPOINT_PUBLISH_URL is invalid.",500);}
+  if(
+    publisher.protocol!=="https:"||
+    (publisher.port&&publisher.port!=="443")||
+    publisher.username||
+    publisher.password||
+    publisher.hash
+  ){
+    throw bridgeError(
+      "CHECKPOINT_PUBLISH_URL must be an HTTPS URL on the standard port without credentials or fragments.",
+      500
+    );
+  }
+  if(CHECKPOINT_PUBLISH_BEARER_TOKEN.length>8192){
+    throw bridgeError("CHECKPOINT_PUBLISH_BEARER_TOKEN exceeds the 8192 character limit.",500);
+  }
+
+  let retrievalOrigin;
+  if(CHECKPOINT_PUBLISH_RETRIEVAL_ORIGIN){
+    let configured;
+    try{configured=new URL(CHECKPOINT_PUBLISH_RETRIEVAL_ORIGIN);}
+    catch{throw bridgeError("CHECKPOINT_PUBLISH_RETRIEVAL_ORIGIN is invalid.",500);}
+    if(
+      configured.protocol!=="https:"||
+      (configured.port&&configured.port!=="443")||
+      configured.username||
+      configured.password||
+      configured.hash||
+      configured.pathname!=="/"||
+      configured.search
+    ){
+      throw bridgeError(
+        "CHECKPOINT_PUBLISH_RETRIEVAL_ORIGIN must be an HTTPS origin with no path, query, credentials, or fragment.",
+        500
+      );
+    }
+    retrievalOrigin=configured.origin;
+  }else{
+    retrievalOrigin=publisher.origin;
+  }
+
+  return {
+    publisherUrl:publisher.toString(),
+    retrievalOrigin,
+    authConfigured:Boolean(CHECKPOINT_PUBLISH_BEARER_TOKEN)
+  };
+};
+
+const publicationStatus=()=>{
+  if(!CHECKPOINT_PUBLISH_URL){
+    return {
+      ok:true,
+      state:"disabled",
+      protocol:"phi-checkpoint-publication-v1",
+      publisherUrl:null,
+      retrievalOrigin:null,
+      authConfigured:false,
+      detail:"Set CHECKPOINT_PUBLISH_URL to enable verified external checkpoint publication."
+    };
+  }
+
+  try{
+    const configured=normalizedConfiguredPublication();
+    return {
+      ok:true,
+      state:"configured",
+      protocol:"phi-checkpoint-publication-v1",
+      ...configured,
+      detail:"Configured publisher will be verified by HTTPS read-back before a publication receipt is accepted."
+    };
+  }catch(error){
+    return {
+      ok:true,
+      state:"error",
+      protocol:"phi-checkpoint-publication-v1",
+      publisherUrl:CHECKPOINT_PUBLISH_URL||null,
+      retrievalOrigin:CHECKPOINT_PUBLISH_RETRIEVAL_ORIGIN||null,
+      authConfigured:Boolean(CHECKPOINT_PUBLISH_BEARER_TOKEN),
+      detail:error instanceof Error?error.message:String(error)
+    };
+  }
+};
+
+export const validateCheckpointPublicationResponse=({
+  checkpoint,
+  publisherResponse,
+  publisherUrl,
+  retrievalOrigin
+})=>{
+  assertTransparencyCheckpoint(checkpoint);
+  if(!publisherResponse||typeof publisherResponse!=="object"){
+    throw bridgeError("Checkpoint publisher returned no JSON receipt.",502);
+  }
+  if(
+    publisherResponse.protocol!=="phi-checkpoint-publication-v1"||
+    publisherResponse.checkpointId!==checkpoint.id||
+    publisherResponse.checkpointSha256!==checkpoint.checkpointSha256||
+    typeof publisherResponse.publicationId!=="string"||
+    !publisherResponse.publicationId.trim()||
+    publisherResponse.publicationId.length>300||
+    Number.isNaN(Date.parse(publisherResponse.publishedAt||""))||
+    typeof publisherResponse.retrievalUrl!=="string"||
+    !publisherResponse.retrievalUrl.trim()
+  ){
+    throw bridgeError("Checkpoint publisher response does not match phi-checkpoint-publication-v1.",502);
+  }
+
+  let normalizedPublisher;
+  let retrieval;
+  try{
+    normalizedPublisher=new URL(publisherUrl);
+    retrieval=new URL(publisherResponse.retrievalUrl);
+  }catch{
+    throw bridgeError("Checkpoint publication response contains an invalid URL.",502);
+  }
+  if(
+    normalizedPublisher.protocol!=="https:"||
+    retrieval.protocol!=="https:"||
+    retrieval.username||
+    retrieval.password||
+    retrieval.hash
+  ){
+    throw bridgeError("Checkpoint publication/retrieval URLs must use HTTPS without credentials or fragments.",502);
+  }
+  if(retrieval.origin!==retrievalOrigin){
+    throw bridgeError("Checkpoint retrieval URL origin does not match configured retrieval origin.",502);
+  }
+
+  return {
+    protocol:"phi-checkpoint-publication-v1",
+    publicationId:publisherResponse.publicationId.trim(),
+    checkpointId:checkpoint.id,
+    checkpointSha256:checkpoint.checkpointSha256,
+    retrievalUrl:retrieval.toString(),
+    publishedAt:new Date(Date.parse(publisherResponse.publishedAt)).toISOString(),
+    publisherUrl:normalizedPublisher.toString()
+  };
+};
+
+export const buildCheckpointPublicationReceipt=({
+  checkpoint,
+  publisherResponse,
+  publisherUrl,
+  retrievalOrigin,
+  retrievedCheckpoint,
+  retrievalHttpStatus=200,
+  retrievalContentType="application/json",
+  retrievalVerifiedAt=new Date().toISOString()
+})=>{
+  assertTransparencyCheckpoint(checkpoint);
+  assertTransparencyCheckpoint(retrievedCheckpoint);
+  const response=validateCheckpointPublicationResponse({
+    checkpoint,publisherResponse,publisherUrl,retrievalOrigin
+  });
+
+  if(stableCanonicalJson(retrievedCheckpoint)!==stableCanonicalJson(checkpoint)){
+    throw bridgeError("Retrieved checkpoint does not exactly match the published checkpoint.",409);
+  }
+  if(
+    !Number.isInteger(retrievalHttpStatus)||
+    retrievalHttpStatus<200||
+    retrievalHttpStatus>=300
+  ){
+    throw bridgeError("Checkpoint retrieval did not return a successful HTTP status.",502);
+  }
+  const contentType=String(retrievalContentType||"").split(";")[0].trim().toLowerCase();
+  if(contentType!=="application/json"){
+    throw bridgeError("Checkpoint retrieval must return application/json.",415);
+  }
+  if(Number.isNaN(Date.parse(retrievalVerifiedAt))){
+    throw bridgeError("Checkpoint retrieval verification time is invalid.",500);
+  }
+
+  const payloadSha256=createHash("sha256")
+    .update(stableCanonicalJson(checkpoint),"utf8")
+    .digest("hex");
+  const basis={
+    schemaVersion:1,
+    checkpointId:checkpoint.id,
+    tool:"verified-checkpoint-publisher",
+    protocol:"phi-checkpoint-publication-v1",
+    checkpointSha256:checkpoint.checkpointSha256,
+    publisherUrl:response.publisherUrl,
+    retrievalUrl:response.retrievalUrl,
+    publicationId:response.publicationId,
+    publisherClaimedAt:response.publishedAt,
+    payloadSha256,
+    retrievalHttpStatus,
+    retrievalContentType:contentType,
+    retrievalVerifiedAt:new Date(Date.parse(retrievalVerifiedAt)).toISOString(),
+    trust:"externally-retrieved-publication"
+  };
+  const receiptSha256=createHash("sha256")
+    .update(stableCanonicalJson(basis),"utf8")
+    .digest("hex");
+
+  return {
+    id:"PUB-"+checkpoint.id+"-"+receiptSha256.slice(0,12),
+    ...basis,
+    receiptSha256
+  };
+};
+
+const publishAndVerifyCheckpoint=async(checkpoint)=>{
+  assertTransparencyCheckpoint(checkpoint);
+  const status=publicationStatus();
+  if(status.state!=="configured"){
+    throw bridgeError("Checkpoint publisher is not configured: "+status.detail,503);
+  }
+
+  const publisherTarget=await assertPublicationHttpsTarget(status.publisherUrl,"Checkpoint publisher URL");
+  const body=Buffer.from(
+    stableCanonicalJson({
+      protocol:"phi-checkpoint-publication-v1",
+      checkpoint
+    }),
+    "utf8"
+  );
+  const headers={
+    "accept":"application/json",
+    "content-type":"application/json",
+    "content-length":String(body.length)
+  };
+  if(CHECKPOINT_PUBLISH_BEARER_TOKEN){
+    headers.authorization="Bearer "+CHECKPOINT_PUBLISH_BEARER_TOKEN;
+  }
+
+  const publishResponse=await requestPinnedPublication(
+    publisherTarget,
+    {method:"POST",headers,body,maxBytes:128_000}
+  );
+  if(publishResponse.status<200||publishResponse.status>=300){
+    throw bridgeError("Checkpoint publisher returned HTTP "+publishResponse.status+".",502);
+  }
+  const publishType=String(publishResponse.headers["content-type"]||"")
+    .split(";")[0].trim().toLowerCase();
+  if(publishType!=="application/json"){
+    throw bridgeError("Checkpoint publisher must return application/json.",502);
+  }
+
+  let publisherResponse;
+  try{publisherResponse=JSON.parse(publishResponse.body.toString("utf8"));}
+  catch{throw bridgeError("Checkpoint publisher returned invalid JSON.",502);}
+
+  const normalized=validateCheckpointPublicationResponse({
+    checkpoint,
+    publisherResponse,
+    publisherUrl:status.publisherUrl,
+    retrievalOrigin:status.retrievalOrigin
+  });
+
+  const retrievalTarget=await assertPublicationHttpsTarget(
+    normalized.retrievalUrl,
+    "Checkpoint retrieval URL"
+  );
+  if(retrievalTarget.url.origin!==status.retrievalOrigin){
+    throw bridgeError("Checkpoint retrieval URL origin changed during validation.",502);
+  }
+
+  const retrievalResponse=await requestPinnedPublication(
+    retrievalTarget,
+    {
+      method:"GET",
+      headers:{"accept":"application/json"},
+      maxBytes:256_000
+    }
+  );
+  if(retrievalResponse.status<200||retrievalResponse.status>=300){
+    throw bridgeError("Checkpoint retrieval returned HTTP "+retrievalResponse.status+".",502);
+  }
+  const retrievalType=String(retrievalResponse.headers["content-type"]||"")
+    .split(";")[0].trim().toLowerCase();
+  if(retrievalType!=="application/json"){
+    throw bridgeError("Checkpoint retrieval must return application/json.",415);
+  }
+
+  let retrievedCheckpoint;
+  try{retrievedCheckpoint=JSON.parse(retrievalResponse.body.toString("utf8"));}
+  catch{throw bridgeError("Checkpoint retrieval returned invalid JSON.",502);}
+
+  return buildCheckpointPublicationReceipt({
+    checkpoint,
+    publisherResponse,
+    publisherUrl:status.publisherUrl,
+    retrievalOrigin:status.retrievalOrigin,
+    retrievedCheckpoint,
+    retrievalHttpStatus:retrievalResponse.status,
+    retrievalContentType:retrievalType
+  });
+};
+
 const fetchEvidenceResource=async(requestedUri)=>{
   let target=await assertPublicHttpUrl(requestedUri);
   let redirects=0;
@@ -1373,7 +1747,7 @@ const remoteStatus=(seatId,provider,key,model)=>({
 
 const statusPayload=async()=>({
   ok:true,
-  bridgeVersion:"0.8.0",
+  bridgeVersion:"0.9.0",
   seats:[
     await ollamaStatus(),
     remoteStatus("openai","OpenAI",process.env.OPENAI_API_KEY,process.env.OPENAI_MODEL),
@@ -1486,7 +1860,7 @@ const server=http.createServer(async(req,res)=>{
 
   try{
     if(req.method==="GET"&&req.url==="/health"){
-      send(res,200,{ok:true,service:"phi-think-tank-provider-bridge",version:"0.8.0"},origin);
+      send(res,200,{ok:true,service:"phi-think-tank-provider-bridge",version:"0.9.0"},origin);
       return;
     }
 
@@ -1573,6 +1947,18 @@ const server=http.createServer(async(req,res)=>{
       const raw=await readJson(req);
       const timestamp=await requestRfc3161Timestamp(raw.checkpoint);
       send(res,200,{ok:true,timestamp},origin);
+      return;
+    }
+
+    if(req.method==="GET"&&req.url==="/dossier/publication/status"){
+      send(res,200,publicationStatus(),origin);
+      return;
+    }
+
+    if(req.method==="POST"&&req.url==="/dossier/publication"){
+      const raw=await readJson(req);
+      const publication=await publishAndVerifyCheckpoint(raw.checkpoint);
+      send(res,200,{ok:true,publication},origin);
       return;
     }
 

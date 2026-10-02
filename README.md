@@ -6,28 +6,29 @@ A governed, event-sourced multi-mind control room. Cognitive roles are staffed b
 
 ## Current rung
 
-**PR 21 — RFC 3161 Trusted Timestamp Attestation**
+**PR 22 — Verified External Checkpoint Publication**
 
-The Think Tank can now request a standards-based RFC 3161 timestamp token for a portable transparency checkpoint and verify the returned token locally against an explicitly configured trust anchor using OpenSSL.
+The Think Tank can now publish a portable checkpoint through an optional configured HTTPS publisher, then independently read the checkpoint back from a constrained public retrieval origin before accepting a publication receipt.
 
-PR 21 adds:
-- optional RFC 3161 TSA adapter
-- SHA-256 checkpoint message imprints
-- operator-configured TSA URL and CA/trust-anchor file
-- local OpenSSL query generation and response verification
-- TSA policy / serial / subject extraction
-- raw timestamp-token retention
-- token SHA-256 fingerprints
-- governed timestamp request/completion/failure events
-- timestamp receipts in canonical replay fingerprints
-- Decision Dossier timestamp UI + export
-- kernel and bridge receipt tests
+PR 22 adds:
+- `phi-checkpoint-publication-v1` protocol
+- operator-authorized checkpoint publication
+- server-side optional bearer authentication
+- pinned public-network validation for publish + retrieval destinations
+- no-redirect publication/read-back requests
+- exact retrieval-origin enforcement
+- exact stable-canonical checkpoint read-back verification
+- publisher-claimed time kept explicitly separate from trusted time
+- governed publication request/completion/failure events
+- publication receipts in replay fingerprints and dossier exports
+- Decision Dossier publication status/UI
+- bridge and kernel tamper/failure tests
 
 ### Important semantic rule
 
-**RFC3161 VERIFIED ≠ UNIVERSALLY TRUSTED TIME ≠ TRUE DECISION.**
+**PUBLISHED ≠ IMMUTABLE ≠ ENDORSED ≠ TRUE DECISION.**
 
-Verification means the configured RFC 3161 trust chain successfully attested the checkpoint digest at the token generation time. The assurance is only as strong as the operator-selected trust anchor, TSA operation, and local verification environment; it still says nothing about the factual correctness of the underlying decision.
+A verified publication receipt proves that the bridge successfully read the exact checkpoint back from the accepted external retrieval URL after publication. It does not prove permanent availability, append-only storage, publisher endorsement, trusted publisher time, or factual correctness.
 
 See:
 - [Architecture](docs/ARCHITECTURE.md)
@@ -51,6 +52,7 @@ See:
 - [Local Dossier Transparency Journal](docs/TRANSPARENCY_JOURNAL.md)
 - [Portable Checkpoints + Detached Witnesses](docs/DETACHED_WITNESS.md)
 - [RFC 3161 Timestamp Attestation](docs/RFC3161_TIMESTAMP.md)
+- [Verified External Checkpoint Publication](docs/CHECKPOINT_PUBLICATION.md)
 
 ## Local-first setup
 
@@ -73,7 +75,7 @@ Verification:
 
 > **If a light changes, a sequenced event explains why.**
 
-Every normal synthesis carries a deterministic dossier; it can be Ed25519-sealed, appended to a local SHA-256 transparency journal, frozen into a portable checkpoint, independently witnessed, and optionally time-attested by an RFC 3161 authority under an explicit local trust anchor.
+Every normal synthesis carries a deterministic dossier; it can be Ed25519-sealed, appended to a local SHA-256 transparency journal, frozen into a portable checkpoint, independently witnessed, time-attested by RFC 3161, and externally published with verified HTTPS read-back.
 
 ## Build ladder
 
@@ -97,6 +99,7 @@ Every normal synthesis carries a deterministic dossier; it can be Ed25519-sealed
 18. ✅ Cryptographic dossier sealing
 19. ✅ Local dossier transparency journal
 20. ✅ Portable checkpoints + detached witnesses
-21. **RFC 3161 trusted timestamp attestation**
+21. ✅ RFC 3161 trusted timestamp attestation
+22. **Verified external checkpoint publication**
 
 **Φ THINK TANK is a control room, not eight chat cards.**

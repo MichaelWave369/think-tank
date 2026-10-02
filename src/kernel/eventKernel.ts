@@ -674,6 +674,127 @@ function assertDossierTimestampEvent(state:ThinkTankState,event:ThinkTankEvent):
   return false;
 }
 
+function assertDossierPublicationEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
+  const action=[
+    "dossier.publication.requested",
+    "dossier.publication.completed",
+    "dossier.publication.failed"
+  ].includes(event.kind);
+
+  if(
+    action&&
+    state.phase!=="intake"&&
+    state.phase!=="synthesis"&&
+    state.phase!=="complete"&&
+    state.phase!=="aborted"
+  ){
+    throw new KernelIntegrityError("Checkpoint publication cannot run during active governed execution.",event.seq);
+  }
+
+  const checkpoint=event.dossierCheckpointId
+    ?state.dossierTransparencyCheckpoints.find(item=>item.id===event.dossierCheckpointId)
+    :undefined;
+
+  if(event.kind==="dossier.publication.requested"){
+    if(event.source!=="operator"){
+      throw new KernelIntegrityError("Checkpoint publication requests are operator-authorized.",event.seq);
+    }
+    if(!checkpoint){
+      throw new KernelIntegrityError("Checkpoint publication requires an existing transparency checkpoint.",event.seq);
+    }
+    return true;
+  }
+
+  if(event.kind==="dossier.publication.completed"){
+    if(event.source!=="tool"){
+      throw new KernelIntegrityError("Checkpoint publication completion must be tool-originated.",event.seq);
+    }
+    const receipt=event.dossierPublication;
+    if(!checkpoint||!receipt||receipt.checkpointId!==checkpoint.id){
+      throw new KernelIntegrityError("Publication receipt requires an existing matching checkpoint.",event.seq);
+    }
+
+    let publisherUrl:URL;
+    let retrievalUrl:URL;
+    try{
+      publisherUrl=new URL(receipt.publisherUrl);
+      retrievalUrl=new URL(receipt.retrievalUrl);
+    }catch{
+      throw new KernelIntegrityError("Publication receipt URLs are invalid.",event.seq);
+    }
+
+    if(
+      receipt.tool!=="verified-checkpoint-publisher"||
+      receipt.protocol!=="phi-checkpoint-publication-v1"||
+      receipt.trust!=="externally-retrieved-publication"||
+      receipt.checkpointSha256!==checkpoint.checkpointSha256||
+      publisherUrl.protocol!=="https:"||
+      retrievalUrl.protocol!=="https:"||
+      !receipt.publicationId.trim()||
+      Number.isNaN(Date.parse(receipt.publisherClaimedAt))||
+      !/^[a-f0-9]{64}$/.test(receipt.payloadSha256)||
+      !Number.isInteger(receipt.retrievalHttpStatus)||
+      receipt.retrievalHttpStatus<200||
+      receipt.retrievalHttpStatus>=300||
+      !receipt.retrievalContentType.toLowerCase().startsWith("application/json")||
+      Number.isNaN(Date.parse(receipt.retrievalVerifiedAt))||
+      !/^[a-f0-9]{64}$/.test(receipt.receiptSha256)
+    ){
+      throw new KernelIntegrityError("Checkpoint publication receipt is incomplete or malformed.",event.seq);
+    }
+
+    const expectedId="PUB-"+checkpoint.id+"-"+receipt.receiptSha256.slice(0,12);
+    if(receipt.id!==expectedId){
+      throw new KernelIntegrityError("Checkpoint publication id does not match its receipt digest.",event.seq);
+    }
+    if(state.dossierCheckpointPublications.some(item=>item.id===receipt.id)){
+      throw new KernelIntegrityError("Checkpoint publication receipt id already exists.",event.seq);
+    }
+    if(state.dossierCheckpointPublications.some(item=>
+      item.checkpointId===checkpoint.id&&item.publisherUrl===receipt.publisherUrl
+    )){
+      throw new KernelIntegrityError("This publisher already has an accepted publication for the checkpoint.",event.seq);
+    }
+
+    const request=[...state.events].reverse().find(item=>
+      item.kind==="dossier.publication.requested"&&item.dossierCheckpointId===checkpoint.id
+    );
+    if(!request){
+      throw new KernelIntegrityError("Checkpoint publication completion has no matching operator request.",event.seq);
+    }
+    const terminal=[...state.events].reverse().find(item=>
+      (item.kind==="dossier.publication.completed"||item.kind==="dossier.publication.failed")&&
+      item.dossierCheckpointId===checkpoint.id
+    );
+    if(terminal&&terminal.seq>request.seq){
+      throw new KernelIntegrityError("Checkpoint publication request is already resolved.",event.seq);
+    }
+    return true;
+  }
+
+  if(event.kind==="dossier.publication.failed"){
+    if(event.source!=="tool"||!checkpoint){
+      throw new KernelIntegrityError("Checkpoint publication failure must be tool-originated for an existing checkpoint.",event.seq);
+    }
+    const request=[...state.events].reverse().find(item=>
+      item.kind==="dossier.publication.requested"&&item.dossierCheckpointId===checkpoint.id
+    );
+    if(!request){
+      throw new KernelIntegrityError("Checkpoint publication failure has no matching operator request.",event.seq);
+    }
+    const terminal=[...state.events].reverse().find(item=>
+      (item.kind==="dossier.publication.completed"||item.kind==="dossier.publication.failed")&&
+      item.dossierCheckpointId===checkpoint.id
+    );
+    if(terminal&&terminal.seq>request.seq){
+      throw new KernelIntegrityError("Checkpoint publication request is already resolved.",event.seq);
+    }
+    return true;
+  }
+
+  return false;
+}
+
 function assertArgumentReviewEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
   const action=[
     "argument.review.requested",
@@ -1554,6 +1675,7 @@ function assertRoutingEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
 }
 
 function assertPolicyEvent(state:ThinkTankState,event:ThinkTankEvent):void{
+  if(assertDossierPublicationEvent(state,event))return;
   if(assertDossierTimestampEvent(state,event))return;
   if(assertDossierCheckpointWitnessEvent(state,event))return;
   if(assertDossierTransparencyEvent(state,event))return;
@@ -1820,6 +1942,7 @@ export function buildEvent(state:ThinkTankState,input:ThinkTankEventInput):Think
     dossierWitness:input.dossierWitness,
     dossierWitnessVerification:input.dossierWitnessVerification,
     dossierTimestamp:input.dossierTimestamp,
+    dossierPublication:input.dossierPublication,
     message:input.message,
     gateScore:input.gateScore,
     override:input.override,
