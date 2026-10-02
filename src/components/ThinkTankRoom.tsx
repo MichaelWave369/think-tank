@@ -25,10 +25,10 @@ import { buildEvent,buildEventBatch,replayEvents,verifyReplay } from "../kernel/
 import { deriveMotionCue } from "../motion/motion";
 import { useEventPlayback } from "../motion/useEventPlayback";
 import { useMotionPolicy } from "../motion/useMotionPolicy";
-import { appendDossierTransparency,fetchDossierSealStatus,fetchDossierTransparencyCheckpoint,fetchDossierTransparencyStatus,fetchMachineEvidence,fetchProviderStatus,fetchResearchStatus,invokeProvider,pinMachineEvidenceExcerpt,projectMachineEvidence,sealDecisionDossier,searchResearch,verifyDecisionDossierSeal,verifyDossierTransparencyWitness } from "../providers/client";
+import { appendDossierTransparency,fetchDossierRfc3161Status,fetchDossierSealStatus,fetchDossierTransparencyCheckpoint,fetchDossierTransparencyStatus,fetchMachineEvidence,fetchProviderStatus,fetchResearchStatus,invokeProvider,pinMachineEvidenceExcerpt,projectMachineEvidence,requestDossierRfc3161Timestamp,sealDecisionDossier,searchResearch,verifyDecisionDossierSeal,verifyDossierTransparencyWitness } from "../providers/client";
 import { runLiveProviderSession } from "../providers/liveRunner";
 import { buildArgumentReviewMessages,parseArgumentReviewResponse } from "../providers/argumentReview";
-import type { DossierSealStatusResponse,DossierTransparencyStatusResponse,EvidenceProjectionResponse,ProviderStatusResponse,ResearchBackendStatusResponse } from "../providers/types";
+import type { DossierRfc3161StatusResponse,DossierSealStatusResponse,DossierTransparencyStatusResponse,EvidenceProjectionResponse,ProviderStatusResponse,ResearchBackendStatusResponse } from "../providers/types";
 import { scenarioEventInputs,type DemoScenario } from "../sim/demo";
 import { TerminalPanel } from "./TerminalPanel";
 import { ArgumentReviewPanel } from "./ArgumentReviewPanel";
@@ -78,6 +78,9 @@ export function ThinkTankRoom(){
   const [dossierCheckpointBusy,setDossierCheckpointBusy]=useState(false);
   const [dossierWitnessBusy,setDossierWitnessBusy]=useState(false);
   const [dossierWitnessError,setDossierWitnessError]=useState("");
+  const [dossierRfc3161Status,setDossierRfc3161Status]=useState<DossierRfc3161StatusResponse|null>(null);
+  const [dossierTimestampBusy,setDossierTimestampBusy]=useState(false);
+  const [dossierTimestampError,setDossierTimestampError]=useState("");
   const liveAbortRef=useRef<AbortController|null>(null);
   const evidenceAbortRef=useRef<AbortController|null>(null);
   const researchAbortRef=useRef<AbortController|null>(null);
@@ -87,6 +90,7 @@ export function ThinkTankRoom(){
   const dossierTransparencyAbortRef=useRef<AbortController|null>(null);
   const dossierCheckpointAbortRef=useRef<AbortController|null>(null);
   const dossierWitnessAbortRef=useRef<AbortController|null>(null);
+  const dossierTimestampAbortRef=useRef<AbortController|null>(null);
   const motionMode=useMotionPolicy();
 
   const applyEvent=useCallback((event:ThinkTankEvent)=>{
@@ -95,7 +99,7 @@ export function ThinkTankRoom(){
   },[]);
 
   const playback=useEventPlayback(applyEvent,motionMode);
-  const busy=playback.playing||liveRunning||evidenceFetching||researchSearching||excerptBusy||argumentReviewBusy||dossierSealBusy||dossierTransparencyBusy||dossierCheckpointBusy||dossierWitnessBusy;
+  const busy=playback.playing||liveRunning||evidenceFetching||researchSearching||excerptBusy||argumentReviewBusy||dossierSealBusy||dossierTransparencyBusy||dossierCheckpointBusy||dossierWitnessBusy||dossierTimestampBusy;
 
   const refreshProviders=useCallback(async()=>{
     try{
@@ -147,12 +151,24 @@ export function ThinkTankRoom(){
     }
   },[]);
 
+  const refreshDossierRfc3161=useCallback(async()=>{
+    try{
+      const next=await fetchDossierRfc3161Status();
+      setDossierRfc3161Status(next);
+      setDossierTimestampError("");
+    }catch(error){
+      setDossierRfc3161Status(null);
+      setDossierTimestampError(error instanceof Error?error.message:String(error));
+    }
+  },[]);
+
   useEffect(()=>{
     void refreshProviders();
     void refreshResearch();
     void refreshDossierSeal();
     void refreshDossierTransparency();
-  },[refreshProviders,refreshResearch,refreshDossierSeal,refreshDossierTransparency]);
+    void refreshDossierRfc3161();
+  },[refreshProviders,refreshResearch,refreshDossierSeal,refreshDossierTransparency,refreshDossierRfc3161]);
 
   const latestEvent=state.events[state.events.length-1];
   const cue=useMemo(()=>deriveMotionCue(latestEvent,state),[latestEvent,state]);
@@ -1045,6 +1061,55 @@ export function ThinkTankRoom(){
     }
   };
 
+  const requestCheckpointTimestamp=async(checkpointId:string)=>{
+    if(busy)return;
+    const checkpoint=stateRef.current.dossierTransparencyCheckpoints.find(item=>item.id===checkpointId);
+    if(!checkpoint)return;
+
+    const controller=new AbortController();
+    dossierTimestampAbortRef.current=controller;
+    setDossierTimestampBusy(true);
+    setDossierTimestampError("");
+
+    emitInput({
+      source:"operator",
+      kind:"dossier.timestamp.requested",
+      phase:stateRef.current.phase,
+      dossierCheckpointId:checkpoint.id,
+      message:"Operator requested RFC3161 timestamp for "+checkpoint.id+"."
+    });
+
+    try{
+      const response=await requestDossierRfc3161Timestamp(checkpoint,controller.signal);
+      emitInput({
+        source:"tool",
+        kind:"dossier.timestamp.completed",
+        phase:stateRef.current.phase,
+        dossierCheckpointId:checkpoint.id,
+        dossierTimestamp:response.timestamp,
+        message:
+          "RFC3161 timestamp "+response.timestamp.id+" verified for "+checkpoint.id+
+          " · TSA time "+response.timestamp.genTime+"."
+      });
+    }catch(error){
+      const message=error instanceof Error?error.message:String(error);
+      setDossierTimestampError(message);
+      try{
+        emitInput({
+          source:"tool",
+          kind:"dossier.timestamp.failed",
+          phase:stateRef.current.phase,
+          dossierCheckpointId:checkpoint.id,
+          message:"RFC3161 timestamp failed: "+message
+        });
+      }catch{}
+    }finally{
+      dossierTimestampAbortRef.current=null;
+      setDossierTimestampBusy(false);
+      void refreshDossierRfc3161();
+    }
+  };
+
   const runAutoRoute=()=>playInputs(routingEventInputs(routingPreview));
 
   const pinRole=(roleId:RoleId,seatId:SeatId)=>{
@@ -1170,6 +1235,7 @@ export function ThinkTankRoom(){
     dossierTransparencyAbortRef.current?.abort();
     dossierCheckpointAbortRef.current?.abort();
     dossierWitnessAbortRef.current?.abort();
+    dossierTimestampAbortRef.current?.abort();
     liveAbortRef.current?.abort();
     playback.cancel();
     setLiveRunning(false);
@@ -1353,19 +1419,23 @@ export function ThinkTankRoom(){
           state={state}
           sealStatus={dossierSealStatus}
           transparencyStatus={dossierTransparencyStatus}
+          rfc3161Status={dossierRfc3161Status}
           busy={busy}
           sealBusy={dossierSealBusy}
           transparencyBusy={dossierTransparencyBusy}
           checkpointBusy={dossierCheckpointBusy}
           witnessBusy={dossierWitnessBusy}
+          timestampBusy={dossierTimestampBusy}
           error={dossierSealError}
           transparencyError={dossierTransparencyError}
           witnessError={dossierWitnessError}
+          timestampError={dossierTimestampError}
           onSeal={dossierId=>void sealDossier(dossierId)}
           onVerify={(dossierId,sealId)=>void verifyDossierSeal(dossierId,sealId)}
           onTransparencyAppend={(dossierId,sealId)=>void appendTransparencyJournal(dossierId,sealId)}
           onCheckpoint={()=>void freezeTransparencyCheckpoint()}
           onWitnessImport={(checkpointId,witness)=>void verifyDetachedWitness(checkpointId,witness)}
+          onTimestamp={checkpointId=>void requestCheckpointTimestamp(checkpointId)}
         />
 
         {state.synthesisWithheld&&<div className="gate-block">
