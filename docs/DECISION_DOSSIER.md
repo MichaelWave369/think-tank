@@ -210,3 +210,18 @@ PR 17 does not:
 - merge human overrides into normal machine decisions
 - change provider prompts
 - change mode policy
+
+
+## Optional cryptographic sealing
+
+PR 18 can attach one or more Ed25519 DossierSealReceipt objects to a historical dossier.
+
+The normal dossier remains unchanged.
+
+A seal is an external cryptographic receipt over the canonical dossier content and seal metadata.
+
+The same signer key may seal a dossier only once; different signer keys may coexist.
+
+Verification does not require the private key.
+
+See [CRYPTOGRAPHIC_SEALING.md](CRYPTOGRAPHIC_SEALING.md).
