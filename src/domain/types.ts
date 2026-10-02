@@ -211,6 +211,7 @@ export interface SynthesisDecisionDossier{
   seed:string;
   decisionSeq:number;
   mode:CollaborationMode;
+  executionSource:"live-provider"|"simulation-fixture"|"governed-system";
   operatorPrompt:string;
   outcome:DecisionOutcome;
   outputLabel:GovernanceLabel;
