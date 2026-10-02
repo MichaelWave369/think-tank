@@ -1,4 +1,4 @@
-import type { DossierCheckpointPublicationReceipt,DossierReleaseManifest,DossierReleasePublicationAuditReceipt,DossierReleasePublicationReceipt,DossierReleaseRfc3161TimestampReceipt,DossierReleaseSealReceipt,DossierRfc3161TimestampReceipt,DossierSealReceipt,DossierTransparencyCheckpoint,DossierTransparencyReceipt,DossierTransparencyWitnessReceipt,RoleId,SeatId,SynthesisDecisionDossier } from "../domain/types";
+import type { DossierCheckpointPublicationReceipt,DossierPublisherOriginIdentityReceipt,DossierReleaseManifest,DossierReleasePublicationAuditReceipt,DossierReleasePublicationReceipt,DossierReleaseRfc3161TimestampReceipt,DossierReleaseSealReceipt,DossierRfc3161TimestampReceipt,DossierSealReceipt,DossierTransparencyCheckpoint,DossierTransparencyReceipt,DossierTransparencyWitnessReceipt,RoleId,SeatId,SynthesisDecisionDossier } from "../domain/types";
 
 export type ProviderConnectionState="connected"|"configured"|"disconnected"|"error";
 
@@ -292,4 +292,9 @@ export interface DossierReleasePublicationResponse{
 export interface DossierReleasePublicationAuditResponse{
   ok:true;
   audit:DossierReleasePublicationAuditReceipt;
+}
+
+export interface DossierPublisherOriginIdentityResponse{
+  ok:true;
+  identity:DossierPublisherOriginIdentityReceipt;
 }
