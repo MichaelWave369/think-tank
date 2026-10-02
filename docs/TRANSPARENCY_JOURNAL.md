@@ -137,7 +137,7 @@ A machine owner who controls the filesystem can replace the entire journal with 
 
 That is why PR 19 makes no external immutability or trusted-time claim.
 
-A later rung can add external checkpoints, RFC 3161-style timestamping, or independent witnesses without changing the PR 19 receipt semantics.
+PR 20 adds portable checkpoints and detached independent witness receipts above this journal without changing the PR 19 receipt semantics. Trusted timestamp authorities and witness identity/trust policy remain later concerns.
 
 ## Non-goals
 
@@ -152,3 +152,11 @@ PR 19 does not:
 - change Argument Policy
 - authorize synthesis
 - make a decision true
+
+## PR 20 extension
+
+A current accepted journal head can now be frozen into a portable checkpoint and exported for detached signing.
+
+The witness private key is intentionally kept outside the Think Tank bridge.
+
+See [Portable Checkpoints + Detached Witnesses](DETACHED_WITNESS.md).
