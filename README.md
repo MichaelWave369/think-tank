@@ -6,29 +6,29 @@ A governed, event-sourced multi-mind control room. Cognitive roles are staffed b
 
 ## Current rung
 
-**PR 22 — Verified External Checkpoint Publication**
+**PR 23 — Provenance Assurance Policy**
 
-The Think Tank can now publish a portable checkpoint through an optional configured HTTPS publisher, then independently read the checkpoint back from a constrained public retrieval origin before accepting a publication receipt.
+The Think Tank can now evaluate explicit deterministic provenance policies over the cryptographic, journal, checkpoint, witness, timestamp, and publication receipts already accepted into canonical state.
 
-PR 22 adds:
-- `phi-checkpoint-publication-v1` protocol
-- operator-authorized checkpoint publication
-- server-side optional bearer authentication
-- pinned public-network validation for publish + retrieval destinations
-- no-redirect publication/read-back requests
-- exact retrieval-origin enforcement
-- exact stable-canonical checkpoint read-back verification
-- publisher-claimed time kept explicitly separate from trusted time
-- governed publication request/completion/failure events
-- publication receipts in replay fingerprints and dossier exports
-- Decision Dossier publication status/UI
-- bridge and kernel tamper/failure tests
+PR 23 adds:
+- non-numeric provenance assurance policies
+- integrity / witnessed / time-attested / published / full-provenance profiles
+- coherent single-checkpoint chain evaluation
+- explicit MET / MISSING requirement receipts
+- deterministic provenance-basis fingerprints
+- FRESH / STALE assurance reports
+- current / historical journal-head labeling
+- hard-coded truthAuthority: false
+- operator-authorized assurance evaluation events
+- exact kernel recomputation + replay verification
+- Decision Dossier assurance selector/UI + export
+- policy/evaluator/kernel tests
 
 ### Important semantic rule
 
-**PUBLISHED ≠ IMMUTABLE ≠ ENDORSED ≠ TRUE DECISION.**
+**POLICY SATISFIED ≠ CONTENT TRUE ≠ DECISION CORRECT.**
 
-A verified publication receipt proves that the bridge successfully read the exact checkpoint back from the accepted external retrieval URL after publication. It does not prove permanent availability, append-only storage, publisher endorsement, trusted publisher time, or factual correctness.
+A satisfied policy means its required provenance layers exist in one coherent linked chain. It does not convert provenance evidence into factual evidence, universal trust, or decision authority.
 
 See:
 - [Architecture](docs/ARCHITECTURE.md)
@@ -53,6 +53,7 @@ See:
 - [Portable Checkpoints + Detached Witnesses](docs/DETACHED_WITNESS.md)
 - [RFC 3161 Timestamp Attestation](docs/RFC3161_TIMESTAMP.md)
 - [Verified External Checkpoint Publication](docs/CHECKPOINT_PUBLICATION.md)
+- [Provenance Assurance Policy](docs/PROVENANCE_ASSURANCE.md)
 
 ## Local-first setup
 
@@ -75,7 +76,7 @@ Verification:
 
 > **If a light changes, a sequenced event explains why.**
 
-Every normal synthesis carries a deterministic dossier; it can be Ed25519-sealed, appended to a local SHA-256 transparency journal, frozen into a portable checkpoint, independently witnessed, time-attested by RFC 3161, and externally published with verified HTTPS read-back.
+Every normal synthesis carries a deterministic dossier; it can be sealed, journaled, checkpointed, witnessed, time-attested, externally published, and then evaluated against an explicit non-numeric provenance assurance policy.
 
 ## Build ladder
 
@@ -100,6 +101,7 @@ Every normal synthesis carries a deterministic dossier; it can be Ed25519-sealed
 19. ✅ Local dossier transparency journal
 20. ✅ Portable checkpoints + detached witnesses
 21. ✅ RFC 3161 trusted timestamp attestation
-22. **Verified external checkpoint publication**
+22. ✅ Verified external checkpoint publication
+23. **Provenance assurance policy**
 
 **Φ THINK TANK is a control room, not eight chat cards.**
