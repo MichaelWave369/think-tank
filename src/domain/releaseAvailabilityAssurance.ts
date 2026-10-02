@@ -46,8 +46,8 @@ export const RELEASE_AVAILABILITY_ASSURANCE_REQUIREMENT_LABELS:Record<
   "successful-recheck":"At least one successful repeat retrieval",
   "multiple-rechecks":"At least two successful repeat retrievals",
   "multiple-retrieval-origins":"At least two distinct retrieval origins",
-  "rechecked-each-origin":"At least one successful repeat retrieval per origin",
-  "multiple-rechecks-each-origin":"At least two successful repeat retrievals per origin"
+  "rechecked-each-origin":"At least two origins with a successful repeat retrieval",
+  "multiple-rechecks-each-origin":"At least two origins with two successful repeat retrievals"
 };
 
 const stable=(value:unknown):string=>{
@@ -203,14 +203,15 @@ const resultFor=(
         summary
       ]);
     }
-    const satisfied=origins.length>=2&&origins.every(origin=>
+    const qualifyingOrigins=origins.filter(origin=>
       (grouped.get(origin)??[]).some(item=>item.auditCount>=1)
     );
+    const qualifying=new Set(qualifyingOrigins);
     return {
       requirement,
-      satisfied,
+      satisfied:qualifyingOrigins.length>=2,
       evidenceIds:summaries
-        .filter(item=>item.auditCount>=1)
+        .filter(item=>qualifying.has(item.retrievalOrigin)&&item.auditCount>=1)
         .flatMap(item=>[item.publicationReceiptId,...item.auditIds])
     };
   }
@@ -222,14 +223,15 @@ const resultFor=(
       summary
     ]);
   }
-  const satisfied=origins.length>=2&&origins.every(origin=>
+  const qualifyingOrigins=origins.filter(origin=>
     (grouped.get(origin)??[]).some(item=>item.auditCount>=2)
   );
+  const qualifying=new Set(qualifyingOrigins);
   return {
     requirement,
-    satisfied,
+    satisfied:qualifyingOrigins.length>=2,
     evidenceIds:summaries
-      .filter(item=>item.auditCount>=2)
+      .filter(item=>qualifying.has(item.retrievalOrigin)&&item.auditCount>=2)
       .flatMap(item=>[item.publicationReceiptId,...item.auditIds])
   };
 };
