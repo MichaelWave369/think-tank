@@ -31,12 +31,12 @@ const stateWithIntegrityAssurance=()=>{
     gateThreshold:.75,
     gateBreakdown:null,
     claimGovernance:{
-      mode:base.mode,policy:"none" as const,applicableClaimIds:[],freshClaimIds:[],
+      mode:base.mode,policy:"informational" as const,applicableClaimIds:[],freshClaimIds:[],
       missingReviewClaimIds:[],staleReviewClaimIds:[],coverageBlockedClaimIds:[],
       passed:true,reason:"test"
     },
     argumentGovernance:{
-      mode:base.mode,policy:"none" as const,applicableClaimIds:[],freshAcceptedClaimIds:[],
+      mode:base.mode,policy:"informational" as const,applicableClaimIds:[],freshAcceptedClaimIds:[],
       missingAcceptedClaimIds:[],staleAcceptedClaimIds:[],draftOnlyClaimIds:[],
       passed:true,reason:"test"
     },
