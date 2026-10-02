@@ -15,6 +15,38 @@ const localSoloState=():ThinkTankState=>({
 });
 
 describe("LIVE provider runner",()=>{
+  it("rejects an empty LIVE directive before events routing or provider invocation",async()=>{
+    const initial=localSoloState();
+    const events=[] as Parameters<typeof replayEvents>[1];
+    let providerCalls=0;
+
+    const result=await runLiveProviderSession({
+      initialState:initial,
+      seats,
+      prompt:"   ",
+      localModel:"qwen-test",
+      invoke:async request=>{
+        providerCalls+=1;
+        return {
+          ok:true,
+          seatId:request.seatId,
+          provider:"Ollama",
+          model:"qwen-test",
+          text:"This must never execute.",
+          latencyMs:1
+        };
+      },
+      apply:event=>events.push(event)
+    });
+
+    expect(result.completed).toBe(false);
+    expect(result.error).toMatch(/non-empty operator directive/i);
+    expect(providerCalls).toBe(0);
+    expect(events).toHaveLength(0);
+    expect(result.state.seq).toBe(initial.seq);
+  });
+
+
   it("executes a real-provider shaped SOLO run and replays exactly",async()=>{
     const initial=localSoloState();
     const events=[] as Parameters<typeof replayEvents>[1];
