@@ -2895,9 +2895,8 @@ export const runOllamaChatWithFallback=async({
     const status=Number(error?.status||0);
     const message=error instanceof Error?error.message:String(error);
     const unsupportedThink=
-      status===400||
-      status===422||
-      /think/i.test(message);
+      (status===400||status===422)&&
+      /(think|unknown field|unsupported)/i.test(message);
 
     if(!unsupportedThink)throw error;
     attempts.push({
