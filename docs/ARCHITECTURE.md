@@ -259,6 +259,25 @@ Dossiers remain historical state across later mutations and runs.
 
 See [DECISION_DOSSIER.md](DECISION_DOSSIER.md).
 
+## Cryptographic dossier sealing
+
+PR 18 adds an optional cryptographic integrity layer above portable PR 17 dossiers.
+
+The local bridge:
+- loads an operator-configured persistent Ed25519 private key
+- stable-canonicalizes the dossier
+- computes SHA-256
+- signs a metadata-bound seal envelope
+- returns only public verification material
+
+The event kernel stores governed seal/verification receipts and enforces request/replay structure.
+
+Actual Ed25519 signing and verification remain in the Node bridge.
+
+The trust model is explicitly self-attested local key. PR 18 does not establish external signer identity or trusted time.
+
+See [CRYPTOGRAPHIC_SEALING.md](CRYPTOGRAPHIC_SEALING.md).
+
 ## PR ladder
 
 1. ✅ Room shell + operator authority
@@ -277,6 +296,7 @@ See [DECISION_DOSSIER.md](DECISION_DOSSIER.md).
 14. ✅ Hash-locked source excerpts
 15. ✅ Excerpt-aware Challenger argument review
 16. ✅ Argument-map governance
-17. Synthesis decision dossier
+17. ✅ Synthesis decision dossier
+18. Cryptographic dossier sealing
 
-Future work can add proper PDF extraction, authenticated remote deployment, richer provider discovery, streaming, tool execution, voice, cryptographic signing, and external attestation without changing the core event contract.
+Future work can add proper PDF extraction, authenticated remote deployment, richer provider discovery, streaming, tool execution, voice, trusted timestamps, transparency logs, and external signer attestation without changing the core event contract.
