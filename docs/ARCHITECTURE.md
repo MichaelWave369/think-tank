@@ -580,6 +580,29 @@ See [PUBLISHER_ORIGIN_IDENTITY.md](PUBLISHER_ORIGIN_IDENTITY.md).
 27. ✅ Verified external release publication
 28. ✅ Release publication durability audit
 29. ✅ Release availability assurance policy
-30. Publisher origin identity attestation
+30. ✅ Publisher origin identity attestation
+32. Live Ollama hardening + run-path clarity
 
 Future work can add proper PDF extraction, authenticated remote deployment, richer provider discovery, streaming, tool execution, voice, witness trust registries, scheduled durability monitoring, explicit identity-aware availability policy, stronger external operator identity attestation, TSA trust-store management, release-signer identity attestation, and optional post-release policy automation without changing the core event contract.
+
+
+## Live Ollama hardening
+
+PR 32 hardens the live provider boundary after first installed field use.
+
+For Ollama role turns, the bridge requests final-answer behavior with `think:false`. If that control is rejected by an older model/runtime, one compatibility attempt is allowed without the field.
+
+Canonical provider speech still requires explicit assistant `message.content`.
+
+Thinking/reasoning text:
+- may be counted for diagnostics
+- may explain why a response had no final answer
+- is never substituted into `utterance.complete`
+
+A provider failure moves the failed role terminal to WARNING before governance fault/withheld synthesis completes.
+
+The UI also names the two execution paths explicitly:
+- RUN SIMULATION = deterministic scenario fixtures
+- RUN LIVE PROVIDERS = actual provider invocation
+
+Bridge version: `0.15.0`.
