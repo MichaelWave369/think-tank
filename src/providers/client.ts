@@ -14,7 +14,9 @@ import type {
   DossierSealStatusResponse,
   DossierSealResponse,
   DossierVerifyResponse,
-  DossierSealError
+  DossierSealError,
+  DossierTransparencyStatusResponse,
+  DossierTransparencyAppendResponse
 } from "./types";
 
 const DEFAULT_BRIDGE="http://127.0.0.1:3691";
@@ -202,6 +204,38 @@ export async function sealDecisionDossier(
   if(!response.ok||!body.ok){
     const errorBody=body as DossierSealError;
     throw new Error(errorBody.error?.message||("Dossier sealing returned HTTP "+response.status+"."));
+  }
+  return body;
+}
+
+export async function fetchDossierTransparencyStatus():Promise<DossierTransparencyStatusResponse>{
+  const response=await fetchWithTimeout(providerBridgeUrl+"/dossier/transparency/status",{},4000);
+  const body=await response.json() as DossierTransparencyStatusResponse|DossierSealError;
+  if(!response.ok||!body.ok){
+    const errorBody=body as DossierSealError;
+    throw new Error(errorBody.error?.message||("Transparency journal status returned HTTP "+response.status+"."));
+  }
+  return body;
+}
+
+export async function appendDossierTransparency(
+  seal:import("../domain/types").DossierSealReceipt,
+  signal?:AbortSignal
+):Promise<DossierTransparencyAppendResponse>{
+  const response=await fetchWithTimeout(
+    providerBridgeUrl+"/dossier/transparency/append",
+    {
+      method:"POST",
+      headers:{"content-type":"application/json"},
+      body:JSON.stringify({seal}),
+      signal
+    },
+    15000
+  );
+  const body=await response.json() as DossierTransparencyAppendResponse|DossierSealError;
+  if(!response.ok||!body.ok){
+    const errorBody=body as DossierSealError;
+    throw new Error(errorBody.error?.message||("Transparency journal append returned HTTP "+response.status+"."));
   }
   return body;
 }
