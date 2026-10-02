@@ -444,3 +444,31 @@ Dossier export includes linked releasePublicationAudits separately.
 Repeated RAUD receipts are allowed and represent separate availability observations, not continuous-uptime proof.
 
 See [RELEASE_DURABILITY.md](RELEASE_DURABILITY.md).
+
+## Release availability assurance reports
+
+PR 29 adds deterministic RAVA reports over canonical RPUB/RAUD evidence for one exact release package SHA-256.
+
+DossierReleaseAvailabilityAssuranceReport preserves:
+- REL id
+- package-basis fingerprint
+- package SHA-256
+- selected Published / Rechecked / Repeated / Multi-origin / Resilient policy
+- deterministic assurance-basis fingerprint
+- current vs historical package status
+- requirement MET/MISSING results with exact evidence ids
+- matching RPUB ids
+- matching RAUD ids
+- distinct HTTPS retrieval origins
+- per-publication audit summaries
+- pass/fail result + deterministic reason
+- continuousAvailability: false
+- immutabilityAuthority: false
+- originIndependenceAuthority: false
+- truthAuthority: false
+
+A new matching RPUB or RAUD makes an older report stale; unrelated package evidence does not.
+
+Dossier export includes linked releaseAvailabilityAssurances separately.
+
+See [RELEASE_AVAILABILITY_ASSURANCE.md](RELEASE_AVAILABILITY_ASSURANCE.md).
