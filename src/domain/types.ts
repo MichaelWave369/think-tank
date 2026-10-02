@@ -479,6 +479,26 @@ export interface DossierReleasePublicationReceipt{
   trust:"externally-retrieved-release-publication";
 }
 
+export interface DossierReleasePublicationAuditReceipt{
+  id:string;
+  releaseId:string;
+  publicationReceiptId:string;
+  publicationReceiptSha256:string;
+  tool:"release-publication-durability-auditor";
+  protocol:"phi-release-publication-audit-v1";
+  packageBasisFingerprint:string;
+  packageSha256:string;
+  retrievalUrl:string;
+  retrievalHttpStatus:number;
+  retrievalContentType:string;
+  checkedAt:string;
+  clock:"untrusted-local-clock";
+  readbackSha256:string;
+  exactMatch:true;
+  receiptSha256:string;
+  trust:"repeat-external-retrieval";
+}
+
 export interface DecisionOverrideReceipt{
   id:string;
   dossierId:string;
@@ -631,6 +651,9 @@ export type ThinkTankEventKind=
   |"dossier.release.publication.requested"
   |"dossier.release.publication.completed"
   |"dossier.release.publication.failed"
+  |"dossier.release.publication.audit.requested"
+  |"dossier.release.publication.audit.completed"
+  |"dossier.release.publication.audit.failed"
   |"session.aborted";
 
 export interface ThinkTankEvent{
@@ -696,6 +719,8 @@ export interface ThinkTankEvent{
   dossierReleaseTimestamp?:DossierReleaseRfc3161TimestampReceipt;
   dossierReleasePackageFingerprint?:string;
   dossierReleasePublication?:DossierReleasePublicationReceipt;
+  dossierReleasePublicationId?:string;
+  dossierReleasePublicationAudit?:DossierReleasePublicationAuditReceipt;
   message?:string;
   gateScore?:number;
   override?:boolean;
@@ -768,6 +793,8 @@ export interface ThinkTankEventInput{
   dossierReleaseTimestamp?:DossierReleaseRfc3161TimestampReceipt;
   dossierReleasePackageFingerprint?:string;
   dossierReleasePublication?:DossierReleasePublicationReceipt;
+  dossierReleasePublicationId?:string;
+  dossierReleasePublicationAudit?:DossierReleasePublicationAuditReceipt;
   message?:string;
   gateScore?:number;
   override?:boolean;
@@ -808,6 +835,7 @@ export interface ThinkTankState{
   dossierReleaseSealVerifications:DossierReleaseSealVerificationReceipt[];
   dossierReleaseRfc3161Timestamps:DossierReleaseRfc3161TimestampReceipt[];
   dossierReleasePublications:DossierReleasePublicationReceipt[];
+  dossierReleasePublicationAudits:DossierReleasePublicationAuditReceipt[];
   evidenceRefs:EvidenceRef[];
   evidenceExcerpts:EvidenceExcerpt[];
   claims:Claim[];
