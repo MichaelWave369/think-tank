@@ -6,28 +6,30 @@ A governed, event-sourced multi-mind control room. Cognitive roles are staffed b
 
 ## Current rung
 
-**PR 32 — Live Ollama Hardening + Run-Path Clarity**
+**PR 33 — Live Prompt Contract + Simulation Provenance Clarity**
 
-The first installed field run exposed two real-world seams: a thinking-capable Ollama model could return no final assistant content for a governed role turn, and the deterministic simulation button was too easy to confuse with live provider execution.
+The second installed field run proved the #32 Ollama fix, then exposed a new seam: LIVE execution could start with an empty operator box and silently substitute `Run live COUNCIL session.`, while deterministic fixture scores could look deceptively similar to live Reality Gate results downstream.
 
-PR 32 adds:
-- final-answer-strict Ollama response handling
-- `think:false` on normal governed Ollama role turns
-- one compatibility fallback for older Ollama/model behavior
-- explicit thinking/content/done-reason failure diagnostics
-- reasoning text is never promoted to the governed utterance
-- provider-failed roles transition to WARNING instead of stale SPEAKING
-- operator action renamed to RUN SIMULATION
-- live provider action renamed to RUN LIVE PROVIDERS
-- provider UI explains the simulation/live split
-- bridge version 0.15.0
-- exact thinking-only / compatibility / reducer regression tests
+PR 33 adds:
+- non-empty operator directive required before LIVE execution
+- no synthetic LIVE prompt fallback
+- blank LIVE prompt produces zero events and zero provider calls
+- LIVE button states distinguish ENTER DIRECTIVE from PROVIDERS NOT READY
+- active LIVE directive remains visibly pinned during execution
+- simulation session/turn/gate/synthesis messages carry SIMULATION FIXTURE provenance
+- Governance Panel labels deterministic scores as FIXTURE SCORE
+- Decision Dossiers bind executionSource into the deterministic basis fingerprint
+- fixture dossiers visibly state that their gate score is not live-provider evidence
+- bridge remains 0.15.0
+- live prompt / simulation provenance / dossier fingerprint regression tests
 
-### Important semantic rule
+### Important semantic rules
 
-**MODEL REASONING ≠ FINAL PROVIDER UTTERANCE.**
+**EMPTY INPUT ≠ OPERATOR DIRECTIVE.**
 
-Think Tank only accepts an explicit final assistant `message.content` as a governed Ollama role utterance. Thinking/reasoning output may inform diagnostics but is never silently promoted into canonical provider speech.
+**SIMULATION FIXTURE SCORE ≠ LIVE PROVIDER EVIDENCE.**
+
+Think Tank cannot begin LIVE provider execution without explicit operator text, and deterministic fixture provenance survives into the immutable Decision Dossier basis instead of disappearing behind a naked score.
 
 See:
 - [Architecture](docs/ARCHITECTURE.md)
@@ -116,7 +118,8 @@ Every normal synthesis carries a deterministic dossier; it can be sealed, journa
 28. ✅ Release publication durability audit
 29. ✅ Release availability assurance policy
 30. ✅ Publisher origin identity attestation
-32. **Live Ollama hardening + run-path clarity**
+32. ✅ Live Ollama hardening + run-path clarity
+33. **Live prompt contract + simulation provenance clarity**
 
 **Φ THINK TANK is a control room, not eight chat cards.**
 
