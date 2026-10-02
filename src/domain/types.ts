@@ -318,6 +318,25 @@ export interface DossierTransparencyWitnessVerificationReceipt{
   verifiedAt:string;
 }
 
+export interface DossierRfc3161TimestampReceipt{
+  id:string;
+  checkpointId:string;
+  tool:"rfc3161-timestamp-verifier";
+  standard:"RFC3161";
+  hashAlgorithm:"SHA-256";
+  checkpointSha256:string;
+  tokenSha256:string;
+  tokenBase64:string;
+  tsaPolicyOid:string;
+  tsaSerialNumber:string;
+  genTime:string;
+  tsaSubject:string;
+  authorityUrl:string;
+  trustAnchorSha256:string;
+  verifiedAt:string;
+  trust:"configured-rfc3161-trust-anchor";
+}
+
 export interface DecisionOverrideReceipt{
   id:string;
   dossierId:string;
@@ -448,6 +467,9 @@ export type ThinkTankEventKind=
   |"dossier.witness.requested"
   |"dossier.witness.completed"
   |"dossier.witness.failed"
+  |"dossier.timestamp.requested"
+  |"dossier.timestamp.completed"
+  |"dossier.timestamp.failed"
   |"session.aborted";
 
 export interface ThinkTankEvent{
@@ -500,6 +522,7 @@ export interface ThinkTankEvent{
   dossierCheckpointId?:string;
   dossierWitness?:DossierTransparencyWitnessReceipt;
   dossierWitnessVerification?:DossierTransparencyWitnessVerificationReceipt;
+  dossierTimestamp?:DossierRfc3161TimestampReceipt;
   message?:string;
   gateScore?:number;
   override?:boolean;
@@ -559,6 +582,7 @@ export interface ThinkTankEventInput{
   dossierCheckpointId?:string;
   dossierWitness?:DossierTransparencyWitnessReceipt;
   dossierWitnessVerification?:DossierTransparencyWitnessVerificationReceipt;
+  dossierTimestamp?:DossierRfc3161TimestampReceipt;
   message?:string;
   gateScore?:number;
   override?:boolean;
@@ -591,6 +615,7 @@ export interface ThinkTankState{
   dossierTransparencyCheckpoints:DossierTransparencyCheckpoint[];
   dossierTransparencyWitnesses:DossierTransparencyWitnessReceipt[];
   dossierTransparencyWitnessVerifications:DossierTransparencyWitnessVerificationReceipt[];
+  dossierRfc3161Timestamps:DossierRfc3161TimestampReceipt[];
   evidenceRefs:EvidenceRef[];
   evidenceExcerpts:EvidenceExcerpt[];
   claims:Claim[];

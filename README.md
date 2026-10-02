@@ -6,28 +6,28 @@ A governed, event-sourced multi-mind control room. Cognitive roles are staffed b
 
 ## Current rung
 
-**PR 20 — Portable Checkpoints + Detached Witnesses**
+**PR 21 — RFC 3161 Trusted Timestamp Attestation**
 
-The Think Tank can now freeze an accepted transparency-journal head into a portable checkpoint, export it for independent signing, then import and cryptographically verify a detached Ed25519 witness receipt.
+The Think Tank can now request a standards-based RFC 3161 timestamp token for a portable transparency checkpoint and verify the returned token locally against an explicitly configured trust anchor using OpenSSL.
 
-PR 20 adds:
-- governed journal-head checkpoint creation
-- SHA-256 checkpoint digests
-- portable checkpoint JSON export
-- independent Ed25519 witness key tooling
-- detached off-machine checkpoint signing
-- witness private-key isolation from the Think Tank bridge
-- governed witness submission and verification events
-- multiple independent witness keys per checkpoint
-- Decision Dossier checkpoint/witness UI
-- dossier export with checkpoint/witness receipts
-- bridge and kernel tamper-detection tests
+PR 21 adds:
+- optional RFC 3161 TSA adapter
+- SHA-256 checkpoint message imprints
+- operator-configured TSA URL and CA/trust-anchor file
+- local OpenSSL query generation and response verification
+- TSA policy / serial / subject extraction
+- raw timestamp-token retention
+- token SHA-256 fingerprints
+- governed timestamp request/completion/failure events
+- timestamp receipts in canonical replay fingerprints
+- Decision Dossier timestamp UI + export
+- kernel and bridge receipt tests
 
 ### Important semantic rule
 
-**WITNESSED ≠ TRUSTED WITNESS ≠ TRUSTED TIME ≠ TRUE DECISION.**
+**RFC3161 VERIFIED ≠ UNIVERSALLY TRUSTED TIME ≠ TRUE DECISION.**
 
-A verified detached witness proves that a particular Ed25519 key signed a particular portable checkpoint. It does not establish the real-world identity or trustworthiness of the key owner, trusted time, factual truth, or decision correctness.
+Verification means the configured RFC 3161 trust chain successfully attested the checkpoint digest at the token generation time. The assurance is only as strong as the operator-selected trust anchor, TSA operation, and local verification environment; it still says nothing about the factual correctness of the underlying decision.
 
 See:
 - [Architecture](docs/ARCHITECTURE.md)
@@ -50,6 +50,7 @@ See:
 - [Cryptographic Dossier Sealing](docs/CRYPTOGRAPHIC_SEALING.md)
 - [Local Dossier Transparency Journal](docs/TRANSPARENCY_JOURNAL.md)
 - [Portable Checkpoints + Detached Witnesses](docs/DETACHED_WITNESS.md)
+- [RFC 3161 Timestamp Attestation](docs/RFC3161_TIMESTAMP.md)
 
 ## Local-first setup
 
@@ -72,7 +73,7 @@ Verification:
 
 > **If a light changes, a sequenced event explains why.**
 
-Every normal synthesis carries a deterministic dossier; it can be Ed25519-sealed, appended to a local SHA-256 transparency journal, frozen into a portable head checkpoint, and independently witnessed with a detached Ed25519 receipt.
+Every normal synthesis carries a deterministic dossier; it can be Ed25519-sealed, appended to a local SHA-256 transparency journal, frozen into a portable checkpoint, independently witnessed, and optionally time-attested by an RFC 3161 authority under an explicit local trust anchor.
 
 ## Build ladder
 
@@ -95,6 +96,7 @@ Every normal synthesis carries a deterministic dossier; it can be Ed25519-sealed
 17. ✅ Synthesis decision dossier
 18. ✅ Cryptographic dossier sealing
 19. ✅ Local dossier transparency journal
-20. **Portable checkpoints + detached witnesses**
+20. ✅ Portable checkpoints + detached witnesses
+21. **RFC 3161 trusted timestamp attestation**
 
 **Φ THINK TANK is a control room, not eight chat cards.**

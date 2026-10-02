@@ -4,8 +4,10 @@ import {createHash,createPrivateKey,createPublicKey,sign as cryptoSign,verify as
 import {lookup} from "node:dns/promises";
 import {isIP} from "node:net";
 import {pathToFileURL} from "node:url";
-import {appendFileSync,existsSync,mkdirSync,readFileSync} from "node:fs";
-import {dirname,resolve} from "node:path";
+import {execFileSync} from "node:child_process";
+import {tmpdir} from "node:os";
+import {appendFileSync,existsSync,mkdirSync,mkdtempSync,readFileSync,rmSync,writeFileSync} from "node:fs";
+import {dirname,join,resolve} from "node:path";
 
 try{process.loadEnvFile(".env");}catch{}
 
@@ -24,6 +26,9 @@ const RESEARCH_MAX_RESULTS=Math.max(1,Math.min(10,Number(process.env.RESEARCH_MA
 const DOSSIER_SIGNING_PRIVATE_KEY_FILE=(process.env.DOSSIER_SIGNING_PRIVATE_KEY_FILE||"").trim();
 const DOSSIER_SIGNING_KEY_LABEL=(process.env.DOSSIER_SIGNING_KEY_LABEL||"local-bridge").trim()||"local-bridge";
 const DOSSIER_TRANSPARENCY_LOG_FILE=(process.env.DOSSIER_TRANSPARENCY_LOG_FILE||"").trim();
+const RFC3161_TSA_URL=(process.env.RFC3161_TSA_URL||"").trim();
+const RFC3161_TSA_CA_FILE=(process.env.RFC3161_TSA_CA_FILE||"").trim();
+const RFC3161_OPENSSL_BIN=(process.env.RFC3161_OPENSSL_BIN||"openssl").trim()||"openssl";
 
 const explicitOrigins=(process.env.THINK_TANK_ORIGIN||"")
   .split(",").map(value=>value.trim()).filter(Boolean);
@@ -673,6 +678,263 @@ const buildCurrentTransparencyCheckpoint=()=>{
   return buildTransparencyCheckpoint(readTransparencyJournal(file));
 };
 
+
+const rfc3161TrustAnchorSha256=()=>{
+  if(!RFC3161_TSA_CA_FILE)return null;
+  const file=resolve(RFC3161_TSA_CA_FILE);
+  if(!existsSync(file))return null;
+  return createHash("sha256").update(readFileSync(file)).digest("hex");
+};
+
+const assertRfc3161AuthorityUrl=(value)=>{
+  let url;
+  try{url=new URL(value);}
+  catch{throw bridgeError("RFC3161 TSA URL is invalid.",500);}
+  if(url.protocol!=="https:"&&url.protocol!=="http:"){
+    throw bridgeError("RFC3161 TSA URL must use HTTP or HTTPS.",500);
+  }
+  if(url.username||url.password){
+    throw bridgeError("RFC3161 TSA URL must not contain embedded credentials.",500);
+  }
+  return url.toString();
+};
+
+export const parseRfc3161ReplyText=(text)=>{
+  if(typeof text!=="string"||!text.trim()){
+    throw bridgeError("RFC3161 reply text is empty.",500);
+  }
+  const field=(label)=>{
+    const match=text.match(new RegExp("^"+label+":\\s*(.+)$","mi"));
+    return match?.[1]?.trim()||"";
+  };
+  const tsaPolicyOid=field("Policy OID");
+  const tsaSerialNumber=field("Serial number");
+  const rawTime=field("Time stamp");
+  const tsaSubject=field("TSA")||"UNSPECIFIED";
+  if(!tsaPolicyOid||!tsaSerialNumber||!rawTime){
+    throw bridgeError("RFC3161 reply is missing policy, serial, or timestamp fields.",500);
+  }
+  const millis=Date.parse(rawTime);
+  if(Number.isNaN(millis)){
+    throw bridgeError("RFC3161 reply timestamp could not be parsed.",500);
+  }
+  return {
+    tsaPolicyOid,
+    tsaSerialNumber,
+    genTime:new Date(millis).toISOString(),
+    tsaSubject
+  };
+};
+
+export const buildRfc3161TimestampReceipt=({
+  checkpoint,
+  tokenBytes,
+  metadata,
+  authorityUrl,
+  trustAnchorSha256,
+  verifiedAt=new Date().toISOString()
+})=>{
+  assertTransparencyCheckpoint(checkpoint);
+  const token=Buffer.isBuffer(tokenBytes)?tokenBytes:Buffer.from(tokenBytes||[]);
+  if(token.length<1)throw bridgeError("RFC3161 timestamp token is empty.",500);
+  if(!metadata?.tsaPolicyOid||!metadata?.tsaSerialNumber||!metadata?.tsaSubject){
+    throw bridgeError("RFC3161 timestamp metadata is incomplete.",500);
+  }
+  if(Number.isNaN(Date.parse(metadata.genTime||""))||Number.isNaN(Date.parse(verifiedAt))){
+    throw bridgeError("RFC3161 timestamp dates are invalid.",500);
+  }
+  if(!/^[a-f0-9]{64}$/.test(trustAnchorSha256||"")){
+    throw bridgeError("RFC3161 trust-anchor digest is invalid.",500);
+  }
+  const normalizedAuthority=assertRfc3161AuthorityUrl(authorityUrl);
+  const tokenSha256=createHash("sha256").update(token).digest("hex");
+  return {
+    id:"TSA-"+checkpoint.id+"-"+tokenSha256.slice(0,12),
+    checkpointId:checkpoint.id,
+    tool:"rfc3161-timestamp-verifier",
+    standard:"RFC3161",
+    hashAlgorithm:"SHA-256",
+    checkpointSha256:checkpoint.checkpointSha256,
+    tokenSha256,
+    tokenBase64:token.toString("base64"),
+    tsaPolicyOid:metadata.tsaPolicyOid,
+    tsaSerialNumber:metadata.tsaSerialNumber,
+    genTime:metadata.genTime,
+    tsaSubject:metadata.tsaSubject,
+    authorityUrl:normalizedAuthority,
+    trustAnchorSha256,
+    verifiedAt,
+    trust:"configured-rfc3161-trust-anchor"
+  };
+};
+
+const rfc3161Status=()=>{
+  if(!RFC3161_TSA_URL||!RFC3161_TSA_CA_FILE){
+    return {
+      ok:true,
+      state:"disabled",
+      standard:"RFC3161",
+      hashAlgorithm:"SHA-256",
+      authorityUrl:RFC3161_TSA_URL||null,
+      trustAnchorSha256:null,
+      openssl:null,
+      detail:"Set RFC3161_TSA_URL and RFC3161_TSA_CA_FILE to enable trusted timestamp verification."
+    };
+  }
+
+  let authorityUrl;
+  try{authorityUrl=assertRfc3161AuthorityUrl(RFC3161_TSA_URL);}
+  catch(error){
+    return {
+      ok:true,state:"error",standard:"RFC3161",hashAlgorithm:"SHA-256",
+      authorityUrl:RFC3161_TSA_URL,trustAnchorSha256:null,openssl:null,
+      detail:error instanceof Error?error.message:String(error)
+    };
+  }
+
+  const caFile=resolve(RFC3161_TSA_CA_FILE);
+  if(!existsSync(caFile)){
+    return {
+      ok:true,state:"error",standard:"RFC3161",hashAlgorithm:"SHA-256",
+      authorityUrl,trustAnchorSha256:null,openssl:null,
+      detail:"Configured RFC3161 trust-anchor file does not exist."
+    };
+  }
+
+  let openssl;
+  try{
+    openssl=execFileSync(
+      RFC3161_OPENSSL_BIN,
+      ["version"],
+      {encoding:"utf8",timeout:3000,stdio:["ignore","pipe","pipe"]}
+    ).trim();
+  }catch{
+    return {
+      ok:true,state:"error",standard:"RFC3161",hashAlgorithm:"SHA-256",
+      authorityUrl,trustAnchorSha256:rfc3161TrustAnchorSha256(),openssl:null,
+      detail:"OpenSSL executable is unavailable for RFC3161 verification."
+    };
+  }
+
+  return {
+    ok:true,
+    state:"configured",
+    standard:"RFC3161",
+    hashAlgorithm:"SHA-256",
+    authorityUrl,
+    trustAnchorSha256:rfc3161TrustAnchorSha256(),
+    openssl,
+    detail:"RFC3161 TSA and configured trust anchor are ready."
+  };
+};
+
+const requestRfc3161Timestamp=async(checkpoint)=>{
+  assertTransparencyCheckpoint(checkpoint);
+  const status=rfc3161Status();
+  if(status.state!=="configured"){
+    throw bridgeError("RFC3161 timestamp adapter is not configured: "+status.detail,503);
+  }
+
+  const work=mkdtempSync(join(tmpdir(),"phi-think-tank-rfc3161-"));
+  const queryPath=join(work,"request.tsq");
+  const replyPath=join(work,"reply.tsr");
+
+  try{
+    try{
+      execFileSync(
+        RFC3161_OPENSSL_BIN,
+        [
+          "ts","-query",
+          "-digest",checkpoint.checkpointSha256,
+          "-sha256",
+          "-cert",
+          "-out",queryPath
+        ],
+        {timeout:10000,stdio:["ignore","pipe","pipe"]}
+      );
+    }catch(error){
+      throw bridgeError(
+        "OpenSSL failed to build RFC3161 timestamp query: "+
+        (error?.stderr?.toString?.().trim()||error?.message||String(error)),
+        500
+      );
+    }
+
+    const queryBytes=readFileSync(queryPath);
+    let response;
+    try{
+      response=await fetch(status.authorityUrl,{
+        method:"POST",
+        headers:{
+          "content-type":"application/timestamp-query",
+          "accept":"application/timestamp-reply"
+        },
+        body:queryBytes,
+        signal:AbortSignal.timeout(30000)
+      });
+    }catch(error){
+      throw bridgeError(
+        "RFC3161 TSA request failed: "+(error instanceof Error?error.message:String(error)),
+        502
+      );
+    }
+
+    if(!response.ok){
+      throw bridgeError("RFC3161 TSA returned HTTP "+response.status+".",502);
+    }
+    const tokenBytes=Buffer.from(await response.arrayBuffer());
+    if(tokenBytes.length<1||tokenBytes.length>1_000_000){
+      throw bridgeError("RFC3161 TSA response size is invalid.",502);
+    }
+    writeFileSync(replyPath,tokenBytes,{mode:0o600});
+
+    try{
+      execFileSync(
+        RFC3161_OPENSSL_BIN,
+        [
+          "ts","-verify",
+          "-queryfile",queryPath,
+          "-in",replyPath,
+          "-CAfile",resolve(RFC3161_TSA_CA_FILE)
+        ],
+        {timeout:10000,stdio:["ignore","pipe","pipe"]}
+      );
+    }catch(error){
+      throw bridgeError(
+        "RFC3161 token verification failed: "+
+        (error?.stderr?.toString?.().trim()||error?.message||String(error)),
+        409
+      );
+    }
+
+    let replyText;
+    try{
+      replyText=execFileSync(
+        RFC3161_OPENSSL_BIN,
+        ["ts","-reply","-in",replyPath,"-text"],
+        {encoding:"utf8",timeout:10000,stdio:["ignore","pipe","pipe"]}
+      );
+    }catch(error){
+      throw bridgeError(
+        "OpenSSL could not inspect verified RFC3161 token: "+
+        (error?.stderr?.toString?.().trim()||error?.message||String(error)),
+        500
+      );
+    }
+
+    const metadata=parseRfc3161ReplyText(replyText);
+    return buildRfc3161TimestampReceipt({
+      checkpoint,
+      tokenBytes,
+      metadata,
+      authorityUrl:status.authorityUrl,
+      trustAnchorSha256:status.trustAnchorSha256
+    });
+  }finally{
+    rmSync(work,{recursive:true,force:true});
+  }
+};
+
 export const normalizeMessages=(raw)=>{
   if(!Array.isArray(raw)||raw.length===0)throw bridgeError("Provider messages must be a non-empty array.",400);
   if(raw.length>24)throw bridgeError("Provider message count exceeds the bridge limit.",400);
@@ -1111,7 +1373,7 @@ const remoteStatus=(seatId,provider,key,model)=>({
 
 const statusPayload=async()=>({
   ok:true,
-  bridgeVersion:"0.7.0",
+  bridgeVersion:"0.8.0",
   seats:[
     await ollamaStatus(),
     remoteStatus("openai","OpenAI",process.env.OPENAI_API_KEY,process.env.OPENAI_MODEL),
@@ -1224,7 +1486,7 @@ const server=http.createServer(async(req,res)=>{
 
   try{
     if(req.method==="GET"&&req.url==="/health"){
-      send(res,200,{ok:true,service:"phi-think-tank-provider-bridge",version:"0.7.0"},origin);
+      send(res,200,{ok:true,service:"phi-think-tank-provider-bridge",version:"0.8.0"},origin);
       return;
     }
 
@@ -1299,6 +1561,18 @@ const server=http.createServer(async(req,res)=>{
         publicKeyFingerprintSha256:raw.witness?.publicKeyFingerprintSha256??"",
         verifiedAt:new Date().toISOString()
       },origin);
+      return;
+    }
+
+    if(req.method==="GET"&&req.url==="/dossier/timestamp/status"){
+      send(res,200,rfc3161Status(),origin);
+      return;
+    }
+
+    if(req.method==="POST"&&req.url==="/dossier/timestamp"){
+      const raw=await readJson(req);
+      const timestamp=await requestRfc3161Timestamp(raw.checkpoint);
+      send(res,200,{ok:true,timestamp},origin);
       return;
     }
 

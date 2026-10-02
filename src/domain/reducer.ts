@@ -217,6 +217,10 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
     ];
   }
 
+  if(event.kind==="dossier.timestamp.completed"&&event.dossierTimestamp){
+    next.dossierRfc3161Timestamps=[...state.dossierRfc3161Timestamps,event.dossierTimestamp];
+  }
+
   if(event.kind==="seat.status"&&event.seatId&&event.seatStatus){
     next.seatStatus={...state.seatStatus,[event.seatId]:event.seatStatus};
   }

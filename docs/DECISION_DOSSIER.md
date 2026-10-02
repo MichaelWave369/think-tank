@@ -262,3 +262,21 @@ It does not rewrite:
 - any human override
 
 See [DETACHED_WITNESS.md](DETACHED_WITNESS.md).
+
+## RFC 3161 timestamp receipts
+
+PR 21 extends exported dossier packages with RFC 3161 timestamp receipts linked to included transparency checkpoints.
+
+The timestamp receipt preserves:
+- checkpoint linkage
+- TSA generation time
+- token SHA-256
+- raw DER token as Base64
+- policy OID / serial / TSA subject
+- authority URL
+- configured trust-anchor file SHA-256
+- local verification time
+
+This is time-attestation evidence, not a change to the synthesis decision or governance result.
+
+See [RFC3161_TIMESTAMP.md](RFC3161_TIMESTAMP.md).

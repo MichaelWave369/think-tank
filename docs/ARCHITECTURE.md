@@ -325,6 +325,27 @@ Witness identity and trusted time remain outside this rung.
 
 See [DETACHED_WITNESS.md](DETACHED_WITNESS.md).
 
+## RFC 3161 timestamp attestation
+
+PR 21 adds an optional standards-based time-attestation layer for portable transparency checkpoints.
+
+The local bridge:
+1. validates the canonical checkpoint digest
+2. asks OpenSSL to create an RFC 3161 SHA-256 timestamp query
+3. POSTs the DER query to the operator-configured TSA URL
+4. stores the returned DER timestamp reply temporarily
+5. asks OpenSSL to verify the reply against the original query and configured CA/trust-anchor file
+6. extracts TSA policy OID, serial number, generation time, and TSA subject
+7. stores the raw token plus SHA-256 token fingerprint in a governed receipt
+
+The browser never decides whether a token is cryptographically valid. It only accepts a tool completion receipt after the bridge verification boundary succeeds.
+
+The configured CA file is hashed into the receipt so later exports preserve which local trust configuration was used.
+
+This layer is optional and fail-closed. Missing OpenSSL, a missing CA file, malformed TSA replies, digest mismatch, or trust-chain failure prevents timestamp completion.
+
+See [RFC3161_TIMESTAMP.md](RFC3161_TIMESTAMP.md).
+
 ## PR ladder
 
 1. ✅ Room shell + operator authority
@@ -346,6 +367,7 @@ See [DETACHED_WITNESS.md](DETACHED_WITNESS.md).
 17. ✅ Synthesis decision dossier
 18. ✅ Cryptographic dossier sealing
 19. ✅ Local dossier transparency journal
-20. Portable checkpoints + detached witnesses
+20. ✅ Portable checkpoints + detached witnesses
+21. RFC 3161 trusted timestamp attestation
 
-Future work can add proper PDF extraction, authenticated remote deployment, richer provider discovery, streaming, tool execution, voice, trusted timestamp authorities, witness trust policies, public checkpoint publication, and external signer identity attestation without changing the core event contract.
+Future work can add proper PDF extraction, authenticated remote deployment, richer provider discovery, streaming, tool execution, voice, witness trust policies, public checkpoint publication, TSA trust-store management, and external signer identity attestation without changing the core event contract.

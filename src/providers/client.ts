@@ -18,7 +18,9 @@ import type {
   DossierTransparencyStatusResponse,
   DossierTransparencyAppendResponse,
   DossierTransparencyCheckpointResponse,
-  DossierWitnessVerifyResponse
+  DossierWitnessVerifyResponse,
+  DossierRfc3161StatusResponse,
+  DossierRfc3161TimestampResponse
 } from "./types";
 
 const DEFAULT_BRIDGE="http://127.0.0.1:3691";
@@ -277,6 +279,38 @@ export async function verifyDossierTransparencyWitness(
   if(!response.ok||!body.ok){
     const errorBody=body as DossierSealError;
     throw new Error(errorBody.error?.message||("Detached witness verification returned HTTP "+response.status+"."));
+  }
+  return body;
+}
+
+export async function fetchDossierRfc3161Status():Promise<DossierRfc3161StatusResponse>{
+  const response=await fetchWithTimeout(providerBridgeUrl+"/dossier/timestamp/status",{},4000);
+  const body=await response.json() as DossierRfc3161StatusResponse|DossierSealError;
+  if(!response.ok||!body.ok){
+    const errorBody=body as DossierSealError;
+    throw new Error(errorBody.error?.message||("RFC3161 status returned HTTP "+response.status+"."));
+  }
+  return body;
+}
+
+export async function requestDossierRfc3161Timestamp(
+  checkpoint:import("../domain/types").DossierTransparencyCheckpoint,
+  signal?:AbortSignal
+):Promise<DossierRfc3161TimestampResponse>{
+  const response=await fetchWithTimeout(
+    providerBridgeUrl+"/dossier/timestamp",
+    {
+      method:"POST",
+      headers:{"content-type":"application/json"},
+      body:JSON.stringify({checkpoint}),
+      signal
+    },
+    45000
+  );
+  const body=await response.json() as DossierRfc3161TimestampResponse|DossierSealError;
+  if(!response.ok||!body.ok){
+    const errorBody=body as DossierSealError;
+    throw new Error(errorBody.error?.message||("RFC3161 timestamp request returned HTTP "+response.status+"."));
   }
   return body;
 }

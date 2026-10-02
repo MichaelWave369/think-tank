@@ -1,4 +1,4 @@
-import type { DossierSealReceipt,DossierTransparencyCheckpoint,DossierTransparencyReceipt,DossierTransparencyWitnessReceipt,RoleId,SeatId,SynthesisDecisionDossier } from "../domain/types";
+import type { DossierRfc3161TimestampReceipt,DossierSealReceipt,DossierTransparencyCheckpoint,DossierTransparencyReceipt,DossierTransparencyWitnessReceipt,RoleId,SeatId,SynthesisDecisionDossier } from "../domain/types";
 
 export type ProviderConnectionState="connected"|"configured"|"disconnected"|"error";
 
@@ -198,4 +198,20 @@ export interface DossierWitnessVerifyResponse{
 export interface DossierWitnessVerifyRequest{
   checkpoint:DossierTransparencyCheckpoint;
   witness:DossierTransparencyWitnessReceipt;
+}
+
+export interface DossierRfc3161StatusResponse{
+  ok:true;
+  state:"configured"|"disabled"|"error";
+  standard:"RFC3161";
+  hashAlgorithm:"SHA-256";
+  authorityUrl:string|null;
+  trustAnchorSha256:string|null;
+  openssl:string|null;
+  detail:string;
+}
+
+export interface DossierRfc3161TimestampResponse{
+  ok:true;
+  timestamp:DossierRfc3161TimestampReceipt;
 }

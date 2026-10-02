@@ -209,3 +209,19 @@ PR 20 does not:
 - change Argument Policy
 - authorize synthesis
 - make a decision true
+
+## PR 21 time-attestation extension
+
+Detached witnesses remain identity-separated signatures, not timestamp authorities.
+
+PR 21 can independently attach an RFC 3161 timestamp receipt to the same portable checkpoint. The witness receipt and TSA receipt are parallel evidence layers:
+
+```
+CHECKPOINT
+  ├─ DETACHED WITNESS SIGNATURE
+  └─ RFC 3161 TIME ATTESTATION
+```
+
+Neither layer upgrades the other into factual truth authority.
+
+See [RFC 3161 Timestamp Attestation](RFC3161_TIMESTAMP.md).

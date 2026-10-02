@@ -563,6 +563,117 @@ function assertDossierCheckpointWitnessEvent(state:ThinkTankState,event:ThinkTan
   return false;
 }
 
+function assertDossierTimestampEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
+  const action=[
+    "dossier.timestamp.requested",
+    "dossier.timestamp.completed",
+    "dossier.timestamp.failed"
+  ].includes(event.kind);
+
+  if(
+    action&&
+    state.phase!=="intake"&&
+    state.phase!=="synthesis"&&
+    state.phase!=="complete"&&
+    state.phase!=="aborted"
+  ){
+    throw new KernelIntegrityError("RFC3161 timestamp operations cannot run during active governed execution.",event.seq);
+  }
+
+  const checkpoint=event.dossierCheckpointId
+    ?state.dossierTransparencyCheckpoints.find(item=>item.id===event.dossierCheckpointId)
+    :undefined;
+
+  if(event.kind==="dossier.timestamp.requested"){
+    if(event.source!=="operator"){
+      throw new KernelIntegrityError("RFC3161 timestamp requests are operator-authorized.",event.seq);
+    }
+    if(!checkpoint){
+      throw new KernelIntegrityError("RFC3161 timestamp request requires an existing transparency checkpoint.",event.seq);
+    }
+    return true;
+  }
+
+  if(event.kind==="dossier.timestamp.completed"){
+    if(event.source!=="tool"){
+      throw new KernelIntegrityError("RFC3161 timestamp completion must be tool-originated.",event.seq);
+    }
+    const receipt=event.dossierTimestamp;
+    if(!checkpoint||!receipt||receipt.checkpointId!==checkpoint.id){
+      throw new KernelIntegrityError("RFC3161 timestamp receipt requires an existing matching checkpoint.",event.seq);
+    }
+    if(
+      receipt.tool!=="rfc3161-timestamp-verifier"||
+      receipt.standard!=="RFC3161"||
+      receipt.hashAlgorithm!=="SHA-256"||
+      receipt.trust!=="configured-rfc3161-trust-anchor"||
+      receipt.checkpointSha256!==checkpoint.checkpointSha256||
+      !/^[a-f0-9]{64}$/.test(receipt.tokenSha256)||
+      !receipt.tokenBase64.trim()||
+      !receipt.tsaPolicyOid.trim()||
+      !receipt.tsaSerialNumber.trim()||
+      !receipt.tsaSubject.trim()||
+      !receipt.authorityUrl.trim()||
+      !/^[a-f0-9]{64}$/.test(receipt.trustAnchorSha256)||
+      Number.isNaN(Date.parse(receipt.genTime))||
+      Number.isNaN(Date.parse(receipt.verifiedAt))
+    ){
+      throw new KernelIntegrityError("RFC3161 timestamp receipt is incomplete or malformed.",event.seq);
+    }
+    const expectedId="TSA-"+checkpoint.id+"-"+receipt.tokenSha256.slice(0,12);
+    if(receipt.id!==expectedId){
+      throw new KernelIntegrityError("RFC3161 timestamp id does not match its checkpoint/token digest.",event.seq);
+    }
+    if(state.dossierRfc3161Timestamps.some(item=>item.id===receipt.id)){
+      throw new KernelIntegrityError("RFC3161 timestamp receipt id already exists.",event.seq);
+    }
+    if(state.dossierRfc3161Timestamps.some(item=>
+      item.checkpointId===checkpoint.id&&
+      item.authorityUrl===receipt.authorityUrl&&
+      item.trustAnchorSha256===receipt.trustAnchorSha256
+    )){
+      throw new KernelIntegrityError("This configured RFC3161 authority already timestamped the checkpoint.",event.seq);
+    }
+
+    const request=[...state.events].reverse().find(item=>
+      item.kind==="dossier.timestamp.requested"&&item.dossierCheckpointId===checkpoint.id
+    );
+    if(!request){
+      throw new KernelIntegrityError("RFC3161 timestamp completion has no matching operator request.",event.seq);
+    }
+    const terminal=[...state.events].reverse().find(item=>
+      (item.kind==="dossier.timestamp.completed"||item.kind==="dossier.timestamp.failed")&&
+      item.dossierCheckpointId===checkpoint.id
+    );
+    if(terminal&&terminal.seq>request.seq){
+      throw new KernelIntegrityError("RFC3161 timestamp request is already resolved.",event.seq);
+    }
+    return true;
+  }
+
+  if(event.kind==="dossier.timestamp.failed"){
+    if(event.source!=="tool"||!checkpoint){
+      throw new KernelIntegrityError("RFC3161 timestamp failure must be tool-originated for an existing checkpoint.",event.seq);
+    }
+    const request=[...state.events].reverse().find(item=>
+      item.kind==="dossier.timestamp.requested"&&item.dossierCheckpointId===checkpoint.id
+    );
+    if(!request){
+      throw new KernelIntegrityError("RFC3161 timestamp failure has no matching operator request.",event.seq);
+    }
+    const terminal=[...state.events].reverse().find(item=>
+      (item.kind==="dossier.timestamp.completed"||item.kind==="dossier.timestamp.failed")&&
+      item.dossierCheckpointId===checkpoint.id
+    );
+    if(terminal&&terminal.seq>request.seq){
+      throw new KernelIntegrityError("RFC3161 timestamp request is already resolved.",event.seq);
+    }
+    return true;
+  }
+
+  return false;
+}
+
 function assertArgumentReviewEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
   const action=[
     "argument.review.requested",
@@ -1443,6 +1554,7 @@ function assertRoutingEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
 }
 
 function assertPolicyEvent(state:ThinkTankState,event:ThinkTankEvent):void{
+  if(assertDossierTimestampEvent(state,event))return;
   if(assertDossierCheckpointWitnessEvent(state,event))return;
   if(assertDossierTransparencyEvent(state,event))return;
   if(assertDossierSealEvent(state,event))return;
@@ -1707,6 +1819,7 @@ export function buildEvent(state:ThinkTankState,input:ThinkTankEventInput):Think
     dossierCheckpointId:input.dossierCheckpointId,
     dossierWitness:input.dossierWitness,
     dossierWitnessVerification:input.dossierWitnessVerification,
+    dossierTimestamp:input.dossierTimestamp,
     message:input.message,
     gateScore:input.gateScore,
     override:input.override,

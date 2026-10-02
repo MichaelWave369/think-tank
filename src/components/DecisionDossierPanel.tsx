@@ -1,6 +1,6 @@
 import {useRef,useState} from "react";
 import type { DossierTransparencyCheckpoint,DossierTransparencyWitnessReceipt,ThinkTankState } from "../domain/types";
-import type { DossierSealStatusResponse,DossierTransparencyStatusResponse } from "../providers/types";
+import type { DossierRfc3161StatusResponse,DossierSealStatusResponse,DossierTransparencyStatusResponse } from "../providers/types";
 import { latestDecisionDossier,overrideForDossier } from "../domain/decisionDossier";
 
 const short=(value:string)=>value.replace("fnv1a32:","").slice(0,10)+"…";
@@ -33,6 +33,7 @@ const exportDossier=(state:ThinkTankState)=>{
   const witnesses=state.dossierTransparencyWitnesses.filter(item=>checkpointIds.has(item.checkpointId));
   const witnessIds=new Set(witnesses.map(item=>item.id));
   const witnessVerifications=state.dossierTransparencyWitnessVerifications.filter(item=>witnessIds.has(item.witnessId));
+  const rfc3161Timestamps=state.dossierRfc3161Timestamps.filter(item=>checkpointIds.has(item.checkpointId));
   downloadJson(
     dossier.id.toLowerCase()+"-decision-dossier.json",
     {
@@ -43,7 +44,8 @@ const exportDossier=(state:ThinkTankState)=>{
       transparencyEntries,
       transparencyCheckpoints,
       witnesses,
-      witnessVerifications
+      witnessVerifications,
+      rfc3161Timestamps
     }
   );
 };
@@ -52,36 +54,44 @@ export function DecisionDossierPanel({
   state,
   sealStatus,
   transparencyStatus,
+  rfc3161Status,
   busy,
   sealBusy,
   transparencyBusy,
   checkpointBusy,
   witnessBusy,
+  timestampBusy,
   error,
   transparencyError,
   witnessError,
+  timestampError,
   onSeal,
   onVerify,
   onTransparencyAppend,
   onCheckpoint,
-  onWitnessImport
+  onWitnessImport,
+  onTimestamp
 }:{
   state:ThinkTankState;
   sealStatus:DossierSealStatusResponse|null;
   transparencyStatus:DossierTransparencyStatusResponse|null;
+  rfc3161Status:DossierRfc3161StatusResponse|null;
   busy:boolean;
   sealBusy:boolean;
   transparencyBusy:boolean;
   checkpointBusy:boolean;
   witnessBusy:boolean;
+  timestampBusy:boolean;
   error:string;
   transparencyError:string;
   witnessError:string;
+  timestampError:string;
   onSeal:(dossierId:string)=>void;
   onVerify:(dossierId:string,sealId:string)=>void;
   onTransparencyAppend:(dossierId:string,sealId:string)=>void;
   onCheckpoint:()=>void;
   onWitnessImport:(checkpointId:string,witness:DossierTransparencyWitnessReceipt)=>void;
+  onTimestamp:(checkpointId:string)=>void;
 }){
   const witnessFileRef=useRef<HTMLInputElement>(null);
   const [witnessImportError,setWitnessImportError]=useState("");
@@ -157,6 +167,18 @@ export function DecisionDossierPanel({
       .reverse()
       .find(item=>item.witnessId===latestWitness.id)??null
     :null;
+  const latestTimestamp=latestCheckpoint
+    ?[...state.dossierRfc3161Timestamps]
+      .reverse()
+      .find(item=>item.checkpointId===latestCheckpoint.id)??null
+    :null;
+  const timestampState=latestTimestamp
+    ?"RFC3161 VERIFIED"
+    :rfc3161Status?.state==="configured"
+      ?"TSA READY"
+      :rfc3161Status?.state==="error"
+        ?"TSA ERROR"
+        :"TSA DISABLED";
 
   const importWitnessFile=async(file:File|null)=>{
     if(!file||!latestCheckpoint)return;
@@ -422,12 +444,67 @@ export function DecisionDossierPanel({
               </button>
             </div>
           </div>
+
+          <div className={"dossier-timestamp "+(
+            latestTimestamp?"timestamp-verified":
+            rfc3161Status?.state==="error"?"timestamp-error":""
+          )}>
+            <div className="dossier-transparency-head">
+              <div>
+                <small>RFC 3161 TIMESTAMP AUTHORITY</small>
+                <strong>{timestampState}</strong>
+              </div>
+              <span>{rfc3161Status?.standard??"RFC3161"} · {rfc3161Status?.hashAlgorithm??"SHA-256"}</span>
+            </div>
+
+            {latestTimestamp
+              ?<div className="dossier-seal-details">
+                <p><b>Timestamp</b> {latestTimestamp.id}</p>
+                <p><b>TSA generation time</b> {latestTimestamp.genTime}</p>
+                <p><b>Checkpoint SHA-256</b> {latestTimestamp.checkpointSha256}</p>
+                <p><b>Token SHA-256</b> {latestTimestamp.tokenSha256}</p>
+                <p><b>Policy OID</b> {latestTimestamp.tsaPolicyOid}</p>
+                <p><b>Serial</b> {latestTimestamp.tsaSerialNumber}</p>
+                <p><b>TSA subject</b> {latestTimestamp.tsaSubject}</p>
+                <p><b>Authority</b> {latestTimestamp.authorityUrl}</p>
+                <p><b>Trust anchor SHA-256</b> {latestTimestamp.trustAnchorSha256}</p>
+                <p><b>Verified locally</b> {latestTimestamp.verifiedAt}</p>
+                <p><b>Trust</b> CONFIGURED RFC3161 TRUST ANCHOR</p>
+              </div>
+              :<p>
+                Request a standards-based timestamp token for this checkpoint. Verification is performed
+                with OpenSSL against the operator-configured RFC 3161 trust anchor.
+              </p>}
+
+            {rfc3161Status?.detail&&<p className="dossier-tool-detail">{rfc3161Status.detail}</p>}
+            {timestampError&&<div className="dossier-seal-error">{timestampError}</div>}
+
+            <div className="dossier-seal-actions">
+              <button
+                type="button"
+                onClick={()=>latestCheckpoint&&onTimestamp(latestCheckpoint.id)}
+                disabled={
+                  busy||
+                  timestampBusy||
+                  !latestCheckpoint||
+                  Boolean(latestTimestamp)||
+                  rfc3161Status?.state!=="configured"
+                }
+              >
+                {timestampBusy
+                  ?"REQUESTING TIMESTAMP…"
+                  :latestTimestamp
+                    ?"CHECKPOINT TIMESTAMPED"
+                    :"REQUEST RFC3161 TIMESTAMP"}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
 
     <footer>
-      <span>Integrity chain: dossier → seal → local journal → portable checkpoint → detached witness. None of these layers grants factual truth authority.</span>
+      <span>Integrity chain: dossier → seal → local journal → checkpoint → detached witness / RFC3161 time attestation. Provenance and time evidence still do not grant factual truth authority.</span>
       <button type="button" onClick={()=>exportDossier(state)}>TEAR / EXPORT DOSSIER</button>
     </footer>
   </section>;
