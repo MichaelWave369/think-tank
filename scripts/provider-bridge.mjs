@@ -2237,14 +2237,27 @@ export const validateReleasePublicationForAudit=(packageValue,publication)=>{
   if(!publication||typeof publication!=="object"){
     throw bridgeError("Release durability audit requires an RPUB receipt.",400);
   }
+  const expectedFingerprint=releasePackageBasisFingerprintBridge(packageValue);
+  const expectedManifestSha256=releaseManifestDigestSha256(packageValue.releaseManifest);
+  const expectedSealIds=packageValue.releaseSeals.map(item=>item.id);
+  const expectedVerificationIds=packageValue.releaseSealVerifications.map(item=>item.id);
+  const expectedTimestampIds=packageValue.releaseRfc3161Timestamps.map(item=>item.id);
+  const expectedArtifactIds=[...packageValue.releaseManifest.artifactIds];
+
   if(
     publication.tool!=="verified-release-package-publisher"||
     publication.protocol!=="phi-release-publication-v1"||
     publication.trust!=="externally-retrieved-release-publication"||
     publication.releaseId!==packageValue.releaseManifest.id||
-    publication.packageBasisFingerprint!==releasePackageBasisFingerprintBridge(packageValue)||
+    publication.packageBasisFingerprint!==expectedFingerprint||
+    publication.manifestSha256!==expectedManifestSha256||
     !/^[a-f0-9]{64}$/.test(publication.packageSha256||"")||
     !/^[a-f0-9]{64}$/.test(publication.receiptSha256||"")||
+    publication.id!=="RPUB-"+publication.releaseId+"-"+publication.receiptSha256.slice(0,12)||
+    stableCanonicalJson(publication.releaseSealIds)!==stableCanonicalJson(expectedSealIds)||
+    stableCanonicalJson(publication.releaseVerificationIds)!==stableCanonicalJson(expectedVerificationIds)||
+    stableCanonicalJson(publication.releaseTimestampIds)!==stableCanonicalJson(expectedTimestampIds)||
+    stableCanonicalJson(publication.artifactIds)!==stableCanonicalJson(expectedArtifactIds)||
     typeof publication.retrievalUrl!=="string"||
     !publication.retrievalUrl.trim()
   ){
