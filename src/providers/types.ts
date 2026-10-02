@@ -1,4 +1,4 @@
-import type { DossierCheckpointPublicationReceipt,DossierRfc3161TimestampReceipt,DossierSealReceipt,DossierTransparencyCheckpoint,DossierTransparencyReceipt,DossierTransparencyWitnessReceipt,RoleId,SeatId,SynthesisDecisionDossier } from "../domain/types";
+import type { DossierCheckpointPublicationReceipt,DossierReleaseManifest,DossierReleaseSealReceipt,DossierRfc3161TimestampReceipt,DossierSealReceipt,DossierTransparencyCheckpoint,DossierTransparencyReceipt,DossierTransparencyWitnessReceipt,RoleId,SeatId,SynthesisDecisionDossier } from "../domain/types";
 
 export type ProviderConnectionState="connected"|"configured"|"disconnected"|"error";
 
@@ -229,4 +229,36 @@ export interface DossierPublicationStatusResponse{
 export interface DossierPublicationResponse{
   ok:true;
   publication:DossierCheckpointPublicationReceipt;
+}
+
+export interface DossierReleaseSealStatusResponse{
+  ok:true;
+  state:"configured"|"disabled";
+  algorithm:"Ed25519";
+  canonicalization:"json-stable-v1";
+  keyFingerprint:string|null;
+  signerLabel:string|null;
+  clock:"untrusted-local-clock";
+  trust:"self-attested-local-release-key";
+  detail:string;
+}
+
+export interface DossierReleaseSealResponse{
+  ok:true;
+  seal:DossierReleaseSealReceipt;
+}
+
+export interface DossierReleaseVerifyResponse{
+  ok:true;
+  verified:boolean;
+  reason:string;
+  releaseId:string;
+  sealId:string;
+  manifestSha256:string;
+  publicKeyFingerprintSha256:string;
+  verifiedAt:string;
+}
+
+export interface DossierReleaseSealRequest{
+  manifest:DossierReleaseManifest;
 }

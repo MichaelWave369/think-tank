@@ -355,3 +355,25 @@ TEAR / EXPORT DOSSIER includes historical release manifests for inspection.
 EXPORT RELEASE PACKAGE is the explicit assurance-gated release path and contains only the manifest plus canonical artifacts named by its artifact list.
 
 See [ASSURANCE_GATED_RELEASE.md](ASSURANCE_GATED_RELEASE.md).
+
+## Cryptographic release seals
+
+PR 25 extends release and dossier exports with optional Ed25519 signatures over DossierReleaseManifest objects.
+
+Each DossierReleaseSealReceipt preserves:
+- release id and dossier id
+- stable-canonical REL manifest SHA-256
+- public key + SHA-256 key fingerprint
+- Ed25519 signature
+- signer label
+- signed-at claim
+- explicit untrusted-local-clock
+- self-attested-local-release-key trust label
+
+Successful independent verification produces a linked DossierReleaseSealVerificationReceipt.
+
+Release authorization, release signing, and signature verification remain distinct historical states.
+
+The release signature does not change the dossier outcome, assurance result, operator override, or release authority.
+
+See [CRYPTOGRAPHIC_RELEASE_SEALING.md](CRYPTOGRAPHIC_RELEASE_SEALING.md).

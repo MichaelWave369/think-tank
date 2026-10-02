@@ -405,6 +405,35 @@ export interface DossierReleaseManifest{
   truthAuthority:false;
 }
 
+export interface DossierReleaseSealReceipt{
+  id:string;
+  releaseId:string;
+  dossierId:string;
+  tool:"ed25519-release-sealer";
+  algorithm:"Ed25519";
+  canonicalization:"json-stable-v1";
+  manifestSha256:string;
+  publicKeyPem:string;
+  publicKeyFingerprintSha256:string;
+  signatureBase64:string;
+  signedAt:string;
+  clock:"untrusted-local-clock";
+  signerLabel:string;
+  trust:"self-attested-local-release-key";
+}
+
+export interface DossierReleaseSealVerificationReceipt{
+  id:string;
+  releaseId:string;
+  sealId:string;
+  tool:"ed25519-release-verifier";
+  algorithm:"Ed25519";
+  manifestSha256:string;
+  publicKeyFingerprintSha256:string;
+  verified:true;
+  verifiedAt:string;
+}
+
 export interface DecisionOverrideReceipt{
   id:string;
   dossierId:string;
@@ -545,6 +574,12 @@ export type ThinkTankEventKind=
   |"dossier.assurance.completed"
   |"dossier.release.requested"
   |"dossier.release.authorized"
+  |"dossier.release.seal.requested"
+  |"dossier.release.seal.completed"
+  |"dossier.release.seal.failed"
+  |"dossier.release.verify.requested"
+  |"dossier.release.verify.completed"
+  |"dossier.release.verify.failed"
   |"session.aborted";
 
 export interface ThinkTankEvent{
@@ -603,6 +638,10 @@ export interface ThinkTankEvent{
   provenanceAssurance?:DossierProvenanceAssuranceReport;
   provenanceAssuranceId?:string;
   dossierRelease?:DossierReleaseManifest;
+  dossierReleaseId?:string;
+  dossierReleaseSeal?:DossierReleaseSealReceipt;
+  dossierReleaseSealId?:string;
+  dossierReleaseVerification?:DossierReleaseSealVerificationReceipt;
   message?:string;
   gateScore?:number;
   override?:boolean;
@@ -668,6 +707,10 @@ export interface ThinkTankEventInput{
   provenanceAssurance?:DossierProvenanceAssuranceReport;
   provenanceAssuranceId?:string;
   dossierRelease?:DossierReleaseManifest;
+  dossierReleaseId?:string;
+  dossierReleaseSeal?:DossierReleaseSealReceipt;
+  dossierReleaseSealId?:string;
+  dossierReleaseVerification?:DossierReleaseSealVerificationReceipt;
   message?:string;
   gateScore?:number;
   override?:boolean;
@@ -704,6 +747,8 @@ export interface ThinkTankState{
   dossierCheckpointPublications:DossierCheckpointPublicationReceipt[];
   dossierProvenanceAssurances:DossierProvenanceAssuranceReport[];
   dossierReleaseManifests:DossierReleaseManifest[];
+  dossierReleaseSeals:DossierReleaseSealReceipt[];
+  dossierReleaseSealVerifications:DossierReleaseSealVerificationReceipt[];
   evidenceRefs:EvidenceRef[];
   evidenceExcerpts:EvidenceExcerpt[];
   claims:Claim[];

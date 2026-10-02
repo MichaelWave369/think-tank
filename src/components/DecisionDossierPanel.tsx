@@ -1,6 +1,6 @@
 import {useRef,useState} from "react";
 import type { DossierReleaseManifest,DossierTransparencyCheckpoint,DossierTransparencyWitnessReceipt,ProvenanceAssurancePolicyKind,ThinkTankState } from "../domain/types";
-import type { DossierPublicationStatusResponse,DossierRfc3161StatusResponse,DossierSealStatusResponse,DossierTransparencyStatusResponse } from "../providers/types";
+import type { DossierPublicationStatusResponse,DossierReleaseSealStatusResponse,DossierRfc3161StatusResponse,DossierSealStatusResponse,DossierTransparencyStatusResponse } from "../providers/types";
 import { latestDecisionDossier,overrideForDossier } from "../domain/decisionDossier";
 import {
   PROVENANCE_ASSURANCE_POLICIES,
@@ -58,12 +58,18 @@ const exportReleasePackage=(state:ThinkTankState,manifest:DossierReleaseManifest
     if(!artifact)throw new Error("Release manifest references missing artifact "+id+".");
     return artifact;
   });
+  const releaseSeals=state.dossierReleaseSeals.filter(item=>item.releaseId===manifest.id);
+  const releaseSealIds=new Set(releaseSeals.map(item=>item.id));
+  const releaseSealVerifications=state.dossierReleaseSealVerifications
+    .filter(item=>releaseSealIds.has(item.sealId));
 
   downloadJson(
     manifest.id.toLowerCase()+"-release-package.json",
     {
       schemaVersion:1,
       releaseManifest:manifest,
+      releaseSeals,
+      releaseSealVerifications,
       artifacts
     }
   );
@@ -87,6 +93,11 @@ const exportDossier=(state:ThinkTankState)=>{
   const checkpointPublications=state.dossierCheckpointPublications.filter(item=>checkpointIds.has(item.checkpointId));
   const provenanceAssurances=state.dossierProvenanceAssurances.filter(item=>item.dossierId===dossier.id);
   const releaseManifests=state.dossierReleaseManifests.filter(item=>item.dossierId===dossier.id);
+  const releaseIds=new Set(releaseManifests.map(item=>item.id));
+  const releaseSeals=state.dossierReleaseSeals.filter(item=>releaseIds.has(item.releaseId));
+  const releaseSealIds=new Set(releaseSeals.map(item=>item.id));
+  const releaseSealVerifications=state.dossierReleaseSealVerifications
+    .filter(item=>releaseSealIds.has(item.sealId));
   downloadJson(
     dossier.id.toLowerCase()+"-decision-dossier.json",
     {
@@ -101,7 +112,9 @@ const exportDossier=(state:ThinkTankState)=>{
       rfc3161Timestamps,
       checkpointPublications,
       provenanceAssurances,
-      releaseManifests
+      releaseManifests,
+      releaseSeals,
+      releaseSealVerifications
     }
   );
 };
@@ -112,6 +125,7 @@ export function DecisionDossierPanel({
   transparencyStatus,
   rfc3161Status,
   publicationStatus,
+  releaseSealStatus,
   busy,
   sealBusy,
   transparencyBusy,
@@ -119,11 +133,14 @@ export function DecisionDossierPanel({
   witnessBusy,
   timestampBusy,
   publicationBusy,
+  releaseSealBusy,
+  releaseVerifyBusy,
   error,
   transparencyError,
   witnessError,
   timestampError,
   publicationError,
+  releaseSealError,
   onSeal,
   onVerify,
   onTransparencyAppend,
@@ -132,13 +149,16 @@ export function DecisionDossierPanel({
   onTimestamp,
   onPublish,
   onAssurance,
-  onRelease
+  onRelease,
+  onReleaseSeal,
+  onReleaseVerify
 }:{
   state:ThinkTankState;
   sealStatus:DossierSealStatusResponse|null;
   transparencyStatus:DossierTransparencyStatusResponse|null;
   rfc3161Status:DossierRfc3161StatusResponse|null;
   publicationStatus:DossierPublicationStatusResponse|null;
+  releaseSealStatus:DossierReleaseSealStatusResponse|null;
   busy:boolean;
   sealBusy:boolean;
   transparencyBusy:boolean;
@@ -146,11 +166,14 @@ export function DecisionDossierPanel({
   witnessBusy:boolean;
   timestampBusy:boolean;
   publicationBusy:boolean;
+  releaseSealBusy:boolean;
+  releaseVerifyBusy:boolean;
   error:string;
   transparencyError:string;
   witnessError:string;
   timestampError:string;
   publicationError:string;
+  releaseSealError:string;
   onSeal:(dossierId:string)=>void;
   onVerify:(dossierId:string,sealId:string)=>void;
   onTransparencyAppend:(dossierId:string,sealId:string)=>void;
@@ -160,6 +183,8 @@ export function DecisionDossierPanel({
   onPublish:(checkpointId:string)=>void;
   onAssurance:(dossierId:string,policy:ProvenanceAssurancePolicyKind)=>void;
   onRelease:(dossierId:string,policy:ProvenanceAssurancePolicyKind,assuranceReportId:string)=>void;
+  onReleaseSeal:(releaseId:string)=>void;
+  onReleaseVerify:(releaseId:string,sealId:string)=>void;
 }){
   const witnessFileRef=useRef<HTMLInputElement>(null);
   const [witnessImportError,setWitnessImportError]=useState("");
@@ -286,6 +311,26 @@ export function DecisionDossierPanel({
     :currentAssurance?.passed&&assuranceFresh
       ?"READY FOR RELEASE"
       :"RELEASE BLOCKED";
+  const releaseSeals=currentRelease
+    ?state.dossierReleaseSeals.filter(item=>item.releaseId===currentRelease.id)
+    :[];
+  const latestReleaseSeal=releaseSeals[releaseSeals.length-1]??null;
+  const latestReleaseVerification=latestReleaseSeal
+    ?[...state.dossierReleaseSealVerifications]
+      .reverse()
+      .find(item=>item.sealId===latestReleaseSeal.id)??null
+    :null;
+  const configuredReleaseSignerAlreadySealed=Boolean(
+    releaseSealStatus?.keyFingerprint&&
+    releaseSeals.some(item=>item.publicKeyFingerprintSha256===releaseSealStatus.keyFingerprint)
+  );
+  const releaseSealState=!currentRelease
+    ?"NO RELEASE"
+    :!latestReleaseSeal
+      ?"UNSEALED"
+      :latestReleaseVerification
+        ?"VERIFIED"
+        :"SEALED · UNVERIFIED";
 
   const importWitnessFile=async(file:File|null)=>{
     if(!file||!latestCheckpoint)return;
@@ -792,6 +837,76 @@ export function DecisionDossierPanel({
                   EXPORT RELEASE PACKAGE
                 </button>
               </div>
+
+              <div className={"dossier-release-seal "+(
+                latestReleaseVerification?"release-seal-verified":
+                latestReleaseSeal?"release-seal-pending":""
+              )}>
+                <div className="dossier-transparency-head">
+                  <div>
+                    <small>CRYPTOGRAPHIC RELEASE SEAL</small>
+                    <strong>{releaseSealState}</strong>
+                  </div>
+                  <span>
+                    {releaseSealStatus?.state==="configured"
+                      ?"SIGNER "+(releaseSealStatus.signerLabel??"RELEASE")
+                      :"SIGNER DISABLED"}
+                  </span>
+                </div>
+
+                {latestReleaseSeal
+                  ?<div className="dossier-seal-details">
+                    <p><b>Seal</b> {latestReleaseSeal.id}</p>
+                    <p><b>Manifest SHA-256</b> {latestReleaseSeal.manifestSha256}</p>
+                    <p><b>Key fingerprint</b> {latestReleaseSeal.publicKeyFingerprintSha256}</p>
+                    <p><b>Algorithm</b> {latestReleaseSeal.algorithm} · {latestReleaseSeal.canonicalization}</p>
+                    <p><b>Signed</b> {latestReleaseSeal.signedAt} · UNTRUSTED LOCAL CLOCK</p>
+                    <p><b>Trust</b> SELF-ATTESTED LOCAL RELEASE KEY · {latestReleaseSeal.signerLabel}</p>
+                    {latestReleaseVerification&&<p>
+                      <b>Verified</b> VALID · {latestReleaseVerification.verifiedAt}
+                    </p>}
+                  </div>
+                  :<p>
+                    The REL manifest is authorized but not yet cryptographically sealed.
+                    Release sealing is optional and does not change release authority.
+                  </p>}
+
+                {releaseSealStatus?.detail&&<p className="dossier-tool-detail">{releaseSealStatus.detail}</p>}
+                {releaseSealError&&<div className="dossier-seal-error">{releaseSealError}</div>}
+
+                <div className="dossier-seal-actions">
+                  <button
+                    type="button"
+                    disabled={
+                      busy||
+                      !currentRelease||
+                      releaseSealStatus?.state!=="configured"||
+                      configuredReleaseSignerAlreadySealed
+                    }
+                    onClick={()=>currentRelease&&onReleaseSeal(currentRelease.id)}
+                  >
+                    {releaseSealBusy
+                      ?"SEALING RELEASE…"
+                      :configuredReleaseSignerAlreadySealed
+                        ?"CURRENT SIGNER ALREADY SEALED"
+                        :"SEAL RELEASE"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy||!currentRelease||!latestReleaseSeal||Boolean(latestReleaseVerification)}
+                    onClick={()=>
+                      currentRelease&&latestReleaseSeal&&
+                      onReleaseVerify(currentRelease.id,latestReleaseSeal.id)
+                    }
+                  >
+                    {releaseVerifyBusy
+                      ?"VERIFYING…"
+                      :latestReleaseVerification
+                        ?"RELEASE SEAL VERIFIED"
+                        :"VERIFY RELEASE SEAL"}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -799,7 +914,7 @@ export function DecisionDossierPanel({
     </div>
 
     <footer>
-      <span>Integrity chain: dossier → provenance receipts → assurance policy → governed release manifest. Release authority applies to packaging/export only and never grants factual truth authority.</span>
+      <span>Integrity chain: dossier → provenance → assurance → release manifest → optional Ed25519 release seal. Signature validity never upgrades release authority or factual truth.</span>
       <button type="button" onClick={()=>exportDossier(state)}>TEAR / EXPORT DOSSIER</button>
     </footer>
   </section>;

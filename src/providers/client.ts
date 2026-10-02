@@ -22,7 +22,10 @@ import type {
   DossierRfc3161StatusResponse,
   DossierRfc3161TimestampResponse,
   DossierPublicationStatusResponse,
-  DossierPublicationResponse
+  DossierPublicationResponse,
+  DossierReleaseSealStatusResponse,
+  DossierReleaseSealResponse,
+  DossierReleaseVerifyResponse
 } from "./types";
 
 const DEFAULT_BRIDGE="http://127.0.0.1:3691";
@@ -345,6 +348,61 @@ export async function publishDossierCheckpoint(
   if(!response.ok||!body.ok){
     const errorBody=body as DossierSealError;
     throw new Error(errorBody.error?.message||("Checkpoint publication returned HTTP "+response.status+"."));
+  }
+  return body;
+}
+
+export async function fetchReleaseSealStatus():Promise<DossierReleaseSealStatusResponse>{
+  const response=await fetchWithTimeout(providerBridgeUrl+"/dossier/release/seal/status",{},4000);
+  const body=await response.json() as DossierReleaseSealStatusResponse|DossierSealError;
+  if(!response.ok||!body.ok){
+    const errorBody=body as DossierSealError;
+    throw new Error(errorBody.error?.message||("Release seal status returned HTTP "+response.status+"."));
+  }
+  return body;
+}
+
+export async function sealDossierRelease(
+  manifest:import("../domain/types").DossierReleaseManifest,
+  signal?:AbortSignal
+):Promise<DossierReleaseSealResponse>{
+  const response=await fetchWithTimeout(
+    providerBridgeUrl+"/dossier/release/seal",
+    {
+      method:"POST",
+      headers:{"content-type":"application/json"},
+      body:JSON.stringify({manifest}),
+      signal
+    },
+    15000
+  );
+  const body=await response.json() as DossierReleaseSealResponse|DossierSealError;
+  if(!response.ok||!body.ok){
+    const errorBody=body as DossierSealError;
+    throw new Error(errorBody.error?.message||("Release sealing returned HTTP "+response.status+"."));
+  }
+  return body;
+}
+
+export async function verifyDossierReleaseSeal(
+  manifest:import("../domain/types").DossierReleaseManifest,
+  seal:import("../domain/types").DossierReleaseSealReceipt,
+  signal?:AbortSignal
+):Promise<DossierReleaseVerifyResponse>{
+  const response=await fetchWithTimeout(
+    providerBridgeUrl+"/dossier/release/verify",
+    {
+      method:"POST",
+      headers:{"content-type":"application/json"},
+      body:JSON.stringify({manifest,seal}),
+      signal
+    },
+    15000
+  );
+  const body=await response.json() as DossierReleaseVerifyResponse|DossierSealError;
+  if(!response.ok||!body.ok){
+    const errorBody=body as DossierSealError;
+    throw new Error(errorBody.error?.message||("Release seal verification returned HTTP "+response.status+"."));
   }
   return body;
 }

@@ -422,6 +422,30 @@ EXPORT RELEASE PACKAGE serializes the manifest plus only the canonical artifacts
 
 See [ASSURANCE_GATED_RELEASE.md](ASSURANCE_GATED_RELEASE.md).
 
+## Cryptographic release sealing
+
+PR 25 adds an optional Ed25519 integrity layer above PR 24 release authorization.
+
+A dedicated release-signing key signs a release-specific canonical envelope containing:
+- REL manifest id
+- dossier id
+- SHA-256 of the stable-canonical REL manifest
+- release signer public-key fingerprint
+- signed-at claim
+- explicit untrusted-local-clock label
+- signer label
+- self-attested-local-release-key trust label
+
+The release signer is configured separately from the dossier signer.
+
+The local bridge self-verifies every generated seal before returning it and exposes an independent verification route.
+
+The kernel treats release authorization, release sealing, and release-seal verification as separate receipts.
+
+Release-package export carries release seals and verification receipts beside, rather than recursively inside, the REL manifest artifact list.
+
+See [CRYPTOGRAPHIC_RELEASE_SEALING.md](CRYPTOGRAPHIC_RELEASE_SEALING.md).
+
 ## PR ladder
 
 1. ✅ Room shell + operator authority
@@ -447,6 +471,7 @@ See [ASSURANCE_GATED_RELEASE.md](ASSURANCE_GATED_RELEASE.md).
 21. ✅ RFC 3161 trusted timestamp attestation
 22. ✅ Verified external checkpoint publication
 23. ✅ Provenance assurance policy
-24. Assurance-gated release manifest
+24. ✅ Assurance-gated release manifest
+25. Cryptographic release sealing
 
-Future work can add proper PDF extraction, authenticated remote deployment, richer provider discovery, streaming, tool execution, voice, cryptographic release sealing, witness trust registries, publication durability checks, multi-publisher policy, TSA trust-store management, and external signer identity attestation without changing the core event contract.
+Future work can add proper PDF extraction, authenticated remote deployment, richer provider discovery, streaming, tool execution, voice, trusted release timestamps, witness trust registries, publication durability checks, multi-publisher policy, TSA trust-store management, and external signer identity attestation without changing the core event contract.

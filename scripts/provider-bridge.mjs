@@ -25,6 +25,8 @@ const SEARXNG_URL=(process.env.SEARXNG_URL||"").replace(/\/$/,"");
 const RESEARCH_MAX_RESULTS=Math.max(1,Math.min(10,Number(process.env.RESEARCH_MAX_RESULTS||5)));
 const DOSSIER_SIGNING_PRIVATE_KEY_FILE=(process.env.DOSSIER_SIGNING_PRIVATE_KEY_FILE||"").trim();
 const DOSSIER_SIGNING_KEY_LABEL=(process.env.DOSSIER_SIGNING_KEY_LABEL||"local-bridge").trim()||"local-bridge";
+const RELEASE_SIGNING_PRIVATE_KEY_FILE=(process.env.RELEASE_SIGNING_PRIVATE_KEY_FILE||"").trim();
+const RELEASE_SIGNING_KEY_LABEL=(process.env.RELEASE_SIGNING_KEY_LABEL||"release-bridge").trim()||"release-bridge";
 const DOSSIER_TRANSPARENCY_LOG_FILE=(process.env.DOSSIER_TRANSPARENCY_LOG_FILE||"").trim();
 const RFC3161_TSA_URL=(process.env.RFC3161_TSA_URL||"").trim();
 const RFC3161_TSA_CA_FILE=(process.env.RFC3161_TSA_CA_FILE||"").trim();
@@ -248,6 +250,172 @@ const dossierSignerStatus=()=>{
 };
 
 
+
+
+export const releaseManifestDigestSha256=(manifest)=>
+  createHash("sha256").update(stableCanonicalJson(manifest),"utf8").digest("hex");
+
+export const releaseSealEnvelopeFor=(seal)=>({
+  schemaVersion:1,
+  releaseId:seal.releaseId,
+  dossierId:seal.dossierId,
+  algorithm:"Ed25519",
+  canonicalization:"json-stable-v1",
+  manifestSha256:seal.manifestSha256,
+  publicKeyFingerprintSha256:seal.publicKeyFingerprintSha256,
+  signedAt:seal.signedAt,
+  clock:"untrusted-local-clock",
+  signerLabel:seal.signerLabel,
+  trust:"self-attested-local-release-key"
+});
+
+export const sealReleaseWithPrivateKey=(
+  manifest,
+  privateKeyPem,
+  signerLabel="release-bridge",
+  signedAt=new Date().toISOString()
+)=>{
+  if(
+    !manifest||
+    typeof manifest!=="object"||
+    typeof manifest.id!=="string"||
+    !manifest.id.trim()||
+    typeof manifest.dossierId!=="string"||
+    !manifest.dossierId.trim()
+  ){
+    throw bridgeError("Release seal requires a canonical release manifest.",400);
+  }
+  if(Number.isNaN(Date.parse(signedAt))){
+    throw bridgeError("Release seal timestamp is invalid.",400);
+  }
+
+  let privateKey;
+  try{privateKey=createPrivateKey(privateKeyPem);}
+  catch{throw bridgeError("Release signing private key could not be parsed.",500);}
+  if(privateKey.asymmetricKeyType!=="ed25519"){
+    throw bridgeError("Release signing key must be Ed25519.",500);
+  }
+
+  const publicKey=createPublicKey(privateKey);
+  const publicKeyPem=publicKey.export({type:"spki",format:"pem"}).toString();
+  const keyFingerprint=publicKeyFingerprint(publicKey);
+  const manifestSha256=releaseManifestDigestSha256(manifest);
+
+  const unsigned={
+    id:"RSEAL-"+manifest.id+"-"+keyFingerprint.slice(0,12),
+    releaseId:manifest.id,
+    dossierId:manifest.dossierId,
+    tool:"ed25519-release-sealer",
+    algorithm:"Ed25519",
+    canonicalization:"json-stable-v1",
+    manifestSha256,
+    publicKeyPem,
+    publicKeyFingerprintSha256:keyFingerprint,
+    signedAt,
+    clock:"untrusted-local-clock",
+    signerLabel,
+    trust:"self-attested-local-release-key"
+  };
+  const signatureBase64=cryptoSign(
+    null,
+    Buffer.from(stableCanonicalJson(releaseSealEnvelopeFor(unsigned)),"utf8"),
+    privateKey
+  ).toString("base64");
+
+  return {...unsigned,signatureBase64};
+};
+
+export const verifyReleaseSealReceipt=(manifest,seal)=>{
+  if(!manifest||typeof manifest!=="object"||!seal||typeof seal!=="object"){
+    throw bridgeError("Release verification requires manifest and seal objects.",400);
+  }
+  if(
+    seal.tool!=="ed25519-release-sealer"||
+    seal.algorithm!=="Ed25519"||
+    seal.canonicalization!=="json-stable-v1"||
+    seal.clock!=="untrusted-local-clock"||
+    seal.trust!=="self-attested-local-release-key"
+  ){
+    throw bridgeError("Release seal metadata is not supported.",400);
+  }
+  if(manifest.id!==seal.releaseId||manifest.dossierId!==seal.dossierId){
+    throw bridgeError("Release manifest does not match seal receipt.",400);
+  }
+  if(releaseManifestDigestSha256(manifest)!==seal.manifestSha256){
+    return {verified:false,reason:"Release manifest SHA-256 does not match the seal receipt."};
+  }
+
+  let publicKey;
+  try{publicKey=createPublicKey(seal.publicKeyPem);}
+  catch{throw bridgeError("Release seal public key could not be parsed.",400);}
+  if(publicKey.asymmetricKeyType!=="ed25519"){
+    throw bridgeError("Release seal public key must be Ed25519.",400);
+  }
+  if(publicKeyFingerprint(publicKey)!==seal.publicKeyFingerprintSha256){
+    return {verified:false,reason:"Release seal public key fingerprint does not match."};
+  }
+
+  let signature;
+  try{signature=Buffer.from(seal.signatureBase64,"base64");}
+  catch{throw bridgeError("Release signature encoding is invalid.",400);}
+  const verified=cryptoVerify(
+    null,
+    Buffer.from(stableCanonicalJson(releaseSealEnvelopeFor(seal)),"utf8"),
+    publicKey,
+    signature
+  );
+  return {
+    verified,
+    reason:verified?"Ed25519 release signature verified.":"Ed25519 release signature verification failed."
+  };
+};
+
+const loadConfiguredReleaseSigner=()=>{
+  if(!RELEASE_SIGNING_PRIVATE_KEY_FILE)return null;
+  let privateKeyPem;
+  try{privateKeyPem=readFileSync(resolve(RELEASE_SIGNING_PRIVATE_KEY_FILE),"utf8");}
+  catch{throw bridgeError("Configured release signing key file could not be read.",500);}
+  let privateKey;
+  try{privateKey=createPrivateKey(privateKeyPem);}
+  catch{throw bridgeError("Configured release signing key could not be parsed.",500);}
+  if(privateKey.asymmetricKeyType!=="ed25519"){
+    throw bridgeError("Configured release signing key must be Ed25519.",500);
+  }
+  const publicKey=createPublicKey(privateKey);
+  return {
+    privateKeyPem,
+    signerLabel:RELEASE_SIGNING_KEY_LABEL,
+    publicKeyFingerprintSha256:publicKeyFingerprint(publicKey)
+  };
+};
+
+const releaseSignerStatus=()=>{
+  if(!RELEASE_SIGNING_PRIVATE_KEY_FILE){
+    return {
+      ok:true,
+      state:"disabled",
+      algorithm:"Ed25519",
+      canonicalization:"json-stable-v1",
+      keyFingerprint:null,
+      signerLabel:null,
+      clock:"untrusted-local-clock",
+      trust:"self-attested-local-release-key",
+      detail:"Set RELEASE_SIGNING_PRIVATE_KEY_FILE to enable release sealing."
+    };
+  }
+  const signer=loadConfiguredReleaseSigner();
+  return {
+    ok:true,
+    state:"configured",
+    algorithm:"Ed25519",
+    canonicalization:"json-stable-v1",
+    keyFingerprint:signer.publicKeyFingerprintSha256,
+    signerLabel:signer.signerLabel,
+    clock:"untrusted-local-clock",
+    trust:"self-attested-local-release-key",
+    detail:"Persistent local Ed25519 release signer is configured."
+  };
+};
 
 const ZERO_SHA256="0".repeat(64);
 
@@ -1747,7 +1915,7 @@ const remoteStatus=(seatId,provider,key,model)=>({
 
 const statusPayload=async()=>({
   ok:true,
-  bridgeVersion:"0.9.0",
+  bridgeVersion:"0.10.0",
   seats:[
     await ollamaStatus(),
     remoteStatus("openai","OpenAI",process.env.OPENAI_API_KEY,process.env.OPENAI_MODEL),
@@ -1860,7 +2028,7 @@ const server=http.createServer(async(req,res)=>{
 
   try{
     if(req.method==="GET"&&req.url==="/health"){
-      send(res,200,{ok:true,service:"phi-think-tank-provider-bridge",version:"0.9.0"},origin);
+      send(res,200,{ok:true,service:"phi-think-tank-provider-bridge",version:"0.10.0"},origin);
       return;
     }
 
@@ -1899,6 +2067,42 @@ const server=http.createServer(async(req,res)=>{
         dossierId:raw.dossier?.id??"",
         sealId:raw.seal?.id??"",
         digestSha256:raw.seal?.digestSha256??"",
+        publicKeyFingerprintSha256:raw.seal?.publicKeyFingerprintSha256??"",
+        verifiedAt:new Date().toISOString()
+      },origin);
+      return;
+    }
+
+    if(req.method==="GET"&&req.url==="/dossier/release/seal/status"){
+      send(res,200,releaseSignerStatus(),origin);
+      return;
+    }
+
+    if(req.method==="POST"&&req.url==="/dossier/release/seal"){
+      const raw=await readJson(req);
+      const signer=loadConfiguredReleaseSigner();
+      if(!signer)throw bridgeError("Release sealing is disabled.",503);
+      const seal=sealReleaseWithPrivateKey(
+        raw.manifest,
+        signer.privateKeyPem,
+        signer.signerLabel
+      );
+      const selfCheck=verifyReleaseSealReceipt(raw.manifest,seal);
+      if(!selfCheck.verified)throw bridgeError("Generated release seal failed self-verification.",500);
+      send(res,200,{ok:true,seal},origin);
+      return;
+    }
+
+    if(req.method==="POST"&&req.url==="/dossier/release/verify"){
+      const raw=await readJson(req);
+      const result=verifyReleaseSealReceipt(raw.manifest,raw.seal);
+      send(res,200,{
+        ok:true,
+        verified:result.verified,
+        reason:result.reason,
+        releaseId:raw.manifest?.id??"",
+        sealId:raw.seal?.id??"",
+        manifestSha256:raw.seal?.manifestSha256??"",
         publicKeyFingerprintSha256:raw.seal?.publicKeyFingerprintSha256??"",
         verifiedAt:new Date().toISOString()
       },origin);

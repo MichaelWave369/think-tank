@@ -1033,6 +1033,205 @@ function assertDossierReleaseEvent(state:ThinkTankState,event:ThinkTankEvent):bo
   return false;
 }
 
+function assertDossierReleaseSealEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
+  const action=[
+    "dossier.release.seal.requested",
+    "dossier.release.seal.completed",
+    "dossier.release.seal.failed",
+    "dossier.release.verify.requested",
+    "dossier.release.verify.completed",
+    "dossier.release.verify.failed"
+  ].includes(event.kind);
+
+  if(
+    action&&
+    state.phase!=="intake"&&
+    state.phase!=="synthesis"&&
+    state.phase!=="complete"&&
+    state.phase!=="aborted"
+  ){
+    throw new KernelIntegrityError(
+      "Release sealing cannot run during active governed execution.",
+      event.seq
+    );
+  }
+
+  const release=event.dossierReleaseId
+    ?state.dossierReleaseManifests.find(item=>item.id===event.dossierReleaseId)
+    :undefined;
+
+  if(event.kind==="dossier.release.seal.requested"){
+    if(event.source!=="operator"){
+      throw new KernelIntegrityError("Release seal requests are operator-authorized.",event.seq);
+    }
+    if(!release){
+      throw new KernelIntegrityError("Release seal request requires an existing release manifest.",event.seq);
+    }
+    return true;
+  }
+
+  if(event.kind==="dossier.release.seal.completed"){
+    if(event.source!=="tool"){
+      throw new KernelIntegrityError("Release seal completion must be tool-originated.",event.seq);
+    }
+    const seal=event.dossierReleaseSeal;
+    if(!release||!seal||seal.releaseId!==release.id||seal.dossierId!==release.dossierId){
+      throw new KernelIntegrityError("Release seal receipt does not match an existing release manifest.",event.seq);
+    }
+    if(
+      seal.tool!=="ed25519-release-sealer"||
+      seal.algorithm!=="Ed25519"||
+      seal.canonicalization!=="json-stable-v1"||
+      seal.clock!=="untrusted-local-clock"||
+      seal.trust!=="self-attested-local-release-key"
+    ){
+      throw new KernelIntegrityError("Release seal metadata is invalid.",event.seq);
+    }
+    const expectedId="RSEAL-"+release.id+"-"+seal.publicKeyFingerprintSha256.slice(0,12);
+    if(
+      seal.id!==expectedId||
+      !/^[a-f0-9]{64}$/.test(seal.manifestSha256)||
+      !/^[a-f0-9]{64}$/.test(seal.publicKeyFingerprintSha256)||
+      !seal.signatureBase64.trim()||
+      !seal.publicKeyPem.includes("BEGIN PUBLIC KEY")||
+      !seal.signerLabel.trim()||
+      Number.isNaN(Date.parse(seal.signedAt))
+    ){
+      throw new KernelIntegrityError("Release seal receipt is incomplete or malformed.",event.seq);
+    }
+    if(state.dossierReleaseSeals.some(existing=>
+      existing.releaseId===seal.releaseId&&
+      existing.publicKeyFingerprintSha256===seal.publicKeyFingerprintSha256
+    )){
+      throw new KernelIntegrityError("This signer key already sealed the release manifest.",event.seq);
+    }
+    if(state.dossierReleaseSeals.some(existing=>existing.id===seal.id)){
+      throw new KernelIntegrityError("Release seal id already exists.",event.seq);
+    }
+
+    const request=[...state.events].reverse().find(item=>
+      item.kind==="dossier.release.seal.requested"&&item.dossierReleaseId===release.id
+    );
+    if(!request){
+      throw new KernelIntegrityError("Release seal completion has no matching operator request.",event.seq);
+    }
+    const terminal=[...state.events].reverse().find(item=>
+      (item.kind==="dossier.release.seal.completed"||item.kind==="dossier.release.seal.failed")&&
+      item.dossierReleaseId===release.id
+    );
+    if(terminal&&terminal.seq>request.seq){
+      throw new KernelIntegrityError("Release seal request is already resolved.",event.seq);
+    }
+    return true;
+  }
+
+  if(event.kind==="dossier.release.seal.failed"){
+    if(event.source!=="tool"||!release){
+      throw new KernelIntegrityError(
+        "Release seal failure must be tool-originated for an existing release manifest.",
+        event.seq
+      );
+    }
+    const request=[...state.events].reverse().find(item=>
+      item.kind==="dossier.release.seal.requested"&&item.dossierReleaseId===release.id
+    );
+    if(!request){
+      throw new KernelIntegrityError("Release seal failure has no matching operator request.",event.seq);
+    }
+    const terminal=[...state.events].reverse().find(item=>
+      (item.kind==="dossier.release.seal.completed"||item.kind==="dossier.release.seal.failed")&&
+      item.dossierReleaseId===release.id
+    );
+    if(terminal&&terminal.seq>request.seq){
+      throw new KernelIntegrityError("Release seal request is already resolved.",event.seq);
+    }
+    return true;
+  }
+
+  const seal=event.dossierReleaseSealId
+    ?state.dossierReleaseSeals.find(item=>item.id===event.dossierReleaseSealId)
+    :undefined;
+
+  if(event.kind==="dossier.release.verify.requested"){
+    if(event.source!=="operator"){
+      throw new KernelIntegrityError("Release seal verification requests are operator-authorized.",event.seq);
+    }
+    if(!seal||!state.dossierReleaseManifests.some(item=>item.id===seal.releaseId)){
+      throw new KernelIntegrityError(
+        "Release seal verification requires an existing release seal and manifest.",
+        event.seq
+      );
+    }
+    return true;
+  }
+
+  if(event.kind==="dossier.release.verify.completed"){
+    if(event.source!=="tool"){
+      throw new KernelIntegrityError("Release seal verification completion must be tool-originated.",event.seq);
+    }
+    const receipt=event.dossierReleaseVerification;
+    if(!seal||!receipt){
+      throw new KernelIntegrityError("Release seal verification requires a receipt and existing seal.",event.seq);
+    }
+    if(
+      receipt.id!=="RVER-"+seal.id||
+      receipt.releaseId!==seal.releaseId||
+      receipt.sealId!==seal.id||
+      receipt.tool!=="ed25519-release-verifier"||
+      receipt.algorithm!=="Ed25519"||
+      receipt.manifestSha256!==seal.manifestSha256||
+      receipt.publicKeyFingerprintSha256!==seal.publicKeyFingerprintSha256||
+      receipt.verified!==true||
+      Number.isNaN(Date.parse(receipt.verifiedAt))
+    ){
+      throw new KernelIntegrityError("Release verification receipt does not match its seal.",event.seq);
+    }
+    if(state.dossierReleaseSealVerifications.some(existing=>existing.id===receipt.id)){
+      throw new KernelIntegrityError("Release verification receipt id already exists.",event.seq);
+    }
+
+    const request=[...state.events].reverse().find(item=>
+      item.kind==="dossier.release.verify.requested"&&item.dossierReleaseSealId===seal.id
+    );
+    if(!request){
+      throw new KernelIntegrityError("Release seal verification has no matching operator request.",event.seq);
+    }
+    const terminal=[...state.events].reverse().find(item=>
+      (item.kind==="dossier.release.verify.completed"||item.kind==="dossier.release.verify.failed")&&
+      item.dossierReleaseSealId===seal.id
+    );
+    if(terminal&&terminal.seq>request.seq){
+      throw new KernelIntegrityError("Release seal verification request is already resolved.",event.seq);
+    }
+    return true;
+  }
+
+  if(event.kind==="dossier.release.verify.failed"){
+    if(event.source!=="tool"||!seal){
+      throw new KernelIntegrityError(
+        "Release seal verification failure must be tool-originated for an existing release seal.",
+        event.seq
+      );
+    }
+    const request=[...state.events].reverse().find(item=>
+      item.kind==="dossier.release.verify.requested"&&item.dossierReleaseSealId===seal.id
+    );
+    if(!request){
+      throw new KernelIntegrityError("Release seal verification failure has no matching operator request.",event.seq);
+    }
+    const terminal=[...state.events].reverse().find(item=>
+      (item.kind==="dossier.release.verify.completed"||item.kind==="dossier.release.verify.failed")&&
+      item.dossierReleaseSealId===seal.id
+    );
+    if(terminal&&terminal.seq>request.seq){
+      throw new KernelIntegrityError("Release seal verification request is already resolved.",event.seq);
+    }
+    return true;
+  }
+
+  return false;
+}
+
 function assertArgumentReviewEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
   const action=[
     "argument.review.requested",
@@ -1913,6 +2112,7 @@ function assertRoutingEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
 }
 
 function assertPolicyEvent(state:ThinkTankState,event:ThinkTankEvent):void{
+  if(assertDossierReleaseSealEvent(state,event))return;
   if(assertDossierReleaseEvent(state,event))return;
   if(assertDossierAssuranceEvent(state,event))return;
   if(assertDossierPublicationEvent(state,event))return;
@@ -2187,6 +2387,10 @@ export function buildEvent(state:ThinkTankState,input:ThinkTankEventInput):Think
     provenanceAssurance:input.provenanceAssurance,
     provenanceAssuranceId:input.provenanceAssuranceId,
     dossierRelease:input.dossierRelease,
+    dossierReleaseId:input.dossierReleaseId,
+    dossierReleaseSeal:input.dossierReleaseSeal,
+    dossierReleaseSealId:input.dossierReleaseSealId,
+    dossierReleaseVerification:input.dossierReleaseVerification,
     message:input.message,
     gateScore:input.gateScore,
     override:input.override,
