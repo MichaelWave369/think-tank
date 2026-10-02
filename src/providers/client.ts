@@ -16,7 +16,9 @@ import type {
   DossierVerifyResponse,
   DossierSealError,
   DossierTransparencyStatusResponse,
-  DossierTransparencyAppendResponse
+  DossierTransparencyAppendResponse,
+  DossierTransparencyCheckpointResponse,
+  DossierWitnessVerifyResponse
 } from "./types";
 
 const DEFAULT_BRIDGE="http://127.0.0.1:3691";
@@ -236,6 +238,45 @@ export async function appendDossierTransparency(
   if(!response.ok||!body.ok){
     const errorBody=body as DossierSealError;
     throw new Error(errorBody.error?.message||("Transparency journal append returned HTTP "+response.status+"."));
+  }
+  return body;
+}
+
+export async function fetchDossierTransparencyCheckpoint(
+  signal?:AbortSignal
+):Promise<DossierTransparencyCheckpointResponse>{
+  const response=await fetchWithTimeout(
+    providerBridgeUrl+"/dossier/transparency/checkpoint",
+    {signal},
+    10000
+  );
+  const body=await response.json() as DossierTransparencyCheckpointResponse|DossierSealError;
+  if(!response.ok||!body.ok){
+    const errorBody=body as DossierSealError;
+    throw new Error(errorBody.error?.message||("Transparency checkpoint returned HTTP "+response.status+"."));
+  }
+  return body;
+}
+
+export async function verifyDossierTransparencyWitness(
+  checkpoint:import("../domain/types").DossierTransparencyCheckpoint,
+  witness:import("../domain/types").DossierTransparencyWitnessReceipt,
+  signal?:AbortSignal
+):Promise<DossierWitnessVerifyResponse>{
+  const response=await fetchWithTimeout(
+    providerBridgeUrl+"/dossier/witness/verify",
+    {
+      method:"POST",
+      headers:{"content-type":"application/json"},
+      body:JSON.stringify({checkpoint,witness}),
+      signal
+    },
+    15000
+  );
+  const body=await response.json() as DossierWitnessVerifyResponse|DossierSealError;
+  if(!response.ok||!body.ok){
+    const errorBody=body as DossierSealError;
+    throw new Error(errorBody.error?.message||("Detached witness verification returned HTTP "+response.status+"."));
   }
   return body;
 }

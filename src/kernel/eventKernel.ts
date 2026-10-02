@@ -344,6 +344,225 @@ function assertDossierTransparencyEvent(state:ThinkTankState,event:ThinkTankEven
   return false;
 }
 
+function assertDossierCheckpointWitnessEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
+  const action=[
+    "dossier.checkpoint.requested",
+    "dossier.checkpoint.completed",
+    "dossier.checkpoint.failed",
+    "dossier.witness.requested",
+    "dossier.witness.completed",
+    "dossier.witness.failed"
+  ].includes(event.kind);
+
+  if(
+    action&&
+    state.phase!=="intake"&&
+    state.phase!=="synthesis"&&
+    state.phase!=="complete"&&
+    state.phase!=="aborted"
+  ){
+    throw new KernelIntegrityError("Dossier checkpoint/witness operations cannot run during active governed execution.",event.seq);
+  }
+
+  const latestEntry=state.dossierTransparencyEntries[state.dossierTransparencyEntries.length-1];
+
+  if(event.kind==="dossier.checkpoint.requested"){
+    if(event.source!=="operator"){
+      throw new KernelIntegrityError("Transparency checkpoint requests are operator-authorized.",event.seq);
+    }
+    if(!latestEntry||event.dossierTransparencyId!==latestEntry.id){
+      throw new KernelIntegrityError("Transparency checkpoint request must reference the latest accepted journal entry.",event.seq);
+    }
+    if(state.dossierTransparencyCheckpoints.some(item=>
+      item.entryCount===latestEntry.sequence&&item.headSha256===latestEntry.entrySha256
+    )){
+      throw new KernelIntegrityError("The latest accepted journal head already has a checkpoint.",event.seq);
+    }
+    return true;
+  }
+
+  if(event.kind==="dossier.checkpoint.completed"){
+    if(event.source!=="tool"){
+      throw new KernelIntegrityError("Transparency checkpoint completion must be tool-originated.",event.seq);
+    }
+    const checkpoint=event.dossierCheckpoint;
+    if(!latestEntry||!checkpoint||event.dossierTransparencyId!==latestEntry.id){
+      throw new KernelIntegrityError("Transparency checkpoint completion requires the latest accepted journal entry.",event.seq);
+    }
+    if(
+      checkpoint.tool!=="sha256-transparency-checkpoint"||
+      checkpoint.canonicalization!=="json-stable-v1"||
+      checkpoint.clock!=="untrusted-local-clock"||
+      checkpoint.trust!=="portable-local-checkpoint"||
+      checkpoint.entryCount!==latestEntry.sequence||
+      checkpoint.headEntryId!==latestEntry.id||
+      checkpoint.headSha256!==latestEntry.entrySha256||
+      !/^[a-f0-9]{64}$/.test(checkpoint.checkpointSha256)||
+      Number.isNaN(Date.parse(checkpoint.createdAt))
+    ){
+      throw new KernelIntegrityError("Transparency checkpoint receipt does not match the accepted journal head.",event.seq);
+    }
+    const expectedId=
+      "CHK-"+String(checkpoint.entryCount).padStart(6,"0")+"-"+checkpoint.checkpointSha256.slice(0,12);
+    if(checkpoint.id!==expectedId){
+      throw new KernelIntegrityError("Transparency checkpoint id does not match its sequence/digest.",event.seq);
+    }
+    if(state.dossierTransparencyCheckpoints.some(item=>item.id===checkpoint.id)){
+      throw new KernelIntegrityError("Transparency checkpoint id already exists.",event.seq);
+    }
+
+    const request=[...state.events].reverse().find(item=>
+      item.kind==="dossier.checkpoint.requested"&&item.dossierTransparencyId===latestEntry.id
+    );
+    if(!request){
+      throw new KernelIntegrityError("Transparency checkpoint completion has no matching operator request.",event.seq);
+    }
+    const terminal=[...state.events].reverse().find(item=>
+      (item.kind==="dossier.checkpoint.completed"||item.kind==="dossier.checkpoint.failed")&&
+      item.dossierTransparencyId===latestEntry.id
+    );
+    if(terminal&&terminal.seq>request.seq){
+      throw new KernelIntegrityError("Transparency checkpoint request is already resolved.",event.seq);
+    }
+    return true;
+  }
+
+  if(event.kind==="dossier.checkpoint.failed"){
+    if(event.source!=="tool"||!latestEntry||event.dossierTransparencyId!==latestEntry.id){
+      throw new KernelIntegrityError("Transparency checkpoint failure must be tool-originated for the latest accepted journal entry.",event.seq);
+    }
+    const request=[...state.events].reverse().find(item=>
+      item.kind==="dossier.checkpoint.requested"&&item.dossierTransparencyId===latestEntry.id
+    );
+    if(!request){
+      throw new KernelIntegrityError("Transparency checkpoint failure has no matching operator request.",event.seq);
+    }
+    const terminal=[...state.events].reverse().find(item=>
+      (item.kind==="dossier.checkpoint.completed"||item.kind==="dossier.checkpoint.failed")&&
+      item.dossierTransparencyId===latestEntry.id
+    );
+    if(terminal&&terminal.seq>request.seq){
+      throw new KernelIntegrityError("Transparency checkpoint request is already resolved.",event.seq);
+    }
+    return true;
+  }
+
+  const checkpoint=event.dossierCheckpointId
+    ?state.dossierTransparencyCheckpoints.find(item=>item.id===event.dossierCheckpointId)
+    :undefined;
+  const witness=event.dossierWitness;
+
+  const assertWitnessShape=()=>{
+    if(!checkpoint||!witness||witness.checkpointId!==checkpoint.id){
+      throw new KernelIntegrityError("Detached witness receipt must reference an existing transparency checkpoint.",event.seq);
+    }
+    if(
+      witness.tool!=="ed25519-transparency-witness"||
+      witness.algorithm!=="Ed25519"||
+      witness.canonicalization!=="json-stable-v1"||
+      witness.trust!=="self-attested-external-witness-key"||
+      witness.checkpointSha256!==checkpoint.checkpointSha256||
+      !/^[a-f0-9]{64}$/.test(witness.publicKeyFingerprintSha256)||
+      !witness.publicKeyPem.includes("BEGIN PUBLIC KEY")||
+      !witness.signatureBase64.trim()||
+      !witness.witnessLabel.trim()||
+      Number.isNaN(Date.parse(witness.witnessedAt))
+    ){
+      throw new KernelIntegrityError("Detached witness receipt is incomplete or malformed.",event.seq);
+    }
+    const expectedId="WIT-"+checkpoint.id+"-"+witness.publicKeyFingerprintSha256.slice(0,12);
+    if(witness.id!==expectedId){
+      throw new KernelIntegrityError("Detached witness id does not match its checkpoint/key fingerprint.",event.seq);
+    }
+  };
+
+  if(event.kind==="dossier.witness.requested"){
+    if(event.source!=="operator"){
+      throw new KernelIntegrityError("Detached witness verification requests are operator-authorized.",event.seq);
+    }
+    assertWitnessShape();
+    if(state.dossierTransparencyWitnesses.some(item=>
+      item.checkpointId===checkpoint!.id&&
+      item.publicKeyFingerprintSha256===witness!.publicKeyFingerprintSha256
+    )){
+      throw new KernelIntegrityError("This witness key is already accepted for the checkpoint.",event.seq);
+    }
+    return true;
+  }
+
+  if(event.kind==="dossier.witness.completed"){
+    if(event.source!=="tool"){
+      throw new KernelIntegrityError("Detached witness verification completion must be tool-originated.",event.seq);
+    }
+    assertWitnessShape();
+    const verification=event.dossierWitnessVerification;
+    if(
+      !verification||
+      verification.id!=="WVER-"+witness!.id||
+      verification.checkpointId!==checkpoint!.id||
+      verification.witnessId!==witness!.id||
+      verification.tool!=="ed25519-transparency-witness-verifier"||
+      verification.algorithm!=="Ed25519"||
+      verification.checkpointSha256!==checkpoint!.checkpointSha256||
+      verification.publicKeyFingerprintSha256!==witness!.publicKeyFingerprintSha256||
+      verification.verified!==true||
+      Number.isNaN(Date.parse(verification.verifiedAt))
+    ){
+      throw new KernelIntegrityError("Detached witness verification receipt does not match its checkpoint/witness.",event.seq);
+    }
+    if(
+      state.dossierTransparencyWitnesses.some(item=>item.id===witness!.id)||
+      state.dossierTransparencyWitnessVerifications.some(item=>item.id===verification.id)
+    ){
+      throw new KernelIntegrityError("Detached witness or verification receipt id already exists.",event.seq);
+    }
+
+    const request=[...state.events].reverse().find(item=>
+      item.kind==="dossier.witness.requested"&&
+      item.dossierCheckpointId===checkpoint!.id&&
+      item.dossierWitness?.id===witness!.id
+    );
+    if(!request||stableStringify(request.dossierWitness)!==stableStringify(witness)){
+      throw new KernelIntegrityError("Detached witness completion has no matching operator request.",event.seq);
+    }
+    const terminal=[...state.events].reverse().find(item=>
+      (item.kind==="dossier.witness.completed"||item.kind==="dossier.witness.failed")&&
+      item.dossierCheckpointId===checkpoint!.id&&
+      item.dossierWitness?.id===witness!.id
+    );
+    if(terminal&&terminal.seq>request.seq){
+      throw new KernelIntegrityError("Detached witness verification request is already resolved.",event.seq);
+    }
+    return true;
+  }
+
+  if(event.kind==="dossier.witness.failed"){
+    if(event.source!=="tool"){
+      throw new KernelIntegrityError("Detached witness verification failure must be tool-originated.",event.seq);
+    }
+    assertWitnessShape();
+    const request=[...state.events].reverse().find(item=>
+      item.kind==="dossier.witness.requested"&&
+      item.dossierCheckpointId===checkpoint!.id&&
+      item.dossierWitness?.id===witness!.id
+    );
+    if(!request||stableStringify(request.dossierWitness)!==stableStringify(witness)){
+      throw new KernelIntegrityError("Detached witness verification failure has no matching operator request.",event.seq);
+    }
+    const terminal=[...state.events].reverse().find(item=>
+      (item.kind==="dossier.witness.completed"||item.kind==="dossier.witness.failed")&&
+      item.dossierCheckpointId===checkpoint!.id&&
+      item.dossierWitness?.id===witness!.id
+    );
+    if(terminal&&terminal.seq>request.seq){
+      throw new KernelIntegrityError("Detached witness verification request is already resolved.",event.seq);
+    }
+    return true;
+  }
+
+  return false;
+}
+
 function assertArgumentReviewEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
   const action=[
     "argument.review.requested",
@@ -1224,6 +1443,7 @@ function assertRoutingEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
 }
 
 function assertPolicyEvent(state:ThinkTankState,event:ThinkTankEvent):void{
+  if(assertDossierCheckpointWitnessEvent(state,event))return;
   if(assertDossierTransparencyEvent(state,event))return;
   if(assertDossierSealEvent(state,event))return;
   if(assertArgumentReviewEvent(state,event))return;
@@ -1483,6 +1703,10 @@ export function buildEvent(state:ThinkTankState,input:ThinkTankEventInput):Think
     dossierVerification:input.dossierVerification,
     dossierTransparency:input.dossierTransparency,
     dossierTransparencyId:input.dossierTransparencyId,
+    dossierCheckpoint:input.dossierCheckpoint,
+    dossierCheckpointId:input.dossierCheckpointId,
+    dossierWitness:input.dossierWitness,
+    dossierWitnessVerification:input.dossierWitnessVerification,
     message:input.message,
     gateScore:input.gateScore,
     override:input.override,

@@ -467,6 +467,212 @@ const appendDossierTransparencyReceipt=(seal)=>{
   return receipt;
 };
 
+
+const checkpointBasisFor=(checkpoint)=>({
+  schemaVersion:1,
+  tool:"sha256-transparency-checkpoint",
+  canonicalization:"json-stable-v1",
+  entryCount:checkpoint.entryCount,
+  headEntryId:checkpoint.headEntryId,
+  headSha256:checkpoint.headSha256,
+  createdAt:checkpoint.createdAt,
+  clock:"untrusted-local-clock",
+  trust:"portable-local-checkpoint"
+});
+
+export const transparencyCheckpointDigestSha256=(checkpoint)=>
+  createHash("sha256")
+    .update(stableCanonicalJson(checkpointBasisFor(checkpoint)),"utf8")
+    .digest("hex");
+
+const assertTransparencyCheckpoint=(checkpoint)=>{
+  if(
+    !checkpoint||
+    typeof checkpoint!=="object"||
+    checkpoint.tool!=="sha256-transparency-checkpoint"||
+    checkpoint.canonicalization!=="json-stable-v1"||
+    checkpoint.clock!=="untrusted-local-clock"||
+    checkpoint.trust!=="portable-local-checkpoint"||
+    !Number.isInteger(checkpoint.entryCount)||
+    checkpoint.entryCount<1||
+    typeof checkpoint.headEntryId!=="string"||
+    !checkpoint.headEntryId.trim()||
+    !/^[a-f0-9]{64}$/.test(checkpoint.headSha256||"")||
+    !/^[a-f0-9]{64}$/.test(checkpoint.checkpointSha256||"")||
+    Number.isNaN(Date.parse(checkpoint.createdAt||""))
+  ){
+    throw bridgeError("Transparency checkpoint is incomplete or malformed.",400);
+  }
+  const digest=transparencyCheckpointDigestSha256(checkpoint);
+  const expectedId=
+    "CHK-"+String(checkpoint.entryCount).padStart(6,"0")+"-"+digest.slice(0,12);
+  if(checkpoint.checkpointSha256!==digest||checkpoint.id!==expectedId){
+    throw bridgeError("Transparency checkpoint digest or id is invalid.",400);
+  }
+  return checkpoint;
+};
+
+export const buildTransparencyCheckpoint=(entries,createdAt=new Date().toISOString())=>{
+  if(Number.isNaN(Date.parse(createdAt))){
+    throw bridgeError("Transparency checkpoint timestamp is invalid.",400);
+  }
+  const verification=verifyDossierTransparencyEntries(entries);
+  if(!verification.verified){
+    throw bridgeError("Cannot checkpoint an invalid transparency journal: "+verification.reason,409);
+  }
+  if(verification.entryCount<1||!verification.headEntryId){
+    throw bridgeError("Cannot checkpoint an empty transparency journal.",409);
+  }
+
+  const basis={
+    schemaVersion:1,
+    tool:"sha256-transparency-checkpoint",
+    canonicalization:"json-stable-v1",
+    entryCount:verification.entryCount,
+    headEntryId:verification.headEntryId,
+    headSha256:verification.headSha256,
+    createdAt,
+    clock:"untrusted-local-clock",
+    trust:"portable-local-checkpoint"
+  };
+  const checkpointSha256=createHash("sha256")
+    .update(stableCanonicalJson(basis),"utf8")
+    .digest("hex");
+
+  return {
+    id:"CHK-"+String(verification.entryCount).padStart(6,"0")+"-"+checkpointSha256.slice(0,12),
+    tool:"sha256-transparency-checkpoint",
+    canonicalization:"json-stable-v1",
+    entryCount:verification.entryCount,
+    headEntryId:verification.headEntryId,
+    headSha256:verification.headSha256,
+    checkpointSha256,
+    createdAt,
+    clock:"untrusted-local-clock",
+    trust:"portable-local-checkpoint"
+  };
+};
+
+export const witnessEnvelopeFor=(witness)=>({
+  schemaVersion:1,
+  checkpointId:witness.checkpointId,
+  algorithm:"Ed25519",
+  canonicalization:"json-stable-v1",
+  checkpointSha256:witness.checkpointSha256,
+  publicKeyFingerprintSha256:witness.publicKeyFingerprintSha256,
+  witnessedAt:witness.witnessedAt,
+  witnessLabel:witness.witnessLabel,
+  trust:"self-attested-external-witness-key"
+});
+
+export const signTransparencyCheckpointWithPrivateKey=(
+  checkpoint,
+  privateKeyPem,
+  witnessLabel="external-witness",
+  witnessedAt=new Date().toISOString()
+)=>{
+  assertTransparencyCheckpoint(checkpoint);
+  if(Number.isNaN(Date.parse(witnessedAt))){
+    throw bridgeError("Witness timestamp is invalid.",400);
+  }
+  if(typeof witnessLabel!=="string"||!witnessLabel.trim()){
+    throw bridgeError("Witness label is required.",400);
+  }
+
+  let privateKey;
+  try{privateKey=createPrivateKey(privateKeyPem);}
+  catch{throw bridgeError("Witness private key could not be parsed.",400);}
+  if(privateKey.asymmetricKeyType!=="ed25519"){
+    throw bridgeError("Witness private key must be Ed25519.",400);
+  }
+
+  const publicKey=createPublicKey(privateKey);
+  const publicKeyPem=publicKey.export({type:"spki",format:"pem"}).toString();
+  const keyFingerprint=publicKeyFingerprint(publicKey);
+  const unsigned={
+    id:"WIT-"+checkpoint.id+"-"+keyFingerprint.slice(0,12),
+    checkpointId:checkpoint.id,
+    tool:"ed25519-transparency-witness",
+    algorithm:"Ed25519",
+    canonicalization:"json-stable-v1",
+    checkpointSha256:checkpoint.checkpointSha256,
+    publicKeyPem,
+    publicKeyFingerprintSha256:keyFingerprint,
+    witnessedAt,
+    witnessLabel:witnessLabel.trim(),
+    trust:"self-attested-external-witness-key"
+  };
+  const signatureBase64=cryptoSign(
+    null,
+    Buffer.from(stableCanonicalJson(witnessEnvelopeFor(unsigned)),"utf8"),
+    privateKey
+  ).toString("base64");
+
+  return {...unsigned,signatureBase64};
+};
+
+export const verifyTransparencyWitnessReceipt=(checkpoint,witness)=>{
+  assertTransparencyCheckpoint(checkpoint);
+  if(!witness||typeof witness!=="object"){
+    throw bridgeError("Detached witness verification requires a witness receipt.",400);
+  }
+  if(
+    witness.tool!=="ed25519-transparency-witness"||
+    witness.algorithm!=="Ed25519"||
+    witness.canonicalization!=="json-stable-v1"||
+    witness.trust!=="self-attested-external-witness-key"||
+    witness.checkpointId!==checkpoint.id||
+    witness.checkpointSha256!==checkpoint.checkpointSha256||
+    !/^[a-f0-9]{64}$/.test(witness.publicKeyFingerprintSha256||"")||
+    typeof witness.signatureBase64!=="string"||
+    !witness.signatureBase64.trim()||
+    typeof witness.witnessLabel!=="string"||
+    !witness.witnessLabel.trim()||
+    Number.isNaN(Date.parse(witness.witnessedAt||""))
+  ){
+    throw bridgeError("Detached witness receipt is incomplete or unsupported.",400);
+  }
+
+  const expectedId=
+    "WIT-"+checkpoint.id+"-"+witness.publicKeyFingerprintSha256.slice(0,12);
+  if(witness.id!==expectedId){
+    throw bridgeError("Detached witness id does not match its checkpoint/key fingerprint.",400);
+  }
+
+  let publicKey;
+  try{publicKey=createPublicKey(witness.publicKeyPem);}
+  catch{throw bridgeError("Witness public key could not be parsed.",400);}
+  if(publicKey.asymmetricKeyType!=="ed25519"){
+    throw bridgeError("Witness public key must be Ed25519.",400);
+  }
+  if(publicKeyFingerprint(publicKey)!==witness.publicKeyFingerprintSha256){
+    return {verified:false,reason:"Witness public-key fingerprint does not match the receipt."};
+  }
+
+  let signature;
+  try{signature=Buffer.from(witness.signatureBase64,"base64");}
+  catch{throw bridgeError("Witness signature encoding is invalid.",400);}
+
+  const verified=cryptoVerify(
+    null,
+    Buffer.from(stableCanonicalJson(witnessEnvelopeFor(witness)),"utf8"),
+    publicKey,
+    signature
+  );
+  return {
+    verified,
+    reason:verified
+      ?"Detached Ed25519 witness signature verified."
+      :"Detached witness signature verification failed."
+  };
+};
+
+const buildCurrentTransparencyCheckpoint=()=>{
+  const file=transparencyJournalPath();
+  if(!file)throw bridgeError("Transparency journal is disabled.",503);
+  return buildTransparencyCheckpoint(readTransparencyJournal(file));
+};
+
 export const normalizeMessages=(raw)=>{
   if(!Array.isArray(raw)||raw.length===0)throw bridgeError("Provider messages must be a non-empty array.",400);
   if(raw.length>24)throw bridgeError("Provider message count exceeds the bridge limit.",400);
@@ -905,7 +1111,7 @@ const remoteStatus=(seatId,provider,key,model)=>({
 
 const statusPayload=async()=>({
   ok:true,
-  bridgeVersion:"0.5.0",
+  bridgeVersion:"0.7.0",
   seats:[
     await ollamaStatus(),
     remoteStatus("openai","OpenAI",process.env.OPENAI_API_KEY,process.env.OPENAI_MODEL),
@@ -1018,7 +1224,7 @@ const server=http.createServer(async(req,res)=>{
 
   try{
     if(req.method==="GET"&&req.url==="/health"){
-      send(res,200,{ok:true,service:"phi-think-tank-provider-bridge",version:"0.6.0"},origin);
+      send(res,200,{ok:true,service:"phi-think-tank-provider-bridge",version:"0.7.0"},origin);
       return;
     }
 
@@ -1072,6 +1278,27 @@ const server=http.createServer(async(req,res)=>{
       const raw=await readJson(req);
       const entry=appendDossierTransparencyReceipt(raw.seal);
       send(res,200,{ok:true,entry},origin);
+      return;
+    }
+
+    if(req.method==="GET"&&req.url==="/dossier/transparency/checkpoint"){
+      send(res,200,{ok:true,checkpoint:buildCurrentTransparencyCheckpoint()},origin);
+      return;
+    }
+
+    if(req.method==="POST"&&req.url==="/dossier/witness/verify"){
+      const raw=await readJson(req);
+      const result=verifyTransparencyWitnessReceipt(raw.checkpoint,raw.witness);
+      send(res,200,{
+        ok:true,
+        verified:result.verified,
+        reason:result.reason,
+        checkpointId:raw.checkpoint?.id??"",
+        witnessId:raw.witness?.id??"",
+        checkpointSha256:raw.checkpoint?.checkpointSha256??"",
+        publicKeyFingerprintSha256:raw.witness?.publicKeyFingerprintSha256??"",
+        verifiedAt:new Date().toISOString()
+      },origin);
       return;
     }
 

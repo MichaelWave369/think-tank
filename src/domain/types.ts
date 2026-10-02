@@ -278,6 +278,46 @@ export interface DossierTransparencyReceipt{
   journalVerifiedAtAppend:true;
 }
 
+export interface DossierTransparencyCheckpoint{
+  id:string;
+  tool:"sha256-transparency-checkpoint";
+  canonicalization:"json-stable-v1";
+  entryCount:number;
+  headEntryId:string;
+  headSha256:string;
+  checkpointSha256:string;
+  createdAt:string;
+  clock:"untrusted-local-clock";
+  trust:"portable-local-checkpoint";
+}
+
+export interface DossierTransparencyWitnessReceipt{
+  id:string;
+  checkpointId:string;
+  tool:"ed25519-transparency-witness";
+  algorithm:"Ed25519";
+  canonicalization:"json-stable-v1";
+  checkpointSha256:string;
+  publicKeyPem:string;
+  publicKeyFingerprintSha256:string;
+  signatureBase64:string;
+  witnessedAt:string;
+  witnessLabel:string;
+  trust:"self-attested-external-witness-key";
+}
+
+export interface DossierTransparencyWitnessVerificationReceipt{
+  id:string;
+  checkpointId:string;
+  witnessId:string;
+  tool:"ed25519-transparency-witness-verifier";
+  algorithm:"Ed25519";
+  checkpointSha256:string;
+  publicKeyFingerprintSha256:string;
+  verified:true;
+  verifiedAt:string;
+}
+
 export interface DecisionOverrideReceipt{
   id:string;
   dossierId:string;
@@ -402,6 +442,12 @@ export type ThinkTankEventKind=
   |"dossier.transparency.requested"
   |"dossier.transparency.completed"
   |"dossier.transparency.failed"
+  |"dossier.checkpoint.requested"
+  |"dossier.checkpoint.completed"
+  |"dossier.checkpoint.failed"
+  |"dossier.witness.requested"
+  |"dossier.witness.completed"
+  |"dossier.witness.failed"
   |"session.aborted";
 
 export interface ThinkTankEvent{
@@ -450,6 +496,10 @@ export interface ThinkTankEvent{
   dossierVerification?:DossierSealVerificationReceipt;
   dossierTransparency?:DossierTransparencyReceipt;
   dossierTransparencyId?:string;
+  dossierCheckpoint?:DossierTransparencyCheckpoint;
+  dossierCheckpointId?:string;
+  dossierWitness?:DossierTransparencyWitnessReceipt;
+  dossierWitnessVerification?:DossierTransparencyWitnessVerificationReceipt;
   message?:string;
   gateScore?:number;
   override?:boolean;
@@ -505,6 +555,10 @@ export interface ThinkTankEventInput{
   dossierVerification?:DossierSealVerificationReceipt;
   dossierTransparency?:DossierTransparencyReceipt;
   dossierTransparencyId?:string;
+  dossierCheckpoint?:DossierTransparencyCheckpoint;
+  dossierCheckpointId?:string;
+  dossierWitness?:DossierTransparencyWitnessReceipt;
+  dossierWitnessVerification?:DossierTransparencyWitnessVerificationReceipt;
   message?:string;
   gateScore?:number;
   override?:boolean;
@@ -534,6 +588,9 @@ export interface ThinkTankState{
   dossierSeals:DossierSealReceipt[];
   dossierSealVerifications:DossierSealVerificationReceipt[];
   dossierTransparencyEntries:DossierTransparencyReceipt[];
+  dossierTransparencyCheckpoints:DossierTransparencyCheckpoint[];
+  dossierTransparencyWitnesses:DossierTransparencyWitnessReceipt[];
+  dossierTransparencyWitnessVerifications:DossierTransparencyWitnessVerificationReceipt[];
   evidenceRefs:EvidenceRef[];
   evidenceExcerpts:EvidenceExcerpt[];
   claims:Claim[];

@@ -11,6 +11,7 @@ import type {
   ClaimRelation,
   EvidenceExcerpt,
   EvidenceRef,
+  DossierTransparencyWitnessReceipt,
   ResearchCandidate,
   RoleId,
   SeatAvailability,
@@ -24,7 +25,7 @@ import { buildEvent,buildEventBatch,replayEvents,verifyReplay } from "../kernel/
 import { deriveMotionCue } from "../motion/motion";
 import { useEventPlayback } from "../motion/useEventPlayback";
 import { useMotionPolicy } from "../motion/useMotionPolicy";
-import { appendDossierTransparency,fetchDossierSealStatus,fetchDossierTransparencyStatus,fetchMachineEvidence,fetchProviderStatus,fetchResearchStatus,invokeProvider,pinMachineEvidenceExcerpt,projectMachineEvidence,sealDecisionDossier,searchResearch,verifyDecisionDossierSeal } from "../providers/client";
+import { appendDossierTransparency,fetchDossierSealStatus,fetchDossierTransparencyCheckpoint,fetchDossierTransparencyStatus,fetchMachineEvidence,fetchProviderStatus,fetchResearchStatus,invokeProvider,pinMachineEvidenceExcerpt,projectMachineEvidence,sealDecisionDossier,searchResearch,verifyDecisionDossierSeal,verifyDossierTransparencyWitness } from "../providers/client";
 import { runLiveProviderSession } from "../providers/liveRunner";
 import { buildArgumentReviewMessages,parseArgumentReviewResponse } from "../providers/argumentReview";
 import type { DossierSealStatusResponse,DossierTransparencyStatusResponse,EvidenceProjectionResponse,ProviderStatusResponse,ResearchBackendStatusResponse } from "../providers/types";
@@ -74,6 +75,9 @@ export function ThinkTankRoom(){
   const [dossierTransparencyStatus,setDossierTransparencyStatus]=useState<DossierTransparencyStatusResponse|null>(null);
   const [dossierTransparencyBusy,setDossierTransparencyBusy]=useState(false);
   const [dossierTransparencyError,setDossierTransparencyError]=useState("");
+  const [dossierCheckpointBusy,setDossierCheckpointBusy]=useState(false);
+  const [dossierWitnessBusy,setDossierWitnessBusy]=useState(false);
+  const [dossierWitnessError,setDossierWitnessError]=useState("");
   const liveAbortRef=useRef<AbortController|null>(null);
   const evidenceAbortRef=useRef<AbortController|null>(null);
   const researchAbortRef=useRef<AbortController|null>(null);
@@ -81,6 +85,8 @@ export function ThinkTankRoom(){
   const argumentReviewAbortRef=useRef<AbortController|null>(null);
   const dossierSealAbortRef=useRef<AbortController|null>(null);
   const dossierTransparencyAbortRef=useRef<AbortController|null>(null);
+  const dossierCheckpointAbortRef=useRef<AbortController|null>(null);
+  const dossierWitnessAbortRef=useRef<AbortController|null>(null);
   const motionMode=useMotionPolicy();
 
   const applyEvent=useCallback((event:ThinkTankEvent)=>{
@@ -89,7 +95,7 @@ export function ThinkTankRoom(){
   },[]);
 
   const playback=useEventPlayback(applyEvent,motionMode);
-  const busy=playback.playing||liveRunning||evidenceFetching||researchSearching||excerptBusy||argumentReviewBusy||dossierSealBusy||dossierTransparencyBusy;
+  const busy=playback.playing||liveRunning||evidenceFetching||researchSearching||excerptBusy||argumentReviewBusy||dossierSealBusy||dossierTransparencyBusy||dossierCheckpointBusy||dossierWitnessBusy;
 
   const refreshProviders=useCallback(async()=>{
     try{
@@ -922,6 +928,123 @@ export function ThinkTankRoom(){
     }
   };
 
+  const freezeTransparencyCheckpoint=async()=>{
+    if(busy)return;
+    const latestEntry=stateRef.current.dossierTransparencyEntries[
+      stateRef.current.dossierTransparencyEntries.length-1
+    ];
+    if(!latestEntry)return;
+
+    const controller=new AbortController();
+    dossierCheckpointAbortRef.current=controller;
+    setDossierCheckpointBusy(true);
+    setDossierWitnessError("");
+
+    emitInput({
+      source:"operator",
+      kind:"dossier.checkpoint.requested",
+      phase:stateRef.current.phase,
+      dossierTransparencyId:latestEntry.id,
+      message:"Operator requested portable checkpoint for transparency head "+latestEntry.id+"."
+    });
+
+    try{
+      const response=await fetchDossierTransparencyCheckpoint(controller.signal);
+      emitInput({
+        source:"tool",
+        kind:"dossier.checkpoint.completed",
+        phase:stateRef.current.phase,
+        dossierTransparencyId:latestEntry.id,
+        dossierCheckpoint:response.checkpoint,
+        dossierCheckpointId:response.checkpoint.id,
+        message:
+          "Transparency checkpoint "+response.checkpoint.id+" froze journal head "+
+          response.checkpoint.headEntryId+" · "+response.checkpoint.headSha256.slice(0,16)+"…."
+      });
+    }catch(error){
+      const message=error instanceof Error?error.message:String(error);
+      setDossierWitnessError(message);
+      try{
+        emitInput({
+          source:"tool",
+          kind:"dossier.checkpoint.failed",
+          phase:stateRef.current.phase,
+          dossierTransparencyId:latestEntry.id,
+          message:"Transparency checkpoint failed: "+message
+        });
+      }catch{}
+    }finally{
+      dossierCheckpointAbortRef.current=null;
+      setDossierCheckpointBusy(false);
+    }
+  };
+
+  const verifyDetachedWitness=async(
+    checkpointId:string,
+    witness:DossierTransparencyWitnessReceipt
+  )=>{
+    if(busy)return;
+    const checkpoint=stateRef.current.dossierTransparencyCheckpoints.find(item=>item.id===checkpointId);
+    if(!checkpoint)return;
+
+    const controller=new AbortController();
+    dossierWitnessAbortRef.current=controller;
+    setDossierWitnessBusy(true);
+    setDossierWitnessError("");
+
+    try{
+      emitInput({
+        source:"operator",
+        kind:"dossier.witness.requested",
+        phase:stateRef.current.phase,
+        dossierCheckpointId:checkpoint.id,
+        dossierWitness:witness,
+        message:"Operator submitted detached witness "+witness.id+" for "+checkpoint.id+"."
+      });
+
+      const response=await verifyDossierTransparencyWitness(checkpoint,witness,controller.signal);
+      if(!response.verified)throw new Error(response.reason);
+
+      emitInput({
+        source:"tool",
+        kind:"dossier.witness.completed",
+        phase:stateRef.current.phase,
+        dossierCheckpointId:checkpoint.id,
+        dossierWitness:witness,
+        dossierWitnessVerification:{
+          id:"WVER-"+witness.id,
+          checkpointId:checkpoint.id,
+          witnessId:witness.id,
+          tool:"ed25519-transparency-witness-verifier",
+          algorithm:"Ed25519",
+          checkpointSha256:response.checkpointSha256,
+          publicKeyFingerprintSha256:response.publicKeyFingerprintSha256,
+          verified:true,
+          verifiedAt:response.verifiedAt
+        },
+        message:
+          "Detached witness "+witness.id+" verified for "+checkpoint.id+
+          " · key "+response.publicKeyFingerprintSha256.slice(0,16)+"…."
+      });
+    }catch(error){
+      const message=error instanceof Error?error.message:String(error);
+      setDossierWitnessError(message);
+      try{
+        emitInput({
+          source:"tool",
+          kind:"dossier.witness.failed",
+          phase:stateRef.current.phase,
+          dossierCheckpointId:checkpoint.id,
+          dossierWitness:witness,
+          message:"Detached witness verification failed: "+message
+        });
+      }catch{}
+    }finally{
+      dossierWitnessAbortRef.current=null;
+      setDossierWitnessBusy(false);
+    }
+  };
+
   const runAutoRoute=()=>playInputs(routingEventInputs(routingPreview));
 
   const pinRole=(roleId:RoleId,seatId:SeatId)=>{
@@ -1045,6 +1168,8 @@ export function ThinkTankRoom(){
     argumentReviewAbortRef.current?.abort();
     dossierSealAbortRef.current?.abort();
     dossierTransparencyAbortRef.current?.abort();
+    dossierCheckpointAbortRef.current?.abort();
+    dossierWitnessAbortRef.current?.abort();
     liveAbortRef.current?.abort();
     playback.cancel();
     setLiveRunning(false);
@@ -1231,11 +1356,16 @@ export function ThinkTankRoom(){
           busy={busy}
           sealBusy={dossierSealBusy}
           transparencyBusy={dossierTransparencyBusy}
+          checkpointBusy={dossierCheckpointBusy}
+          witnessBusy={dossierWitnessBusy}
           error={dossierSealError}
           transparencyError={dossierTransparencyError}
+          witnessError={dossierWitnessError}
           onSeal={dossierId=>void sealDossier(dossierId)}
           onVerify={(dossierId,sealId)=>void verifyDossierSeal(dossierId,sealId)}
           onTransparencyAppend={(dossierId,sealId)=>void appendTransparencyJournal(dossierId,sealId)}
+          onCheckpoint={()=>void freezeTransparencyCheckpoint()}
+          onWitnessImport={(checkpointId,witness)=>void verifyDetachedWitness(checkpointId,witness)}
         />
 
         {state.synthesisWithheld&&<div className="gate-block">

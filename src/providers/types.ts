@@ -1,4 +1,4 @@
-import type { DossierSealReceipt,DossierTransparencyReceipt,RoleId,SeatId,SynthesisDecisionDossier } from "../domain/types";
+import type { DossierSealReceipt,DossierTransparencyCheckpoint,DossierTransparencyReceipt,DossierTransparencyWitnessReceipt,RoleId,SeatId,SynthesisDecisionDossier } from "../domain/types";
 
 export type ProviderConnectionState="connected"|"configured"|"disconnected"|"error";
 
@@ -177,4 +177,25 @@ export interface DossierTransparencyStatusResponse{
 export interface DossierTransparencyAppendResponse{
   ok:true;
   entry:DossierTransparencyReceipt;
+}
+
+export interface DossierTransparencyCheckpointResponse{
+  ok:true;
+  checkpoint:DossierTransparencyCheckpoint;
+}
+
+export interface DossierWitnessVerifyResponse{
+  ok:true;
+  verified:boolean;
+  reason:string;
+  checkpointId:string;
+  witnessId:string;
+  checkpointSha256:string;
+  publicKeyFingerprintSha256:string;
+  verifiedAt:string;
+}
+
+export interface DossierWitnessVerifyRequest{
+  checkpoint:DossierTransparencyCheckpoint;
+  witness:DossierTransparencyWitnessReceipt;
 }

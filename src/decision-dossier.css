@@ -14,3 +14,8 @@
 .dossier-transparency.transparency-logged{border-top-color:#5f8a65}.dossier-transparency.transparency-corrupt{border-top-color:#9b4a4a}
 .dossier-transparency-head{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}.dossier-transparency-head>div{display:grid;gap:2px}.dossier-transparency-head small{font-size:.47rem;opacity:.56}.dossier-transparency-head strong{font-size:.61rem}.dossier-transparency-head>span{font-size:.49rem;opacity:.66}
 .dossier-transparency>p{margin:0;font-size:.53rem;line-height:1.42;opacity:.78}
+
+.dossier-checkpoint{margin-top:8px;border-top:1px dashed #56666f;padding-top:8px;display:grid;gap:7px}
+.dossier-checkpoint>p,.dossier-witness>p{margin:0;font-size:.53rem;line-height:1.42;opacity:.78}
+.dossier-witness{margin-top:2px;border:1px solid #414b50;background:#080b0d;padding:8px;display:grid;gap:7px}
+.dossier-witness-file{display:none}

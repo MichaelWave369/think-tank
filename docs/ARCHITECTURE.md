@@ -299,6 +299,32 @@ The journal clock is explicitly labeled untrusted local time. A valid local chai
 
 See [TRANSPARENCY_JOURNAL.md](TRANSPARENCY_JOURNAL.md).
 
+## Portable checkpoints + detached witnesses
+
+PR 20 lets the operator freeze the latest transparency-journal head that the room has actually accepted into a portable checkpoint.
+
+The checkpoint binds:
+- journal entry count
+- journal head entry id
+- journal head SHA-256
+- checkpoint SHA-256
+- local creation time with an explicit untrusted-clock label
+
+The checkpoint can be exported and signed by an independent Ed25519 key on another machine or process.
+
+The Think Tank bridge never needs the witness private key. It receives only:
+- the canonical checkpoint
+- the detached witness receipt
+- the witness public key/signature material
+
+The bridge independently recomputes the checkpoint digest, verifies the witness key fingerprint, reconstructs the signed envelope, and verifies the Ed25519 signature.
+
+Only a successful verification becomes a canonical witness receipt in the event ledger.
+
+Witness identity and trusted time remain outside this rung.
+
+See [DETACHED_WITNESS.md](DETACHED_WITNESS.md).
+
 ## PR ladder
 
 1. ✅ Room shell + operator authority
@@ -319,6 +345,7 @@ See [TRANSPARENCY_JOURNAL.md](TRANSPARENCY_JOURNAL.md).
 16. ✅ Argument-map governance
 17. ✅ Synthesis decision dossier
 18. ✅ Cryptographic dossier sealing
-19. Local dossier transparency journal
+19. ✅ Local dossier transparency journal
+20. Portable checkpoints + detached witnesses
 
-Future work can add proper PDF extraction, authenticated remote deployment, richer provider discovery, streaming, tool execution, voice, trusted timestamps, external transparency witnesses/checkpoints, and external signer attestation without changing the core event contract.
+Future work can add proper PDF extraction, authenticated remote deployment, richer provider discovery, streaming, tool execution, voice, trusted timestamp authorities, witness trust policies, public checkpoint publication, and external signer identity attestation without changing the core event contract.
