@@ -332,3 +332,26 @@ These reports do not rewrite the original dossier or add synthesis authority.
 TEAR / EXPORT DOSSIER includes linked `provenanceAssurances`.
 
 See [PROVENANCE_ASSURANCE.md](PROVENANCE_ASSURANCE.md).
+
+## Assurance-gated release manifests
+
+PR 24 adds a separate governed release/export receipt linked to a historical dossier and one fresh passing provenance assurance report.
+
+DossierReleaseManifest records:
+- dossier id
+- selected provenance policy
+- assurance report id and basis fingerprint
+- selected checkpoint id
+- linked human override id when present
+- deterministic sorted artifact ids
+- deterministic manifest fingerprint
+- releaseAuthority: fresh-passing-provenance-policy
+- truthAuthority: false
+
+The release manifest does not change the normal dossier outcome or human override history.
+
+TEAR / EXPORT DOSSIER includes historical release manifests for inspection.
+
+EXPORT RELEASE PACKAGE is the explicit assurance-gated release path and contains only the manifest plus canonical artifacts named by its artifact list.
+
+See [ASSURANCE_GATED_RELEASE.md](ASSURANCE_GATED_RELEASE.md).
