@@ -1966,6 +1966,12 @@ function assertDossierPublisherIdentityEvent(state:ThinkTankState,event:ThinkTan
         event.seq
       );
     }
+    if(event.dossierReleaseId!==publication.releaseId){
+      throw new KernelIntegrityError(
+        "Publisher-origin identity request REL id does not match RPUB.",
+        event.seq
+      );
+    }
     try{
       buildDossierReleasePackageForPublication(state,publication);
     }catch(error){
@@ -1989,6 +1995,12 @@ function assertDossierPublisherIdentityEvent(state:ThinkTankState,event:ThinkTan
     if(!publication||!receipt){
       throw new KernelIntegrityError(
         "Publisher-origin identity completion requires RPUB and POID receipts.",
+        event.seq
+      );
+    }
+    if(event.dossierReleaseId!==publication.releaseId){
+      throw new KernelIntegrityError(
+        "Publisher-origin identity completion REL id does not match RPUB.",
         event.seq
       );
     }
@@ -2027,15 +2039,20 @@ function assertDossierPublisherIdentityEvent(state:ThinkTankState,event:ThinkTan
       receipt.identityUrl!==expectedIdentityUrl||
       !/^[a-f0-9]{64}$/.test(receipt.descriptorSha256)||
       !receipt.publisherId.trim()||
+      receipt.publisherId.length>200||
       !receipt.publisherLabel.trim()||
+      receipt.publisherLabel.length>300||
       !receipt.administrativeDomainClaim.trim()||
+      receipt.administrativeDomainClaim.length>300||
       !receipt.publicKeyPem.includes("BEGIN PUBLIC KEY")||
+      receipt.publicKeyPem.length>20_000||
       !/^[a-f0-9]{64}$/.test(receipt.publicKeyFingerprintSha256)||
       !receipt.signatureBase64.trim()||
       Number.isNaN(Date.parse(receipt.claimedAt))||
       new Date(Date.parse(receipt.claimedAt)).toISOString()!==receipt.claimedAt||
       receipt.verified!==true||
       Number.isNaN(Date.parse(receipt.verifiedAt))||
+      new Date(Date.parse(receipt.verifiedAt)).toISOString()!==receipt.verifiedAt||
       receipt.clock!=="untrusted-local-clock"||
       receipt.trust!=="self-attested-origin-signing-key"||
       receipt.realWorldIdentityAuthority!==false||
@@ -2094,6 +2111,12 @@ function assertDossierPublisherIdentityEvent(state:ThinkTankState,event:ThinkTan
     if(event.source!=="tool"||!publication){
       throw new KernelIntegrityError(
         "Publisher-origin identity failure must be tool-originated for an existing RPUB.",
+        event.seq
+      );
+    }
+    if(event.dossierReleaseId!==publication.releaseId){
+      throw new KernelIntegrityError(
+        "Publisher-origin identity failure REL id does not match RPUB.",
         event.seq
       );
     }
