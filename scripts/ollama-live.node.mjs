@@ -48,6 +48,29 @@ test("normal Ollama role request disables thinking and accepts final content",as
   assert.equal(result.attempts[0].mode,"think:false");
 });
 
+test("empty final content with think disabled fails without accepting reasoning",async()=>{
+  let calls=0;
+  await assert.rejects(
+    ()=>runOllamaChatWithFallback({
+      model:"qwen3.6:latest",
+      messages:[{role:"user",content:"hello"}],
+      transport:async()=>{
+        calls+=1;
+        return {
+          body:{
+            message:{thinking:"unexpected reasoning",content:""},
+            done:true,
+            done_reason:"stop"
+          },
+          response:response()
+        };
+      }
+    }),
+    /no final assistant text with thinking disabled/i
+  );
+  assert.equal(calls,1);
+});
+
 test("falls back once to legacy payload when think control is rejected",async()=>{
   const payloads=[];
   const result=await runOllamaChatWithFallback({
