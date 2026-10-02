@@ -261,6 +261,23 @@ export interface DossierSealVerificationReceipt{
   verifiedAt:string;
 }
 
+export interface DossierTransparencyReceipt{
+  id:string;
+  dossierId:string;
+  sealId:string;
+  tool:"sha256-dossier-transparency-journal";
+  canonicalization:"json-stable-v1";
+  sequence:number;
+  previousEntrySha256:string;
+  entrySha256:string;
+  dossierSha256:string;
+  publicKeyFingerprintSha256:string;
+  loggedAt:string;
+  clock:"untrusted-local-clock";
+  trust:"tamper-evident-local-journal";
+  journalVerifiedAtAppend:true;
+}
+
 export interface DecisionOverrideReceipt{
   id:string;
   dossierId:string;
@@ -382,6 +399,9 @@ export type ThinkTankEventKind=
   |"dossier.verify.requested"
   |"dossier.verify.completed"
   |"dossier.verify.failed"
+  |"dossier.transparency.requested"
+  |"dossier.transparency.completed"
+  |"dossier.transparency.failed"
   |"session.aborted";
 
 export interface ThinkTankEvent{
@@ -428,6 +448,8 @@ export interface ThinkTankEvent{
   dossierSeal?:DossierSealReceipt;
   dossierSealId?:string;
   dossierVerification?:DossierSealVerificationReceipt;
+  dossierTransparency?:DossierTransparencyReceipt;
+  dossierTransparencyId?:string;
   message?:string;
   gateScore?:number;
   override?:boolean;
@@ -481,6 +503,8 @@ export interface ThinkTankEventInput{
   dossierSeal?:DossierSealReceipt;
   dossierSealId?:string;
   dossierVerification?:DossierSealVerificationReceipt;
+  dossierTransparency?:DossierTransparencyReceipt;
+  dossierTransparencyId?:string;
   message?:string;
   gateScore?:number;
   override?:boolean;
@@ -509,6 +533,7 @@ export interface ThinkTankState{
   decisionOverrides:DecisionOverrideReceipt[];
   dossierSeals:DossierSealReceipt[];
   dossierSealVerifications:DossierSealVerificationReceipt[];
+  dossierTransparencyEntries:DossierTransparencyReceipt[];
   evidenceRefs:EvidenceRef[];
   evidenceExcerpts:EvidenceExcerpt[];
   claims:Claim[];

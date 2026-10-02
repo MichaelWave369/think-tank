@@ -197,6 +197,10 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
     next.dossierSealVerifications=[...state.dossierSealVerifications,event.dossierVerification];
   }
 
+  if(event.kind==="dossier.transparency.completed"&&event.dossierTransparency){
+    next.dossierTransparencyEntries=[...state.dossierTransparencyEntries,event.dossierTransparency];
+  }
+
   if(event.kind==="seat.status"&&event.seatId&&event.seatStatus){
     next.seatStatus={...state.seatStatus,[event.seatId]:event.seatStatus};
   }

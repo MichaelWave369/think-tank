@@ -6,35 +6,29 @@ A governed, event-sourced multi-mind control room. Cognitive roles are staffed b
 
 ## Current rung
 
-**PR 18 — Cryptographic Dossier Sealing**
+**PR 19 — Local Dossier Transparency Journal**
 
-The Think Tank can now cryptographically seal portable decision dossiers with a persistent local Ed25519 signer while keeping replay checksums, signer identity trust, and factual truth as separate concepts.
+The Think Tank can now append cryptographically sealed decision dossiers to an optional persistent local JSONL journal whose entries are SHA-256 hash-linked.
 
-PR 18 adds:
-- optional persistent Ed25519 dossier signer
-- SHA-256 dossier content digests
-- json-stable-v1 canonicalization
-- public-key SHA-256 fingerprints
-- self-attested local signer trust label
-- persistent key generation command
-- private-key bridge boundary
-- governed seal request/completion events
-- governed verification request/completion events
-- one seal per dossier per signer key
-- multi-signer-ready receipt model
-- signing endpoint self-verification
-- independent verification without private key
-- stored verification receipts
-- tamper-detection tests
-- Decision Dossier seal UI
-- seal/verifier telemetry
-- dossier export with seals + verification receipts
+PR 19 adds:
+- operator-authorized transparency append events
+- persistent local JSONL journal storage
+- SHA-256 entry hashing
+- previous-entry hash chaining
+- duplicate-seal rejection
+- full-chain verification before every append
+- full-chain verification after every append
+- explicit local-clock / local-journal trust labels
+- governed replayable transparency receipts
+- Decision Dossier transparency UI
+- dossier export with transparency receipts
+- bridge and kernel tamper-detection tests
 
 ### Important semantic rule
 
-**VALID SIGNATURE ≠ TRUSTED SIGNER ≠ TRUE DECISION.**
+**LOGGED ≠ TRUSTED TIME ≠ TRUSTED SIGNER ≠ TRUE DECISION.**
 
-Cryptography proves content integrity under a key. External identity trust and decision correctness remain separate questions.
+The journal proves local hash-chain continuity for the entries it contains. It does not prove that the local clock is trustworthy, that the journal was externally witnessed, that a key owner has a real-world identity, or that the decision is factually correct.
 
 See:
 - [Architecture](docs/ARCHITECTURE.md)
@@ -55,6 +49,7 @@ See:
 - [Argument-Map Governance](docs/ARGUMENT_GOVERNANCE.md)
 - [Synthesis Decision Dossier](docs/DECISION_DOSSIER.md)
 - [Cryptographic Dossier Sealing](docs/CRYPTOGRAPHIC_SEALING.md)
+- [Local Dossier Transparency Journal](docs/TRANSPARENCY_JOURNAL.md)
 
 ## Local-first setup
 
@@ -77,7 +72,7 @@ Verification:
 
 > **If a light changes, a sequenced event explains why.**
 
-Every normal synthesis carries a deterministic dossier; PR 18 can optionally seal that portable receipt with a persistent local Ed25519 key.
+Every normal synthesis carries a deterministic dossier; it can be Ed25519-sealed and the seal can be appended to a persistent local SHA-256 transparency journal.
 
 ## Build ladder
 
@@ -98,6 +93,7 @@ Every normal synthesis carries a deterministic dossier; PR 18 can optionally sea
 15. ✅ Excerpt-aware Challenger argument review
 16. ✅ Argument-map governance
 17. ✅ Synthesis decision dossier
-18. **Cryptographic dossier sealing**
+18. ✅ Cryptographic dossier sealing
+19. **Local dossier transparency journal**
 
 **Φ THINK TANK is a control room, not eight chat cards.**

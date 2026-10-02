@@ -278,6 +278,27 @@ The trust model is explicitly self-attested local key. PR 18 does not establish 
 
 See [CRYPTOGRAPHIC_SEALING.md](CRYPTOGRAPHIC_SEALING.md).
 
+## Local dossier transparency journal
+
+PR 19 adds an optional persistent append-only-by-convention journal above PR 18 seals.
+
+The local bridge stores one JSON object per line. Each entry binds:
+- dossier id
+- seal id
+- dossier SHA-256
+- signer-key SHA-256 fingerprint
+- journal sequence
+- previous entry SHA-256
+- local append time
+
+The bridge verifies the entire existing chain before append, rejects duplicate seals, appends exactly one new entry, then verifies the entire chain again.
+
+The canonical event ledger stores the returned transparency receipt, so the room can replay exactly which journal commitment was accepted.
+
+The journal clock is explicitly labeled untrusted local time. A valid local chain is not a trusted timestamp, an external witness, signer identity proof, or factual-truth proof.
+
+See [TRANSPARENCY_JOURNAL.md](TRANSPARENCY_JOURNAL.md).
+
 ## PR ladder
 
 1. ✅ Room shell + operator authority
@@ -297,6 +318,7 @@ See [CRYPTOGRAPHIC_SEALING.md](CRYPTOGRAPHIC_SEALING.md).
 15. ✅ Excerpt-aware Challenger argument review
 16. ✅ Argument-map governance
 17. ✅ Synthesis decision dossier
-18. Cryptographic dossier sealing
+18. ✅ Cryptographic dossier sealing
+19. Local dossier transparency journal
 
-Future work can add proper PDF extraction, authenticated remote deployment, richer provider discovery, streaming, tool execution, voice, trusted timestamps, transparency logs, and external signer attestation without changing the core event contract.
+Future work can add proper PDF extraction, authenticated remote deployment, richer provider discovery, streaming, tool execution, voice, trusted timestamps, external transparency witnesses/checkpoints, and external signer attestation without changing the core event contract.
