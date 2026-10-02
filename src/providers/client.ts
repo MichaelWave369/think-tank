@@ -26,7 +26,9 @@ import type {
   DossierReleaseSealStatusResponse,
   DossierReleaseSealResponse,
   DossierReleaseVerifyResponse,
-  DossierReleaseRfc3161TimestampResponse
+  DossierReleaseRfc3161TimestampResponse,
+  DossierReleasePublicationStatusResponse,
+  DossierReleasePublicationResponse
 } from "./types";
 
 const DEFAULT_BRIDGE="http://127.0.0.1:3691";
@@ -427,6 +429,43 @@ export async function requestDossierReleaseRfc3161Timestamp(
   if(!response.ok||!body.ok){
     const errorBody=body as DossierSealError;
     throw new Error(errorBody.error?.message||("Release RFC3161 timestamp returned HTTP "+response.status+"."));
+  }
+  return body;
+}
+
+export async function fetchReleasePublicationStatus():Promise<DossierReleasePublicationStatusResponse>{
+  const response=await fetchWithTimeout(
+    providerBridgeUrl+"/dossier/release/publication/status",
+    {},
+    4000
+  );
+  const body=await response.json() as DossierReleasePublicationStatusResponse|DossierSealError;
+  if(!response.ok||!body.ok){
+    const errorBody=body as DossierSealError;
+    throw new Error(errorBody.error?.message||("Release publication status returned HTTP "+response.status+"."));
+  }
+  return body;
+}
+
+export async function publishDossierReleasePackage(
+  releasePackage:import("../domain/releasePackage").DossierReleasePackage,
+  packageBasisFingerprint:string,
+  signal?:AbortSignal
+):Promise<DossierReleasePublicationResponse>{
+  const response=await fetchWithTimeout(
+    providerBridgeUrl+"/dossier/release/publication",
+    {
+      method:"POST",
+      headers:{"content-type":"application/json"},
+      body:JSON.stringify({releasePackage,packageBasisFingerprint}),
+      signal
+    },
+    45000
+  );
+  const body=await response.json() as DossierReleasePublicationResponse|DossierSealError;
+  if(!response.ok||!body.ok){
+    const errorBody=body as DossierSealError;
+    throw new Error(errorBody.error?.message||("Release publication returned HTTP "+response.status+"."));
   }
   return body;
 }
