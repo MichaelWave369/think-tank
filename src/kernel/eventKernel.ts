@@ -19,6 +19,10 @@ import {
   evaluateProvenanceAssurance,
   PROVENANCE_ASSURANCE_POLICIES
 } from "../domain/provenanceAssurance";
+import {
+  buildDossierReleaseManifest,
+  releaseEligibleAssurance
+} from "../domain/releaseManifest";
 import { fingerprintProjection } from "./fingerprint";
 import { stableStringify } from "./stable";
 
@@ -897,6 +901,131 @@ function assertDossierAssuranceEvent(state:ThinkTankState,event:ThinkTankEvent):
         "Provenance assurance request is already resolved.",
         event.seq
       );
+    }
+    return true;
+  }
+
+  return false;
+}
+
+function assertDossierReleaseEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
+  const action=[
+    "dossier.release.requested",
+    "dossier.release.authorized"
+  ].includes(event.kind);
+
+  if(
+    action&&
+    state.phase!=="intake"&&
+    state.phase!=="synthesis"&&
+    state.phase!=="complete"&&
+    state.phase!=="aborted"
+  ){
+    throw new KernelIntegrityError(
+      "Dossier release authorization cannot run during active governed execution.",
+      event.seq
+    );
+  }
+
+  const dossier=event.decisionDossierId
+    ?state.decisionDossiers.find(item=>item.id===event.decisionDossierId)
+    :undefined;
+  const policy=event.provenancePolicy;
+  const assuranceId=event.provenanceAssuranceId;
+
+  if(event.kind==="dossier.release.requested"){
+    if(event.source!=="operator"){
+      throw new KernelIntegrityError("Dossier release requests are operator-authorized.",event.seq);
+    }
+    if(!dossier||!policy||!assuranceId){
+      throw new KernelIntegrityError(
+        "Dossier release request requires dossier, policy, and assurance report id.",
+        event.seq
+      );
+    }
+    if(!PROVENANCE_ASSURANCE_POLICIES[policy]){
+      throw new KernelIntegrityError("Dossier release request has an unsupported policy.",event.seq);
+    }
+    const eligible=releaseEligibleAssurance(state,dossier.id,policy,assuranceId);
+    if(!eligible){
+      throw new KernelIntegrityError(
+        "Dossier release requires a fresh passing assurance report for the selected policy.",
+        event.seq
+      );
+    }
+    if(state.dossierReleaseManifests.some(item=>
+      item.dossierId===dossier.id&&
+      item.policy===policy&&
+      item.assuranceReportId===assuranceId
+    )){
+      throw new KernelIntegrityError(
+        "This dossier/policy/assurance basis already has a release manifest.",
+        event.seq
+      );
+    }
+    return true;
+  }
+
+  if(event.kind==="dossier.release.authorized"){
+    if(event.source!=="system"){
+      throw new KernelIntegrityError("Dossier release authorization must be system-originated.",event.seq);
+    }
+    if(!dossier||!policy||!assuranceId||!event.dossierRelease){
+      throw new KernelIntegrityError(
+        "Dossier release authorization requires dossier, policy, assurance id, and manifest.",
+        event.seq
+      );
+    }
+
+    let expected;
+    try{
+      expected=buildDossierReleaseManifest(state,dossier.id,policy,assuranceId);
+    }catch(error){
+      throw new KernelIntegrityError(
+        error instanceof Error?error.message:String(error),
+        event.seq
+      );
+    }
+
+    if(stableStringify(event.dossierRelease)!==stableStringify(expected)){
+      throw new KernelIntegrityError(
+        "Dossier release manifest does not match deterministic recomputation.",
+        event.seq
+      );
+    }
+    if(
+      event.dossierRelease.truthAuthority!==false||
+      event.dossierRelease.releaseAuthority!=="fresh-passing-provenance-policy"
+    ){
+      throw new KernelIntegrityError(
+        "Dossier release manifest authority labels are invalid.",
+        event.seq
+      );
+    }
+    if(state.dossierReleaseManifests.some(item=>item.id===expected.id)){
+      throw new KernelIntegrityError("Dossier release manifest id already exists.",event.seq);
+    }
+
+    const request=[...state.events].reverse().find(item=>
+      item.kind==="dossier.release.requested"&&
+      item.decisionDossierId===dossier.id&&
+      item.provenancePolicy===policy&&
+      item.provenanceAssuranceId===assuranceId
+    );
+    if(!request){
+      throw new KernelIntegrityError(
+        "Dossier release authorization has no matching operator request.",
+        event.seq
+      );
+    }
+    const terminal=[...state.events].reverse().find(item=>
+      item.kind==="dossier.release.authorized"&&
+      item.decisionDossierId===dossier.id&&
+      item.provenancePolicy===policy&&
+      item.provenanceAssuranceId===assuranceId
+    );
+    if(terminal&&terminal.seq>request.seq){
+      throw new KernelIntegrityError("Dossier release request is already resolved.",event.seq);
     }
     return true;
   }
@@ -1784,6 +1913,7 @@ function assertRoutingEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
 }
 
 function assertPolicyEvent(state:ThinkTankState,event:ThinkTankEvent):void{
+  if(assertDossierReleaseEvent(state,event))return;
   if(assertDossierAssuranceEvent(state,event))return;
   if(assertDossierPublicationEvent(state,event))return;
   if(assertDossierTimestampEvent(state,event))return;
@@ -2055,6 +2185,8 @@ export function buildEvent(state:ThinkTankState,input:ThinkTankEventInput):Think
     dossierPublication:input.dossierPublication,
     provenancePolicy:input.provenancePolicy,
     provenanceAssurance:input.provenanceAssurance,
+    provenanceAssuranceId:input.provenanceAssuranceId,
+    dossierRelease:input.dossierRelease,
     message:input.message,
     gateScore:input.gateScore,
     override:input.override,
