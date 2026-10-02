@@ -25,10 +25,10 @@ import { buildEvent,buildEventBatch,replayEvents,verifyReplay } from "../kernel/
 import { deriveMotionCue } from "../motion/motion";
 import { useEventPlayback } from "../motion/useEventPlayback";
 import { useMotionPolicy } from "../motion/useMotionPolicy";
-import { appendDossierTransparency,fetchDossierRfc3161Status,fetchDossierSealStatus,fetchDossierTransparencyCheckpoint,fetchDossierTransparencyStatus,fetchMachineEvidence,fetchProviderStatus,fetchResearchStatus,invokeProvider,pinMachineEvidenceExcerpt,projectMachineEvidence,requestDossierRfc3161Timestamp,sealDecisionDossier,searchResearch,verifyDecisionDossierSeal,verifyDossierTransparencyWitness } from "../providers/client";
+import { appendDossierTransparency,fetchDossierPublicationStatus,fetchDossierRfc3161Status,fetchDossierSealStatus,fetchDossierTransparencyCheckpoint,fetchDossierTransparencyStatus,fetchMachineEvidence,fetchProviderStatus,fetchResearchStatus,invokeProvider,pinMachineEvidenceExcerpt,projectMachineEvidence,publishDossierCheckpoint,requestDossierRfc3161Timestamp,sealDecisionDossier,searchResearch,verifyDecisionDossierSeal,verifyDossierTransparencyWitness } from "../providers/client";
 import { runLiveProviderSession } from "../providers/liveRunner";
 import { buildArgumentReviewMessages,parseArgumentReviewResponse } from "../providers/argumentReview";
-import type { DossierRfc3161StatusResponse,DossierSealStatusResponse,DossierTransparencyStatusResponse,EvidenceProjectionResponse,ProviderStatusResponse,ResearchBackendStatusResponse } from "../providers/types";
+import type { DossierPublicationStatusResponse,DossierRfc3161StatusResponse,DossierSealStatusResponse,DossierTransparencyStatusResponse,EvidenceProjectionResponse,ProviderStatusResponse,ResearchBackendStatusResponse } from "../providers/types";
 import { scenarioEventInputs,type DemoScenario } from "../sim/demo";
 import { TerminalPanel } from "./TerminalPanel";
 import { ArgumentReviewPanel } from "./ArgumentReviewPanel";
@@ -81,6 +81,9 @@ export function ThinkTankRoom(){
   const [dossierRfc3161Status,setDossierRfc3161Status]=useState<DossierRfc3161StatusResponse|null>(null);
   const [dossierTimestampBusy,setDossierTimestampBusy]=useState(false);
   const [dossierTimestampError,setDossierTimestampError]=useState("");
+  const [dossierPublicationStatus,setDossierPublicationStatus]=useState<DossierPublicationStatusResponse|null>(null);
+  const [dossierPublicationBusy,setDossierPublicationBusy]=useState(false);
+  const [dossierPublicationError,setDossierPublicationError]=useState("");
   const liveAbortRef=useRef<AbortController|null>(null);
   const evidenceAbortRef=useRef<AbortController|null>(null);
   const researchAbortRef=useRef<AbortController|null>(null);
@@ -91,6 +94,7 @@ export function ThinkTankRoom(){
   const dossierCheckpointAbortRef=useRef<AbortController|null>(null);
   const dossierWitnessAbortRef=useRef<AbortController|null>(null);
   const dossierTimestampAbortRef=useRef<AbortController|null>(null);
+  const dossierPublicationAbortRef=useRef<AbortController|null>(null);
   const motionMode=useMotionPolicy();
 
   const applyEvent=useCallback((event:ThinkTankEvent)=>{
@@ -99,7 +103,7 @@ export function ThinkTankRoom(){
   },[]);
 
   const playback=useEventPlayback(applyEvent,motionMode);
-  const busy=playback.playing||liveRunning||evidenceFetching||researchSearching||excerptBusy||argumentReviewBusy||dossierSealBusy||dossierTransparencyBusy||dossierCheckpointBusy||dossierWitnessBusy||dossierTimestampBusy;
+  const busy=playback.playing||liveRunning||evidenceFetching||researchSearching||excerptBusy||argumentReviewBusy||dossierSealBusy||dossierTransparencyBusy||dossierCheckpointBusy||dossierWitnessBusy||dossierTimestampBusy||dossierPublicationBusy;
 
   const refreshProviders=useCallback(async()=>{
     try{
@@ -162,13 +166,32 @@ export function ThinkTankRoom(){
     }
   },[]);
 
+  const refreshDossierPublication=useCallback(async()=>{
+    try{
+      const next=await fetchDossierPublicationStatus();
+      setDossierPublicationStatus(next);
+      setDossierPublicationError("");
+    }catch(error){
+      setDossierPublicationStatus(null);
+      setDossierPublicationError(error instanceof Error?error.message:String(error));
+    }
+  },[]);
+
   useEffect(()=>{
     void refreshProviders();
     void refreshResearch();
     void refreshDossierSeal();
     void refreshDossierTransparency();
     void refreshDossierRfc3161();
-  },[refreshProviders,refreshResearch,refreshDossierSeal,refreshDossierTransparency,refreshDossierRfc3161]);
+    void refreshDossierPublication();
+  },[
+    refreshProviders,
+    refreshResearch,
+    refreshDossierSeal,
+    refreshDossierTransparency,
+    refreshDossierRfc3161,
+    refreshDossierPublication
+  ]);
 
   const latestEvent=state.events[state.events.length-1];
   const cue=useMemo(()=>deriveMotionCue(latestEvent,state),[latestEvent,state]);
@@ -1110,6 +1133,55 @@ export function ThinkTankRoom(){
     }
   };
 
+  const publishCheckpoint=async(checkpointId:string)=>{
+    if(busy)return;
+    const checkpoint=stateRef.current.dossierTransparencyCheckpoints.find(item=>item.id===checkpointId);
+    if(!checkpoint)return;
+
+    const controller=new AbortController();
+    dossierPublicationAbortRef.current=controller;
+    setDossierPublicationBusy(true);
+    setDossierPublicationError("");
+
+    emitInput({
+      source:"operator",
+      kind:"dossier.publication.requested",
+      phase:stateRef.current.phase,
+      dossierCheckpointId:checkpoint.id,
+      message:"Operator requested external publication for "+checkpoint.id+"."
+    });
+
+    try{
+      const response=await publishDossierCheckpoint(checkpoint,controller.signal);
+      emitInput({
+        source:"tool",
+        kind:"dossier.publication.completed",
+        phase:stateRef.current.phase,
+        dossierCheckpointId:checkpoint.id,
+        dossierPublication:response.publication,
+        message:
+          "Checkpoint publication "+response.publication.id+" verified by read-back from "+
+          response.publication.retrievalUrl+"."
+      });
+    }catch(error){
+      const message=error instanceof Error?error.message:String(error);
+      setDossierPublicationError(message);
+      try{
+        emitInput({
+          source:"tool",
+          kind:"dossier.publication.failed",
+          phase:stateRef.current.phase,
+          dossierCheckpointId:checkpoint.id,
+          message:"Checkpoint publication failed: "+message
+        });
+      }catch{}
+    }finally{
+      dossierPublicationAbortRef.current=null;
+      setDossierPublicationBusy(false);
+      void refreshDossierPublication();
+    }
+  };
+
   const runAutoRoute=()=>playInputs(routingEventInputs(routingPreview));
 
   const pinRole=(roleId:RoleId,seatId:SeatId)=>{
@@ -1236,6 +1308,7 @@ export function ThinkTankRoom(){
     dossierCheckpointAbortRef.current?.abort();
     dossierWitnessAbortRef.current?.abort();
     dossierTimestampAbortRef.current?.abort();
+    dossierPublicationAbortRef.current?.abort();
     liveAbortRef.current?.abort();
     playback.cancel();
     setLiveRunning(false);
@@ -1420,22 +1493,26 @@ export function ThinkTankRoom(){
           sealStatus={dossierSealStatus}
           transparencyStatus={dossierTransparencyStatus}
           rfc3161Status={dossierRfc3161Status}
+          publicationStatus={dossierPublicationStatus}
           busy={busy}
           sealBusy={dossierSealBusy}
           transparencyBusy={dossierTransparencyBusy}
           checkpointBusy={dossierCheckpointBusy}
           witnessBusy={dossierWitnessBusy}
           timestampBusy={dossierTimestampBusy}
+          publicationBusy={dossierPublicationBusy}
           error={dossierSealError}
           transparencyError={dossierTransparencyError}
           witnessError={dossierWitnessError}
           timestampError={dossierTimestampError}
+          publicationError={dossierPublicationError}
           onSeal={dossierId=>void sealDossier(dossierId)}
           onVerify={(dossierId,sealId)=>void verifyDossierSeal(dossierId,sealId)}
           onTransparencyAppend={(dossierId,sealId)=>void appendTransparencyJournal(dossierId,sealId)}
           onCheckpoint={()=>void freezeTransparencyCheckpoint()}
           onWitnessImport={(checkpointId,witness)=>void verifyDetachedWitness(checkpointId,witness)}
           onTimestamp={checkpointId=>void requestCheckpointTimestamp(checkpointId)}
+          onPublish={checkpointId=>void publishCheckpoint(checkpointId)}
         />
 
         {state.synthesisWithheld&&<div className="gate-block">
