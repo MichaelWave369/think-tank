@@ -473,6 +473,22 @@ Checkpoint timestamps and release timestamps share one RFC 3161 request/verifica
 
 See [RFC3161_RELEASE_TIMESTAMP.md](RFC3161_RELEASE_TIMESTAMP.md).
 
+## Verified external release publication
+
+PR 27 adds an optional external-publication layer above governed release packaging.
+
+The release package is built once by a pure domain constructor and shared by manual export and network publication.
+
+Publication requires at least one successfully verified RSEAL.
+
+The operator request pins a deterministic package-basis fingerprint. The bridge independently recomputes that fingerprint from the received full package before publishing. The kernel recomputes it again from canonical state before accepting RPUB.
+
+The bridge validates every included RSEAL cryptographically, validates all RVER/RTSA linkage, computes the full package SHA-256, publishes through a constrained HTTPS destination, and requires exact stable-canonical public read-back.
+
+RPUB remains outside the package itself so publication does not recursively alter the package basis it attests.
+
+See [RELEASE_PUBLICATION.md](RELEASE_PUBLICATION.md).
+
 ## PR ladder
 
 1. ✅ Room shell + operator authority
@@ -500,6 +516,7 @@ See [RFC3161_RELEASE_TIMESTAMP.md](RFC3161_RELEASE_TIMESTAMP.md).
 23. ✅ Provenance assurance policy
 24. ✅ Assurance-gated release manifest
 25. ✅ Cryptographic release sealing
-26. RFC 3161 trusted release timestamp
+26. ✅ RFC 3161 trusted release timestamp
+27. Verified external release publication
 
-Future work can add proper PDF extraction, authenticated remote deployment, richer provider discovery, streaming, tool execution, voice, witness trust registries, publication durability checks, multi-publisher policy, TSA trust-store management, external signer identity attestation, and release publication without changing the core event contract.
+Future work can add proper PDF extraction, authenticated remote deployment, richer provider discovery, streaming, tool execution, voice, witness trust registries, publication durability checks, multi-publisher quorum policy, TSA trust-store management, external signer identity attestation, and public release durability auditing without changing the core event contract.
