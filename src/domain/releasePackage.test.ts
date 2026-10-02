@@ -1,8 +1,9 @@
 import {describe,expect,it} from "vitest";
 import {createInitialState} from "./state";
-import type {DossierReleaseManifest,DossierReleaseSealReceipt,DossierReleaseSealVerificationReceipt,ThinkTankState} from "./types";
+import type {DossierReleaseManifest,DossierReleasePublicationReceipt,DossierReleaseSealReceipt,DossierReleaseSealVerificationReceipt,ThinkTankState} from "./types";
 import {
   buildDossierReleasePackage,
+  buildDossierReleasePackageForPublication,
   releasePackageBasisFingerprint,
   releasePackageHasVerifiedSeal
 } from "./releasePackage";
@@ -80,6 +81,67 @@ describe("governed release package",()=>{
       {...base,dossierReleaseSealVerifications:[verification(s)]},
       manifest.id
     )).toBe(true);
+  });
+
+  it("reconstructs a historical RPUB package after the current release evolves",()=>{
+    const s=seal("aaaaaaaaaaaa");
+    const initial:ThinkTankState={
+      ...createInitialState(),
+      dossierReleaseManifests:[manifest],
+      dossierReleaseSeals:[s],
+      dossierReleaseSealVerifications:[verification(s)]
+    };
+    const historical=buildDossierReleasePackage(initial,manifest.id);
+    const fingerprint=releasePackageBasisFingerprint(initial,manifest.id);
+    const publication:DossierReleasePublicationReceipt={
+      id:"RPUB-"+manifest.id+"-"+"d".repeat(12),
+      releaseId:manifest.id,
+      tool:"verified-release-package-publisher",
+      protocol:"phi-release-publication-v1",
+      packageBasisFingerprint:fingerprint,
+      manifestSha256:s.manifestSha256,
+      packageSha256:"c".repeat(64),
+      publisherUrl:"https://publisher.example.test/publish",
+      retrievalUrl:"https://public.example.test/releases/pkg.json",
+      publicationId:"pub-1",
+      publisherClaimedAt:"2026-10-02T07:00:10.000Z",
+      retrievalHttpStatus:200,
+      retrievalContentType:"application/json",
+      retrievalVerifiedAt:"2026-10-02T07:00:11.000Z",
+      releaseSealIds:[s.id],
+      releaseVerificationIds:[verification(s).id],
+      releaseTimestampIds:[],
+      artifactIds:[],
+      receiptSha256:"d".repeat(64),
+      trust:"externally-retrieved-release-publication"
+    };
+    const evolved:ThinkTankState={
+      ...initial,
+      dossierReleaseRfc3161Timestamps:[{
+        id:"RTSA-"+s.id+"-"+"e".repeat(12),
+        releaseId:manifest.id,
+        sealId:s.id,
+        tool:"rfc3161-release-seal-timestamp-verifier",
+        standard:"RFC3161",
+        hashAlgorithm:"SHA-256",
+        releaseSealSha256:"f".repeat(64),
+        manifestSha256:s.manifestSha256,
+        publicKeyFingerprintSha256:s.publicKeyFingerprintSha256,
+        tokenSha256:"e".repeat(64),
+        tokenBase64:"AQID",
+        tsaPolicyOid:"1.2.3",
+        tsaSerialNumber:"0x01",
+        genTime:"2026-10-02T07:01:00.000Z",
+        tsaSubject:"CN=TSA",
+        authorityUrl:"https://tsa.example.test/",
+        trustAnchorSha256:"1".repeat(64),
+        verifiedAt:"2026-10-02T07:01:01.000Z",
+        trust:"configured-rfc3161-trust-anchor"
+      }]
+    };
+
+    expect(buildDossierReleasePackageForPublication(evolved,publication)).toEqual(historical);
+    expect(releasePackageBasisFingerprint(evolved,manifest.id)).not.toBe(fingerprint);
   });
 
   it("changes basis fingerprint when release attestation state changes",()=>{
