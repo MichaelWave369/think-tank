@@ -10,7 +10,8 @@ import type {
 } from "./types";
 import {evaluateProvenanceAssurance} from "./provenanceAssurance";
 import {buildDossierReleaseManifest} from "./releaseManifest";
-import {buildEvent,projectEvent,replayEvents} from "../kernel/eventKernel";
+import {projectEvent} from "./reducer";
+import {buildEvent,replayEvents} from "../kernel/eventKernel";
 
 const releaseBase=()=>{
   const initial=createInitialState();
