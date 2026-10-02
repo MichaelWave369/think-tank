@@ -96,14 +96,14 @@ function assertDossierSealEvent(state:ThinkTankState,event:ThinkTankEvent):boole
     ){
       throw new KernelIntegrityError("Dossier seal receipt is incomplete or malformed.",event.seq);
     }
-    if(state.dossierSeals.some(existing=>existing.id===seal.id)){
-      throw new KernelIntegrityError("Dossier seal id already exists.",event.seq);
-    }
     if(state.dossierSeals.some(existing=>
       existing.dossierId===seal.dossierId&&
       existing.publicKeyFingerprintSha256===seal.publicKeyFingerprintSha256
     )){
       throw new KernelIntegrityError("This signer key already sealed the dossier.",event.seq);
+    }
+    if(state.dossierSeals.some(existing=>existing.id===seal.id)){
+      throw new KernelIntegrityError("Dossier seal id already exists.",event.seq);
     }
 
     const request=[...state.events].reverse().find(item=>
