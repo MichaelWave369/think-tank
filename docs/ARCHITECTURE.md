@@ -392,6 +392,36 @@ Every report explicitly stores `truthAuthority: false`.
 
 See [PROVENANCE_ASSURANCE.md](PROVENANCE_ASSURANCE.md).
 
+## Assurance-gated release manifests
+
+PR 24 adds a separate deterministic release/export authority plane above provenance assurance.
+
+Release requires:
+1. an existing historical decision dossier
+2. an explicit provenance policy
+3. an accepted assurance report for that dossier/policy
+4. that assurance report to be fresh
+5. that assurance report to have passed
+6. an explicit operator release request
+
+The system then deterministically builds a release manifest containing:
+- dossier id
+- assurance report id and basis fingerprint
+- selected checkpoint
+- linked human override id when present
+- sorted exact artifact ids named by the assurance chain
+- deterministic manifest fingerprint
+- releaseAuthority: fresh-passing-provenance-policy
+- truthAuthority: false
+
+Release does not change synthesis governance or real-world action authority.
+
+A release may later become historical if its assurance becomes stale or its deterministic artifact set changes. Historical manifests remain immutable.
+
+EXPORT RELEASE PACKAGE serializes the manifest plus only the canonical artifacts named by the manifest.
+
+See [ASSURANCE_GATED_RELEASE.md](ASSURANCE_GATED_RELEASE.md).
+
 ## PR ladder
 
 1. ✅ Room shell + operator authority
@@ -416,6 +446,7 @@ See [PROVENANCE_ASSURANCE.md](PROVENANCE_ASSURANCE.md).
 20. ✅ Portable checkpoints + detached witnesses
 21. ✅ RFC 3161 trusted timestamp attestation
 22. ✅ Verified external checkpoint publication
-23. Provenance assurance policy
+23. ✅ Provenance assurance policy
+24. Assurance-gated release manifest
 
-Future work can add proper PDF extraction, authenticated remote deployment, richer provider discovery, streaming, tool execution, voice, assurance-gated release workflows, witness trust registries, publication durability checks, multi-publisher policy, TSA trust-store management, and external signer identity attestation without changing the core event contract.
+Future work can add proper PDF extraction, authenticated remote deployment, richer provider discovery, streaming, tool execution, voice, cryptographic release sealing, witness trust registries, publication durability checks, multi-publisher policy, TSA trust-store management, and external signer identity attestation without changing the core event contract.
