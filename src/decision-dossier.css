@@ -41,3 +41,7 @@
 .dossier-release{margin-top:8px;border:1px solid #444b59;background:#07090d;padding:8px;display:grid;gap:7px}
 .dossier-release.release-authorized{border-color:#4f7b68}.dossier-release.release-ready{border-color:#6b6b45}.dossier-release.release-blocked{border-color:#704848}
 .dossier-release>p{margin:0;font-size:.53rem;line-height:1.42;opacity:.78}
+
+.dossier-release-seal{margin-top:8px;border-top:1px solid #343945;padding-top:8px;display:grid;gap:7px}
+.dossier-release-seal.release-seal-pending{border-top-color:#756a45}.dossier-release-seal.release-seal-verified{border-top-color:#4f7b68}
+.dossier-release-seal>p{margin:0;font-size:.53rem;line-height:1.42;opacity:.78}
