@@ -6,31 +6,28 @@ A governed, event-sourced multi-mind control room. Cognitive roles are staffed b
 
 ## Current rung
 
-**PR 27 — Verified External Release Publication**
+**PR 28 — Release Publication Durability Audit**
 
-The Think Tank can now publish one exact governed release package through an optional constrained HTTPS publisher and independently read the public package back before accepting an RPUB receipt.
+The Think Tank can now reconstruct the exact historical package named by an RPUB receipt and perform fresh credential-free public read-back audits over time.
 
-PR 27 adds:
-- centralized deterministic release-package builder
-- verified-RSEAL prerequisite for external publication
-- pinned package-basis fingerprint at operator request time
-- bridge-side package fingerprint recomputation
-- full RSEAL/RVER/RTSA/package validation before publish
-- phi-release-publication-v1 protocol
-- separate release publisher URL / retrieval origin / bearer credential
-- public-network validation + pinned HTTPS requests + no redirects
-- exact stable-canonical package read-back verification
-- package SHA-256 + RPUB receipt SHA-256
-- governed release publication events + replay state
-- external release publication UI + dossier export
-- bridge version 0.12.0
-- package tamper/race/duplicate tests
+PR 28 adds:
+- exact historical RPUB package reconstruction
+- repeat public retrieval without publisher credentials
+- RPUB revalidation before every durability GET
+- phi-release-publication-audit-v1 receipt protocol
+- fresh package SHA-256 read-back comparison
+- repeat RAUD receipts with explicit local/untrusted check time
+- operator-authorized durability audit events
+- deterministic RAUD replay state
+- publication durability UI + dossier export
+- bridge version 0.13.0
+- historical evolution / tamper / repeat-audit tests
 
 ### Important semantic rule
 
-**PUBLISHED RELEASE ≠ IMMUTABLE ≠ ENDORSED ≠ CONTENT TRUE.**
+**AVAILABLE AGAIN ≠ PERMANENT ≠ IMMUTABLE ≠ CONTENT TRUE.**
 
-A verified RPUB receipt proves one exact governed release package was published and then independently retrieved unchanged from the accepted public URL. It does not prove permanent availability, append-only storage, publisher endorsement, trusted publisher time, or factual correctness.
+A successful RAUD receipt proves one exact historical RPUB package was publicly retrievable again at that check and still matched its original package SHA-256. It does not prove continuous availability between checks or future permanence.
 
 See:
 - [Architecture](docs/ARCHITECTURE.md)
@@ -60,6 +57,7 @@ See:
 - [Cryptographic Release Sealing](docs/CRYPTOGRAPHIC_RELEASE_SEALING.md)
 - [RFC 3161 Trusted Release Timestamp](docs/RFC3161_RELEASE_TIMESTAMP.md)
 - [Verified External Release Publication](docs/RELEASE_PUBLICATION.md)
+- [Release Publication Durability Audit](docs/RELEASE_DURABILITY.md)
 
 ## Local-first setup
 
@@ -82,7 +80,7 @@ Verification:
 
 > **If a light changes, a sequenced event explains why.**
 
-Every normal synthesis carries a deterministic dossier; it can be sealed, journaled, checkpointed, witnessed, time-attested, externally published, evaluated against an explicit provenance policy, authorized for governed release/export, Ed25519-sealed, RFC 3161 time-attested, and externally published as an exact verified release package.
+Every normal synthesis carries a deterministic dossier; it can be sealed, journaled, checkpointed, witnessed, time-attested, externally published, evaluated against an explicit provenance policy, authorized for governed release/export, Ed25519-sealed, RFC 3161 time-attested, externally published as an exact verified release package, and re-audited for later public availability.
 
 ## Build ladder
 
@@ -112,6 +110,7 @@ Every normal synthesis carries a deterministic dossier; it can be sealed, journa
 24. ✅ Assurance-gated release manifest
 25. ✅ Cryptographic release sealing
 26. ✅ RFC 3161 trusted release timestamp
-27. **Verified external release publication**
+27. ✅ Verified external release publication
+28. **Release publication durability audit**
 
 **Φ THINK TANK is a control room, not eight chat cards.**
