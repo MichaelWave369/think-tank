@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "bridge": "node scripts/provider-bridge.mjs",
     "bridge:check": "node --check scripts/provider-bridge.mjs",
-    "bridge:test": "node --test scripts/evidence-verifier.node.mjs scripts/dossier-transparency.node.mjs scripts/dossier-witness.node.mjs scripts/dossier-rfc3161.node.mjs scripts/dossier-publication.node.mjs scripts/release-seal.node.mjs scripts/release-rfc3161.node.mjs scripts/release-publication.node.mjs scripts/release-durability.node.mjs",
+    "bridge:test": "node --test scripts/evidence-verifier.node.mjs scripts/dossier-transparency.node.mjs scripts/dossier-witness.node.mjs scripts/dossier-rfc3161.node.mjs scripts/dossier-publication.node.mjs scripts/release-seal.node.mjs scripts/release-rfc3161.node.mjs scripts/release-publication.node.mjs scripts/release-durability.node.mjs scripts/publisher-origin-identity.node.mjs",
     "dossier:keygen": "node scripts/generate-dossier-key.mjs",
     "release:keygen": "node scripts/generate-release-key.mjs",
     "witness:keygen": "node scripts/generate-witness-key.mjs",
