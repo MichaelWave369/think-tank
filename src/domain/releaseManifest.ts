@@ -91,7 +91,7 @@ export function buildDossierReleaseManifest(
   const artifactIds=releaseArtifactIds(state,report);
 
   const basis={
-    schemaVersion:1,
+    schemaVersion:1 as const,
     dossierId:dossier.id,
     policy,
     assuranceReportId:report.id,
