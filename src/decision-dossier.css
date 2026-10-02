@@ -19,3 +19,7 @@
 .dossier-checkpoint>p,.dossier-witness>p{margin:0;font-size:.53rem;line-height:1.42;opacity:.78}
 .dossier-witness{margin-top:2px;border:1px solid #414b50;background:#080b0d;padding:8px;display:grid;gap:7px}
 .dossier-witness-file{display:none}
+
+.dossier-timestamp{margin-top:8px;border:1px solid #555a67;background:#090a0f;padding:8px;display:grid;gap:7px}
+.dossier-timestamp.timestamp-verified{border-color:#526f62}.dossier-timestamp.timestamp-error{border-color:#8b4141}
+.dossier-timestamp>p,.dossier-tool-detail{margin:0;font-size:.53rem;line-height:1.42;opacity:.78}
