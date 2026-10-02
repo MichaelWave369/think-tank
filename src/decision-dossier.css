@@ -9,3 +9,8 @@
 .dossier-seal-details{display:grid;gap:3px}.dossier-seal-details p{margin:0;font-size:.52rem;line-height:1.35;word-break:break-all}.dossier-seal-details b{opacity:.62;margin-right:4px}
 .dossier-seal-error{border:1px solid #82454d;background:#250b0f;color:#ffb2ba;padding:6px;font-size:.55rem}
 .dossier-seal-actions{display:flex;gap:6px;flex-wrap:wrap}.dossier-seal-actions button{background:#0c120a;color:#e8f0df;border:1px solid #5c704f;padding:7px;font-size:.56rem}.dossier-seal-actions button:disabled{opacity:.35;cursor:not-allowed}
+
+.dossier-transparency{margin-top:8px;border-top:1px dashed #4f6047;padding-top:8px;display:grid;gap:7px}
+.dossier-transparency.transparency-logged{border-top-color:#5f8a65}.dossier-transparency.transparency-corrupt{border-top-color:#9b4a4a}
+.dossier-transparency-head{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}.dossier-transparency-head>div{display:grid;gap:2px}.dossier-transparency-head small{font-size:.47rem;opacity:.56}.dossier-transparency-head strong{font-size:.61rem}.dossier-transparency-head>span{font-size:.49rem;opacity:.66}
+.dossier-transparency>p{margin:0;font-size:.53rem;line-height:1.42;opacity:.78}
