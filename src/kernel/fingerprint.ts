@@ -31,6 +31,7 @@ export function projectionSnapshot(state:ThinkTankState){
     dossierReleaseSealVerifications:state.dossierReleaseSealVerifications,
     dossierReleaseRfc3161Timestamps:state.dossierReleaseRfc3161Timestamps,
     dossierReleasePublications:state.dossierReleasePublications,
+    dossierReleasePublicationAudits:state.dossierReleasePublicationAudits,
     evidenceRefs:state.evidenceRefs,
     evidenceExcerpts:state.evidenceExcerpts,
     claims:state.claims,

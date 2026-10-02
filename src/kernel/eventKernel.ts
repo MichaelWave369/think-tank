@@ -25,6 +25,7 @@ import {
 } from "../domain/releaseManifest";
 import {
   buildDossierReleasePackage,
+  buildDossierReleasePackageForPublication,
   releasePackageBasisFingerprint,
   releasePackageHasVerifiedSeal
 } from "../domain/releasePackage";
@@ -1578,6 +1579,206 @@ function assertDossierReleasePublicationEvent(state:ThinkTankState,event:ThinkTa
   return false;
 }
 
+function assertDossierReleasePublicationAuditEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
+  const action=[
+    "dossier.release.publication.audit.requested",
+    "dossier.release.publication.audit.completed",
+    "dossier.release.publication.audit.failed"
+  ].includes(event.kind);
+
+  if(
+    action&&
+    state.phase!=="intake"&&
+    state.phase!=="synthesis"&&
+    state.phase!=="complete"&&
+    state.phase!=="aborted"
+  ){
+    throw new KernelIntegrityError(
+      "Release publication durability audit cannot run during active governed execution.",
+      event.seq
+    );
+  }
+
+  const publication=event.dossierReleasePublicationId
+    ?state.dossierReleasePublications.find(item=>item.id===event.dossierReleasePublicationId)
+    :undefined;
+
+  if(event.kind==="dossier.release.publication.audit.requested"){
+    if(event.source!=="operator"){
+      throw new KernelIntegrityError(
+        "Release publication durability audits are operator-authorized.",
+        event.seq
+      );
+    }
+    if(!publication){
+      throw new KernelIntegrityError(
+        "Release publication durability audit requires an existing RPUB receipt.",
+        event.seq
+      );
+    }
+    if(event.dossierReleaseId!==publication.releaseId){
+      throw new KernelIntegrityError(
+        "Release publication durability request REL id does not match RPUB.",
+        event.seq
+      );
+    }
+    try{
+      buildDossierReleasePackageForPublication(state,publication);
+    }catch(error){
+      throw new KernelIntegrityError(
+        "Historical RPUB package cannot be reconstructed: "+
+        (error instanceof Error?error.message:String(error)),
+        event.seq
+      );
+    }
+    return true;
+  }
+
+  if(event.kind==="dossier.release.publication.audit.completed"){
+    if(event.source!=="tool"){
+      throw new KernelIntegrityError(
+        "Release publication durability completion must be tool-originated.",
+        event.seq
+      );
+    }
+    const receipt=event.dossierReleasePublicationAudit;
+    if(!publication||!receipt){
+      throw new KernelIntegrityError(
+        "Release publication durability completion requires RPUB and RAUD receipts.",
+        event.seq
+      );
+    }
+    if(event.dossierReleaseId!==publication.releaseId){
+      throw new KernelIntegrityError(
+        "Release publication durability completion REL id does not match RPUB.",
+        event.seq
+      );
+    }
+    try{
+      buildDossierReleasePackageForPublication(state,publication);
+    }catch(error){
+      throw new KernelIntegrityError(
+        "Historical RPUB package cannot be reconstructed: "+
+        (error instanceof Error?error.message:String(error)),
+        event.seq
+      );
+    }
+
+    if(
+      receipt.releaseId!==publication.releaseId||
+      receipt.publicationReceiptId!==publication.id||
+      receipt.publicationReceiptSha256!==publication.receiptSha256||
+      receipt.tool!=="release-publication-durability-auditor"||
+      receipt.protocol!=="phi-release-publication-audit-v1"||
+      receipt.packageBasisFingerprint!==publication.packageBasisFingerprint||
+      receipt.packageSha256!==publication.packageSha256||
+      receipt.retrievalUrl!==publication.retrievalUrl||
+      receipt.clock!=="untrusted-local-clock"||
+      receipt.readbackSha256!==publication.packageSha256||
+      receipt.exactMatch!==true||
+      receipt.trust!=="repeat-external-retrieval"
+    ){
+      throw new KernelIntegrityError(
+        "RAUD receipt does not match its historical RPUB package.",
+        event.seq
+      );
+    }
+
+    const expectedId="RAUD-"+publication.id+"-"+receipt.receiptSha256.slice(0,12);
+    if(
+      receipt.id!==expectedId||
+      !/^fnv1a32:[a-f0-9]{8}$/.test(receipt.packageBasisFingerprint)||
+      !/^[a-f0-9]{64}$/.test(receipt.publicationReceiptSha256)||
+      !/^[a-f0-9]{64}$/.test(receipt.packageSha256)||
+      !/^[a-f0-9]{64}$/.test(receipt.readbackSha256)||
+      !/^[a-f0-9]{64}$/.test(receipt.receiptSha256)||
+      receipt.retrievalHttpStatus<200||
+      receipt.retrievalHttpStatus>=300||
+      receipt.retrievalContentType!=="application/json"||
+      Number.isNaN(Date.parse(receipt.checkedAt))
+    ){
+      throw new KernelIntegrityError(
+        "Release publication durability receipt is incomplete or malformed.",
+        event.seq
+      );
+    }
+    try{
+      const url=new URL(receipt.retrievalUrl);
+      if(url.protocol!=="https:"||url.username||url.password||url.hash)throw new Error("bad");
+    }catch{
+      throw new KernelIntegrityError(
+        "Release publication durability retrieval URL is invalid.",
+        event.seq
+      );
+    }
+    if(state.dossierReleasePublicationAudits.some(existing=>existing.id===receipt.id)){
+      throw new KernelIntegrityError("Release publication durability receipt id already exists.",event.seq);
+    }
+
+    const request=[...state.events].reverse().find(item=>
+      item.kind==="dossier.release.publication.audit.requested"&&
+      item.dossierReleasePublicationId===publication.id
+    );
+    if(!request){
+      throw new KernelIntegrityError(
+        "Release publication durability completion has no matching operator request.",
+        event.seq
+      );
+    }
+    const terminal=[...state.events].reverse().find(item=>
+      (item.kind==="dossier.release.publication.audit.completed"||
+       item.kind==="dossier.release.publication.audit.failed")&&
+      item.dossierReleasePublicationId===publication.id
+    );
+    if(terminal&&terminal.seq>request.seq){
+      throw new KernelIntegrityError(
+        "Release publication durability request is already resolved.",
+        event.seq
+      );
+    }
+    return true;
+  }
+
+  if(event.kind==="dossier.release.publication.audit.failed"){
+    if(event.source!=="tool"||!publication){
+      throw new KernelIntegrityError(
+        "Release publication durability failure must be tool-originated for an existing RPUB.",
+        event.seq
+      );
+    }
+    if(event.dossierReleaseId!==publication.releaseId){
+      throw new KernelIntegrityError(
+        "Release publication durability failure REL id does not match RPUB.",
+        event.seq
+      );
+    }
+    const request=[...state.events].reverse().find(item=>
+      item.kind==="dossier.release.publication.audit.requested"&&
+      item.dossierReleasePublicationId===publication.id
+    );
+    if(!request){
+      throw new KernelIntegrityError(
+        "Release publication durability failure has no matching operator request.",
+        event.seq
+      );
+    }
+    const terminal=[...state.events].reverse().find(item=>
+      (item.kind==="dossier.release.publication.audit.completed"||
+       item.kind==="dossier.release.publication.audit.failed")&&
+      item.dossierReleasePublicationId===publication.id
+    );
+    if(terminal&&terminal.seq>request.seq){
+      throw new KernelIntegrityError(
+        "Release publication durability request is already resolved.",
+        event.seq
+      );
+    }
+    return true;
+  }
+
+  return false;
+}
+
 function assertArgumentReviewEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
   const action=[
     "argument.review.requested",
@@ -2458,6 +2659,7 @@ function assertRoutingEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
 }
 
 function assertPolicyEvent(state:ThinkTankState,event:ThinkTankEvent):void{
+  if(assertDossierReleasePublicationAuditEvent(state,event))return;
   if(assertDossierReleasePublicationEvent(state,event))return;
   if(assertDossierReleaseTimestampEvent(state,event))return;
   if(assertDossierReleaseSealEvent(state,event))return;
@@ -2742,6 +2944,8 @@ export function buildEvent(state:ThinkTankState,input:ThinkTankEventInput):Think
     dossierReleaseTimestamp:input.dossierReleaseTimestamp,
     dossierReleasePackageFingerprint:input.dossierReleasePackageFingerprint,
     dossierReleasePublication:input.dossierReleasePublication,
+    dossierReleasePublicationId:input.dossierReleasePublicationId,
+    dossierReleasePublicationAudit:input.dossierReleasePublicationAudit,
     message:input.message,
     gateScore:input.gateScore,
     override:input.override,

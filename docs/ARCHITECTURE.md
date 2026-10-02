@@ -489,6 +489,20 @@ RPUB remains outside the package itself so publication does not recursively alte
 
 See [RELEASE_PUBLICATION.md](RELEASE_PUBLICATION.md).
 
+## Release publication durability audit
+
+PR 28 adds repeat public availability checks for historical RPUB receipts.
+
+The audit reconstructs the exact historical release package named by an RPUB using its frozen RSEAL, RVER, RTSA, and artifact ids. This remains valid even when the current release package has evolved.
+
+RAUD does not call the original publisher POST endpoint and does not use publisher credentials. It performs a fresh constrained HTTPS GET against the RPUB retrieval URL, revalidates the full package, and requires the fresh stable-canonical package SHA-256 to equal the RPUB package SHA-256.
+
+Each successful audit creates a separate RAUD receipt. Multiple audits of one RPUB are intentionally allowed because each is a new availability observation.
+
+The audit check time is local and explicitly untrusted. Repeated successful retrievals are evidence of availability at those observations, not continuous uptime or future permanence.
+
+See [RELEASE_DURABILITY.md](RELEASE_DURABILITY.md).
+
 ## PR ladder
 
 1. ✅ Room shell + operator authority
@@ -517,6 +531,7 @@ See [RELEASE_PUBLICATION.md](RELEASE_PUBLICATION.md).
 24. ✅ Assurance-gated release manifest
 25. ✅ Cryptographic release sealing
 26. ✅ RFC 3161 trusted release timestamp
-27. Verified external release publication
+27. ✅ Verified external release publication
+28. Release publication durability audit
 
-Future work can add proper PDF extraction, authenticated remote deployment, richer provider discovery, streaming, tool execution, voice, witness trust registries, publication durability checks, multi-publisher quorum policy, TSA trust-store management, external signer identity attestation, and public release durability auditing without changing the core event contract.
+Future work can add proper PDF extraction, authenticated remote deployment, richer provider discovery, streaming, tool execution, voice, witness trust registries, scheduled durability monitoring, multi-publisher quorum policy, TSA trust-store management, external signer identity attestation, and public release durability policy without changing the core event contract.

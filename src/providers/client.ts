@@ -28,7 +28,8 @@ import type {
   DossierReleaseVerifyResponse,
   DossierReleaseRfc3161TimestampResponse,
   DossierReleasePublicationStatusResponse,
-  DossierReleasePublicationResponse
+  DossierReleasePublicationResponse,
+  DossierReleasePublicationAuditResponse
 } from "./types";
 
 const DEFAULT_BRIDGE="http://127.0.0.1:3691";
@@ -466,6 +467,29 @@ export async function publishDossierReleasePackage(
   if(!response.ok||!body.ok){
     const errorBody=body as DossierSealError;
     throw new Error(errorBody.error?.message||("Release publication returned HTTP "+response.status+"."));
+  }
+  return body;
+}
+
+export async function auditDossierReleasePublication(
+  releasePackage:import("../domain/releasePackage").DossierReleasePackage,
+  publication:import("../domain/types").DossierReleasePublicationReceipt,
+  signal?:AbortSignal
+):Promise<DossierReleasePublicationAuditResponse>{
+  const response=await fetchWithTimeout(
+    providerBridgeUrl+"/dossier/release/publication/audit",
+    {
+      method:"POST",
+      headers:{"content-type":"application/json"},
+      body:JSON.stringify({releasePackage,publication}),
+      signal
+    },
+    45000
+  );
+  const body=await response.json() as DossierReleasePublicationAuditResponse|DossierSealError;
+  if(!response.ok||!body.ok){
+    const errorBody=body as DossierSealError;
+    throw new Error(errorBody.error?.message||("Release publication durability audit returned HTTP "+response.status+"."));
   }
   return body;
 }
