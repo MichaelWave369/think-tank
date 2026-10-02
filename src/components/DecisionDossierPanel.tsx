@@ -1,5 +1,5 @@
 import type { ThinkTankState } from "../domain/types";
-import type { DossierSealStatusResponse } from "../providers/types";
+import type { DossierSealStatusResponse,DossierTransparencyStatusResponse } from "../providers/types";
 import { latestDecisionDossier,overrideForDossier } from "../domain/decisionDossier";
 
 const short=(value:string)=>value.replace("fnv1a32:","").slice(0,10)+"…";
@@ -11,8 +11,9 @@ const exportDossier=(state:ThinkTankState)=>{
   const seals=state.dossierSeals.filter(item=>item.dossierId===dossier.id);
   const sealIds=new Set(seals.map(item=>item.id));
   const verifications=state.dossierSealVerifications.filter(item=>sealIds.has(item.sealId));
+  const transparencyEntries=state.dossierTransparencyEntries.filter(item=>sealIds.has(item.sealId));
   const blob=new Blob(
-    [JSON.stringify({dossier,override,seals,verifications},null,2)],
+    [JSON.stringify({dossier,override,seals,verifications,transparencyEntries},null,2)],
     {type:"application/json;charset=utf-8"}
   );
   const url=URL.createObjectURL(blob);
@@ -26,19 +27,27 @@ const exportDossier=(state:ThinkTankState)=>{
 export function DecisionDossierPanel({
   state,
   sealStatus,
+  transparencyStatus,
   busy,
   sealBusy,
+  transparencyBusy,
   error,
+  transparencyError,
   onSeal,
-  onVerify
+  onVerify,
+  onTransparencyAppend
 }:{
   state:ThinkTankState;
   sealStatus:DossierSealStatusResponse|null;
+  transparencyStatus:DossierTransparencyStatusResponse|null;
   busy:boolean;
   sealBusy:boolean;
+  transparencyBusy:boolean;
   error:string;
+  transparencyError:string;
   onSeal:(dossierId:string)=>void;
   onVerify:(dossierId:string,sealId:string)=>void;
+  onTransparencyAppend:(dossierId:string,sealId:string)=>void;
 }){
   const dossier=latestDecisionDossier(state);
 
@@ -77,6 +86,20 @@ export function DecisionDossierPanel({
       :latestVerification.verified
         ?"VERIFIED"
         :"INVALID";
+  const latestTransparency=latestSeal
+    ?[...state.dossierTransparencyEntries]
+      .reverse()
+      .find(item=>item.sealId===latestSeal.id)??null
+    :null;
+  const transparencyState=!latestSeal
+    ?"NO SEAL"
+    :latestTransparency
+      ?"LOGGED · VERIFIED AT APPEND"
+      :transparencyStatus?.state==="corrupt"
+        ?"JOURNAL CORRUPT"
+        :transparencyStatus?.state==="ready"
+          ?"READY"
+          :"DISABLED";
 
   return <section className="decision-dossier-panel">
     <header>
@@ -187,10 +210,63 @@ export function DecisionDossierPanel({
           VERIFY SEAL
         </button>
       </div>
+
+      <div className={"dossier-transparency "+(
+        latestTransparency?"transparency-logged":
+        transparencyStatus?.state==="corrupt"?"transparency-corrupt":""
+      )}>
+        <div className="dossier-transparency-head">
+          <div>
+            <small>LOCAL TRANSPARENCY JOURNAL</small>
+            <strong>{transparencyState}</strong>
+          </div>
+          <span>
+            {transparencyStatus?.state==="ready"
+              ?String(transparencyStatus.entryCount)+" ENTRIES"
+              :transparencyStatus?.state?.toUpperCase()??"UNAVAILABLE"}
+          </span>
+        </div>
+
+        {latestTransparency
+          ?<div className="dossier-seal-details">
+            <p><b>Entry</b> {latestTransparency.id} · #{latestTransparency.sequence}</p>
+            <p><b>Entry SHA-256</b> {latestTransparency.entrySha256}</p>
+            <p><b>Previous SHA-256</b> {latestTransparency.previousEntrySha256}</p>
+            <p><b>Seal</b> {latestTransparency.sealId}</p>
+            <p><b>Clock</b> UNTRUSTED LOCAL CLOCK · {latestTransparency.loggedAt}</p>
+            <p><b>Trust</b> TAMPER-EVIDENT LOCAL JOURNAL</p>
+          </div>
+          :<p>
+            A seal can be appended to the persistent local SHA-256 journal.
+            This establishes hash-chain continuity, not trusted time or external identity.
+          </p>}
+
+        {transparencyError&&<div className="dossier-seal-error">{transparencyError}</div>}
+
+        <div className="dossier-seal-actions">
+          <button
+            type="button"
+            onClick={()=>latestSeal&&onTransparencyAppend(dossier.id,latestSeal.id)}
+            disabled={
+              busy||
+              transparencyBusy||
+              !latestSeal||
+              Boolean(latestTransparency)||
+              transparencyStatus?.state!=="ready"
+            }
+          >
+            {transparencyBusy
+              ?"APPENDING…"
+              :latestTransparency
+                ?"SEAL ALREADY LOGGED"
+                :"APPEND SEAL TO JOURNAL"}
+          </button>
+        </div>
+      </div>
     </div>
 
     <footer>
-      <span>Normal dossier is immutable. Override, if any, is a separate linked operator receipt.</span>
+      <span>Normal dossier is immutable. Seal and transparency receipts add integrity evidence without adding truth authority.</span>
       <button type="button" onClick={()=>exportDossier(state)}>TEAR / EXPORT DOSSIER</button>
     </footer>
   </section>;
