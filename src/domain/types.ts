@@ -499,6 +499,33 @@ export interface DossierReleasePublicationAuditReceipt{
   trust:"repeat-external-retrieval";
 }
 
+export interface DossierPublisherOriginIdentityReceipt{
+  id:string;
+  releaseId:string;
+  publicationReceiptId:string;
+  publicationReceiptSha256:string;
+  tool:"publisher-origin-identity-verifier";
+  protocol:"phi-publisher-identity-v1";
+  retrievalOrigin:string;
+  identityUrl:string;
+  descriptorSha256:string;
+  publisherId:string;
+  publisherLabel:string;
+  administrativeDomainClaim:string;
+  publicKeyPem:string;
+  publicKeyFingerprintSha256:string;
+  claimedAt:string;
+  signatureBase64:string;
+  verified:true;
+  verifiedAt:string;
+  clock:"untrusted-local-clock";
+  receiptSha256:string;
+  trust:"self-attested-origin-signing-key";
+  realWorldIdentityAuthority:false;
+  operatorIndependenceAuthority:false;
+  truthAuthority:false;
+}
+
 export type ReleaseAvailabilityAssurancePolicyKind=
   |"published"
   |"rechecked"
@@ -706,6 +733,9 @@ export type ThinkTankEventKind=
   |"dossier.release.publication.audit.failed"
   |"dossier.release.availability.requested"
   |"dossier.release.availability.completed"
+  |"dossier.release.publisher.identity.requested"
+  |"dossier.release.publisher.identity.completed"
+  |"dossier.release.publisher.identity.failed"
   |"session.aborted";
 
 export interface ThinkTankEvent{
@@ -776,6 +806,8 @@ export interface ThinkTankEvent{
   releaseAvailabilityPolicy?:ReleaseAvailabilityAssurancePolicyKind;
   releaseAvailabilityPackageSha256?:string;
   releaseAvailabilityAssurance?:DossierReleaseAvailabilityAssuranceReport;
+  dossierPublisherIdentityPublicationId?:string;
+  dossierPublisherIdentity?:DossierPublisherOriginIdentityReceipt;
   message?:string;
   gateScore?:number;
   override?:boolean;
@@ -853,6 +885,8 @@ export interface ThinkTankEventInput{
   releaseAvailabilityPolicy?:ReleaseAvailabilityAssurancePolicyKind;
   releaseAvailabilityPackageSha256?:string;
   releaseAvailabilityAssurance?:DossierReleaseAvailabilityAssuranceReport;
+  dossierPublisherIdentityPublicationId?:string;
+  dossierPublisherIdentity?:DossierPublisherOriginIdentityReceipt;
   message?:string;
   gateScore?:number;
   override?:boolean;
@@ -895,6 +929,7 @@ export interface ThinkTankState{
   dossierReleasePublications:DossierReleasePublicationReceipt[];
   dossierReleasePublicationAudits:DossierReleasePublicationAuditReceipt[];
   dossierReleaseAvailabilityAssurances:DossierReleaseAvailabilityAssuranceReport[];
+  dossierPublisherOriginIdentities:DossierPublisherOriginIdentityReceipt[];
   evidenceRefs:EvidenceRef[];
   evidenceExcerpts:EvidenceExcerpt[];
   claims:Claim[];
