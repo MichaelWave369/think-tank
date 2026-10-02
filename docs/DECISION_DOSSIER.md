@@ -419,3 +419,28 @@ RPUB is deliberately excluded from the release package it attests, preventing re
 Dossier export includes linked releasePublications separately.
 
 See [RELEASE_PUBLICATION.md](RELEASE_PUBLICATION.md).
+
+## Release publication durability receipts
+
+PR 28 adds repeat RAUD receipts linked to historical RPUB release-publication receipts.
+
+DossierReleasePublicationAuditReceipt preserves:
+- REL id
+- RPUB id + RPUB receipt SHA-256
+- package-basis fingerprint
+- historical package SHA-256
+- frozen public retrieval URL
+- successful HTTP/content-type metadata
+- local checkedAt with explicit untrusted-local-clock
+- fresh read-back SHA-256
+- exactMatch: true
+- RAUD receipt SHA-256
+- repeat-external-retrieval trust label
+
+RAUD reconstructs the exact historical package described by RPUB instead of auditing the latest release state.
+
+Dossier export includes linked releasePublicationAudits separately.
+
+Repeated RAUD receipts are allowed and represent separate availability observations, not continuous-uptime proof.
+
+See [RELEASE_DURABILITY.md](RELEASE_DURABILITY.md).
