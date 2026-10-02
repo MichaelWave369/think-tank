@@ -28,6 +28,14 @@ export interface LiveRunnerResult{
 
 const phaseForRole=(roleId:RoleId)=>roleId==="challenger"?"challenge":roleId==="vessie"?"synthesis":"independent";
 
+export const requireLiveDirective=(prompt:string)=>{
+  const directive=prompt.trim();
+  if(!directive){
+    throw new Error("LIVE provider execution requires a non-empty operator directive.");
+  }
+  return directive;
+};
+
 export async function runLiveProviderSession(options:LiveRunnerOptions):Promise<LiveRunnerResult>{
   let working=options.initialState;
 
@@ -41,6 +49,7 @@ export async function runLiveProviderSession(options:LiveRunnerOptions):Promise<
   const aborted=()=>Boolean(options.signal?.aborted);
 
   try{
+    const directive=requireLiveDirective(options.prompt);
     const plan=planAssignments(working,options.seats,working.mode);
     if(plan.unresolved.length){
       throw new Error("Crane Fly cannot staff: "+plan.unresolved.map(role=>role.toUpperCase()).join(", ")+".");
@@ -50,7 +59,7 @@ export async function runLiveProviderSession(options:LiveRunnerOptions):Promise<
       source:"operator",
       kind:"operator.prompt",
       phase:"intake",
-      message:options.prompt.trim()||("Run live "+working.mode.toUpperCase()+" session.")
+      message:directive
     });
 
     for(const input of routingEventInputs(plan)){
