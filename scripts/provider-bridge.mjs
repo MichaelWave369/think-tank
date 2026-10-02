@@ -2231,6 +2231,156 @@ const publishAndVerifyReleasePackage=async(packageValue,packageBasisFingerprint)
   });
 };
 
+
+export const validateReleasePublicationForAudit=(packageValue,publication)=>{
+  validateReleasePackage(packageValue);
+  if(!publication||typeof publication!=="object"){
+    throw bridgeError("Release durability audit requires an RPUB receipt.",400);
+  }
+  if(
+    publication.tool!=="verified-release-package-publisher"||
+    publication.protocol!=="phi-release-publication-v1"||
+    publication.trust!=="externally-retrieved-release-publication"||
+    publication.releaseId!==packageValue.releaseManifest.id||
+    publication.packageBasisFingerprint!==releasePackageBasisFingerprintBridge(packageValue)||
+    !/^[a-f0-9]{64}$/.test(publication.packageSha256||"")||
+    !/^[a-f0-9]{64}$/.test(publication.receiptSha256||"")||
+    typeof publication.retrievalUrl!=="string"||
+    !publication.retrievalUrl.trim()
+  ){
+    throw bridgeError("RPUB receipt does not match the historical release package.",400);
+  }
+
+  const packageSha256=createHash("sha256")
+    .update(stableCanonicalJson(packageValue),"utf8")
+    .digest("hex");
+  if(packageSha256!==publication.packageSha256){
+    throw bridgeError("Historical release package SHA-256 does not match RPUB.",409);
+  }
+
+  let retrieval;
+  try{retrieval=new URL(publication.retrievalUrl);}
+  catch{throw bridgeError("RPUB retrieval URL is invalid.",400);}
+  if(
+    retrieval.protocol!=="https:"||
+    retrieval.username||
+    retrieval.password||
+    retrieval.hash
+  ){
+    throw bridgeError(
+      "RPUB retrieval URL must be credential-free HTTPS without a fragment.",
+      400
+    );
+  }
+
+  return {packageSha256,retrievalUrl:retrieval.toString()};
+};
+
+export const buildReleasePublicationAuditReceipt=({
+  packageValue,
+  publication,
+  retrievedPackage,
+  retrievalHttpStatus=200,
+  retrievalContentType="application/json",
+  checkedAt=new Date().toISOString()
+})=>{
+  const validated=validateReleasePublicationForAudit(packageValue,publication);
+  validateReleasePackage(retrievedPackage);
+
+  if(stableCanonicalJson(retrievedPackage)!==stableCanonicalJson(packageValue)){
+    throw bridgeError(
+      "Durability audit read-back does not exactly match the historical published package.",
+      409
+    );
+  }
+  if(
+    !Number.isInteger(retrievalHttpStatus)||
+    retrievalHttpStatus<200||
+    retrievalHttpStatus>=300
+  ){
+    throw bridgeError("Durability audit retrieval did not return a successful HTTP status.",502);
+  }
+  const contentType=String(retrievalContentType||"").split(";")[0].trim().toLowerCase();
+  if(contentType!=="application/json"){
+    throw bridgeError("Durability audit retrieval must return application/json.",415);
+  }
+  if(Number.isNaN(Date.parse(checkedAt))){
+    throw bridgeError("Durability audit check time is invalid.",500);
+  }
+
+  const readbackSha256=createHash("sha256")
+    .update(stableCanonicalJson(retrievedPackage),"utf8")
+    .digest("hex");
+  if(readbackSha256!==publication.packageSha256){
+    throw bridgeError("Durability audit read-back SHA-256 does not match RPUB.",409);
+  }
+
+  const basis={
+    schemaVersion:1,
+    releaseId:publication.releaseId,
+    publicationReceiptId:publication.id,
+    publicationReceiptSha256:publication.receiptSha256,
+    tool:"release-publication-durability-auditor",
+    protocol:"phi-release-publication-audit-v1",
+    packageBasisFingerprint:publication.packageBasisFingerprint,
+    packageSha256:validated.packageSha256,
+    retrievalUrl:validated.retrievalUrl,
+    retrievalHttpStatus,
+    retrievalContentType:contentType,
+    checkedAt:new Date(Date.parse(checkedAt)).toISOString(),
+    clock:"untrusted-local-clock",
+    readbackSha256,
+    exactMatch:true,
+    trust:"repeat-external-retrieval"
+  };
+  const receiptSha256=createHash("sha256")
+    .update(stableCanonicalJson(basis),"utf8")
+    .digest("hex");
+
+  return {
+    id:"RAUD-"+publication.id+"-"+receiptSha256.slice(0,12),
+    ...basis,
+    receiptSha256
+  };
+};
+
+const auditReleasePublication=async(packageValue,publication)=>{
+  const validated=validateReleasePublicationForAudit(packageValue,publication);
+  const retrievalTarget=await assertPublicationHttpsTarget(
+    validated.retrievalUrl,
+    "Release durability retrieval URL"
+  );
+
+  const response=await requestPinnedPublication(
+    retrievalTarget,
+    {
+      method:"GET",
+      headers:{"accept":"application/json"},
+      maxBytes:RELEASE_PUBLISH_MAX_BYTES
+    }
+  );
+  if(response.status<200||response.status>=300){
+    throw bridgeError("Release durability retrieval returned HTTP "+response.status+".",502);
+  }
+  const contentType=String(response.headers["content-type"]||"")
+    .split(";")[0].trim().toLowerCase();
+  if(contentType!=="application/json"){
+    throw bridgeError("Release durability retrieval must return application/json.",415);
+  }
+
+  let retrievedPackage;
+  try{retrievedPackage=JSON.parse(response.body.toString("utf8"));}
+  catch{throw bridgeError("Release durability retrieval returned invalid JSON.",502);}
+
+  return buildReleasePublicationAuditReceipt({
+    packageValue,
+    publication,
+    retrievedPackage,
+    retrievalHttpStatus:response.status,
+    retrievalContentType:contentType
+  });
+};
+
 const fetchEvidenceResource=async(requestedUri)=>{
   let target=await assertPublicHttpUrl(requestedUri);
   let redirects=0;
@@ -2427,7 +2577,7 @@ const remoteStatus=(seatId,provider,key,model)=>({
 
 const statusPayload=async()=>({
   ok:true,
-  bridgeVersion:"0.12.0",
+  bridgeVersion:"0.13.0",
   seats:[
     await ollamaStatus(),
     remoteStatus("openai","OpenAI",process.env.OPENAI_API_KEY,process.env.OPENAI_MODEL),
@@ -2540,7 +2690,7 @@ const server=http.createServer(async(req,res)=>{
 
   try{
     if(req.method==="GET"&&req.url==="/health"){
-      send(res,200,{ok:true,service:"phi-think-tank-provider-bridge",version:"0.12.0"},origin);
+      send(res,200,{ok:true,service:"phi-think-tank-provider-bridge",version:"0.13.0"},origin);
       return;
     }
 
@@ -2640,6 +2790,13 @@ const server=http.createServer(async(req,res)=>{
         raw.packageBasisFingerprint
       );
       send(res,200,{ok:true,publication},origin);
+      return;
+    }
+
+    if(req.method==="POST"&&req.url==="/dossier/release/publication/audit"){
+      const raw=await readJson(req,RELEASE_PUBLISH_MAX_BYTES);
+      const audit=await auditReleasePublication(raw.releasePackage,raw.publication);
+      send(res,200,{ok:true,audit},origin);
       return;
     }
 
