@@ -225,3 +225,25 @@ The same signer key may seal a dossier only once; different signer keys may coex
 Verification does not require the private key.
 
 See [CRYPTOGRAPHIC_SEALING.md](CRYPTOGRAPHIC_SEALING.md).
+
+## Optional local transparency journal
+
+PR 19 can append a PR 18 dossier seal to a persistent local JSONL transparency journal.
+
+Each accepted DossierTransparencyReceipt records:
+- dossier id
+- seal id
+- journal sequence
+- previous entry SHA-256
+- entry SHA-256
+- dossier SHA-256
+- signer-key fingerprint
+- local append time
+- explicit untrusted-local-clock label
+- explicit tamper-evident-local-journal trust label
+
+The exported dossier package includes linked transparency entries.
+
+The journal does not mutate the decision dossier or the seal. It adds a later integrity receipt.
+
+See [TRANSPARENCY_JOURNAL.md](TRANSPARENCY_JOURNAL.md).
