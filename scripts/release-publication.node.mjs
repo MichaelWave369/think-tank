@@ -114,7 +114,7 @@ test("rejects altered public read-back even when ids are unchanged",()=>{
   };
   const altered={
     ...pkg,
-    releaseManifest:{...pkg.releaseManifest,manifestFingerprint:"fnv1a32:ffffffff"}
+    unexpectedReadbackField:"tampered"
   };
 
   assert.throws(
