@@ -21,6 +21,7 @@ const releaseBase=()=>{
     seed:initial.seed,
     decisionSeq:1,
     mode:initial.mode,
+    executionSource:"governed-system" as const,
     operatorPrompt:"Release kernel test",
     outcome:"completed" as const,
     outputLabel:"STANDARD" as const,
