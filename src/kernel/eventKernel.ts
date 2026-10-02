@@ -1992,6 +1992,15 @@ function assertDossierPublisherIdentityEvent(state:ThinkTankState,event:ThinkTan
         event.seq
       );
     }
+    try{
+      buildDossierReleasePackageForPublication(state,publication);
+    }catch(error){
+      throw new KernelIntegrityError(
+        "Historical RPUB package cannot be reconstructed for publisher identity: "+
+        (error instanceof Error?error.message:String(error)),
+        event.seq
+      );
+    }
 
     let retrievalOrigin="";
     let expectedIdentityUrl="";
