@@ -37,10 +37,10 @@ const CHECKPOINT_PUBLISH_BEARER_TOKEN=(process.env.CHECKPOINT_PUBLISH_BEARER_TOK
 const RELEASE_PUBLISH_URL=(process.env.RELEASE_PUBLISH_URL||"").trim();
 const RELEASE_PUBLISH_RETRIEVAL_ORIGIN=(process.env.RELEASE_PUBLISH_RETRIEVAL_ORIGIN||"").trim();
 const RELEASE_PUBLISH_BEARER_TOKEN=(process.env.RELEASE_PUBLISH_BEARER_TOKEN||"").trim();
-const RELEASE_PUBLISH_MAX_BYTES=Math.max(
-  65536,
-  Math.min(10_000_000,Number(process.env.RELEASE_PUBLISH_MAX_BYTES||2_000_000))
-);
+const RELEASE_PUBLISH_MAX_BYTES_RAW=Number(process.env.RELEASE_PUBLISH_MAX_BYTES||2_000_000);
+const RELEASE_PUBLISH_MAX_BYTES=Number.isFinite(RELEASE_PUBLISH_MAX_BYTES_RAW)
+  ?Math.max(65536,Math.min(10_000_000,RELEASE_PUBLISH_MAX_BYTES_RAW))
+  :2_000_000;
 
 const explicitOrigins=(process.env.THINK_TANK_ORIGIN||"")
   .split(",").map(value=>value.trim()).filter(Boolean);
