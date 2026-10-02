@@ -12,6 +12,7 @@ import type {
   EvidenceExcerpt,
   EvidenceRef,
   DossierTransparencyWitnessReceipt,
+  ProvenanceAssurancePolicyKind,
   ResearchCandidate,
   RoleId,
   SeatAvailability,
@@ -21,6 +22,7 @@ import type {
   ThinkTankEventInput,
   ThinkTankState
 } from "../domain/types";
+import { evaluateProvenanceAssurance } from "../domain/provenanceAssurance";
 import { buildEvent,buildEventBatch,replayEvents,verifyReplay } from "../kernel/eventKernel";
 import { deriveMotionCue } from "../motion/motion";
 import { useEventPlayback } from "../motion/useEventPlayback";
@@ -1182,6 +1184,37 @@ export function ThinkTankRoom(){
     }
   };
 
+  const evaluateDossierAssurance=(
+    dossierId:string,
+    policy:ProvenanceAssurancePolicyKind
+  )=>{
+    if(busy)return;
+
+    const report=evaluateProvenanceAssurance(stateRef.current,dossierId,policy);
+    if(stateRef.current.dossierProvenanceAssurances.some(item=>item.id===report.id))return;
+
+    emitInput({
+      source:"operator",
+      kind:"dossier.assurance.requested",
+      phase:stateRef.current.phase,
+      decisionDossierId:dossierId,
+      provenancePolicy:policy,
+      message:"Operator requested "+policy+" provenance assurance for "+dossierId+"."
+    });
+
+    emitInput({
+      source:"system",
+      kind:"dossier.assurance.completed",
+      phase:stateRef.current.phase,
+      decisionDossierId:dossierId,
+      provenancePolicy:policy,
+      provenanceAssurance:report,
+      message:
+        "Provenance assurance "+report.id+" · "+
+        (report.passed?"POLICY SATISFIED":"POLICY NOT SATISFIED")+"."
+    });
+  };
+
   const runAutoRoute=()=>playInputs(routingEventInputs(routingPreview));
 
   const pinRole=(roleId:RoleId,seatId:SeatId)=>{
@@ -1513,6 +1546,7 @@ export function ThinkTankRoom(){
           onWitnessImport={(checkpointId,witness)=>void verifyDetachedWitness(checkpointId,witness)}
           onTimestamp={checkpointId=>void requestCheckpointTimestamp(checkpointId)}
           onPublish={checkpointId=>void publishCheckpoint(checkpointId)}
+          onAssurance={(dossierId,policy)=>evaluateDossierAssurance(dossierId,policy)}
         />
 
         {state.synthesisWithheld&&<div className="gate-block">
