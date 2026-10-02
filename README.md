@@ -6,28 +6,28 @@ A governed, event-sourced multi-mind control room. Cognitive roles are staffed b
 
 ## Current rung
 
-**PR 24 — Assurance-Gated Release Manifest**
+**PR 25 — Cryptographic Release Sealing**
 
-The Think Tank can now require a fresh passing provenance assurance report before an operator may authorize a governed release package for a historical decision dossier.
+The Think Tank can now Ed25519-sign an authorized REL manifest with a dedicated optional release key, independently verify that signature, and carry the seal chain inside release-package and dossier exports.
 
-PR 24 adds:
-- separate release/export authority plane
-- explicit operator release request
-- fresh-passing-assurance prerequisite
-- deterministic REL release manifests
-- exact assurance report + checkpoint linkage
-- sorted canonical artifact-id manifests
-- linked human-override capture without rewriting the dossier
-- CURRENT / HISTORICAL release state
-- governed release package JSON export
-- exact kernel recomputation + replay verification
-- forged/stale/failed/duplicate release tests
+PR 25 adds:
+- dedicated release signing key + key generator
+- stable-canonical REL manifest SHA-256
+- release-specific Ed25519 signed envelope
+- explicit untrusted-local-clock signing label
+- release seal + verification receipts
+- operator-authorized sealing and verification events
+- one seal per release + signer key
+- release-package export with linked seals/verifications
+- Decision Dossier release-seal UI
+- bridge version 0.10.0
+- crypto tamper tests + kernel/replay tests
 
 ### Important semantic rule
 
-**RELEASE AUTHORIZED ≠ SYNTHESIS AUTHORIZED ≠ CONTENT TRUE.**
+**SIGNED RELEASE ≠ TRUSTED SIGNER ≠ TRUSTED TIME ≠ CONTENT TRUE.**
 
-Release authority applies only to the governed packaging/export path. It does not rewrite the original synthesis decision, transform a human override into machine approval, or grant factual truth authority.
+A valid release signature proves one key signed one exact REL manifest. It does not establish real-world signer identity, authoritative time, release truth, or synthesis correctness.
 
 See:
 - [Architecture](docs/ARCHITECTURE.md)
@@ -54,6 +54,7 @@ See:
 - [Verified External Checkpoint Publication](docs/CHECKPOINT_PUBLICATION.md)
 - [Provenance Assurance Policy](docs/PROVENANCE_ASSURANCE.md)
 - [Assurance-Gated Release Manifest](docs/ASSURANCE_GATED_RELEASE.md)
+- [Cryptographic Release Sealing](docs/CRYPTOGRAPHIC_RELEASE_SEALING.md)
 
 ## Local-first setup
 
@@ -76,7 +77,7 @@ Verification:
 
 > **If a light changes, a sequenced event explains why.**
 
-Every normal synthesis carries a deterministic dossier; it can be sealed, journaled, checkpointed, witnessed, time-attested, externally published, evaluated against an explicit provenance policy, and separately authorized for governed release/export.
+Every normal synthesis carries a deterministic dossier; it can be sealed, journaled, checkpointed, witnessed, time-attested, externally published, evaluated against an explicit provenance policy, authorized for governed release/export, and optionally Ed25519-sealed at the REL manifest layer.
 
 ## Build ladder
 
@@ -103,6 +104,7 @@ Every normal synthesis carries a deterministic dossier; it can be sealed, journa
 21. ✅ RFC 3161 trusted timestamp attestation
 22. ✅ Verified external checkpoint publication
 23. ✅ Provenance assurance policy
-24. **Assurance-gated release manifest**
+24. ✅ Assurance-gated release manifest
+25. **Cryptographic release sealing**
 
 **Φ THINK TANK is a control room, not eight chat cards.**
