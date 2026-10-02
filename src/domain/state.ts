@@ -31,6 +31,7 @@ export const createInitialState=():ThinkTankState=>({
   dossierReleasePublications:[],
   dossierReleasePublicationAudits:[],
   dossierReleaseAvailabilityAssurances:[],
+  dossierPublisherOriginIdentities:[],
   evidenceRefs:[],
   evidenceExcerpts:[],
   claims:[],
