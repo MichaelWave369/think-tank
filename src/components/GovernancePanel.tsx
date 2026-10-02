@@ -24,10 +24,18 @@ export function GovernancePanel({
   const latestPromptSeq=[...state.events].reverse()
     .find(event=>event.kind==="operator.prompt")?.seq??0;
   const runEvents=state.events.filter(event=>event.seq>=latestPromptSeq);
-  const executionSource=runEvents.some(event=>event.source==="provider")
-    ?"LIVE PROVIDERS"
-    :runEvents.some(event=>event.source==="simulator")
-      ?"SIMULATION FIXTURE"
+  const fixtureRunDetected=runEvents.some(event=>
+    event.source==="simulator"||
+    event.message?.includes("SIMULATION FIXTURE")
+  );
+  const liveRunDetected=runEvents.some(event=>
+    event.source==="provider"||
+    (event.kind==="session.started"&&event.message?.includes("LIVE provider"))
+  );
+  const executionSource=fixtureRunDetected
+    ?"SIMULATION FIXTURE"
+    :liveRunDetected
+      ?"LIVE PROVIDERS"
       :"NOT STARTED";
   const fixtureRun=executionSource==="SIMULATION FIXTURE";
 
