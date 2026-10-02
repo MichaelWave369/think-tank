@@ -6,29 +6,28 @@ A governed, event-sourced multi-mind control room. Cognitive roles are staffed b
 
 ## Current rung
 
-**PR 23 — Provenance Assurance Policy**
+**PR 24 — Assurance-Gated Release Manifest**
 
-The Think Tank can now evaluate explicit deterministic provenance policies over the cryptographic, journal, checkpoint, witness, timestamp, and publication receipts already accepted into canonical state.
+The Think Tank can now require a fresh passing provenance assurance report before an operator may authorize a governed release package for a historical decision dossier.
 
-PR 23 adds:
-- non-numeric provenance assurance policies
-- integrity / witnessed / time-attested / published / full-provenance profiles
-- coherent single-checkpoint chain evaluation
-- explicit MET / MISSING requirement receipts
-- deterministic provenance-basis fingerprints
-- FRESH / STALE assurance reports
-- current / historical journal-head labeling
-- hard-coded truthAuthority: false
-- operator-authorized assurance evaluation events
+PR 24 adds:
+- separate release/export authority plane
+- explicit operator release request
+- fresh-passing-assurance prerequisite
+- deterministic REL release manifests
+- exact assurance report + checkpoint linkage
+- sorted canonical artifact-id manifests
+- linked human-override capture without rewriting the dossier
+- CURRENT / HISTORICAL release state
+- governed release package JSON export
 - exact kernel recomputation + replay verification
-- Decision Dossier assurance selector/UI + export
-- policy/evaluator/kernel tests
+- forged/stale/failed/duplicate release tests
 
 ### Important semantic rule
 
-**POLICY SATISFIED ≠ CONTENT TRUE ≠ DECISION CORRECT.**
+**RELEASE AUTHORIZED ≠ SYNTHESIS AUTHORIZED ≠ CONTENT TRUE.**
 
-A satisfied policy means its required provenance layers exist in one coherent linked chain. It does not convert provenance evidence into factual evidence, universal trust, or decision authority.
+Release authority applies only to the governed packaging/export path. It does not rewrite the original synthesis decision, transform a human override into machine approval, or grant factual truth authority.
 
 See:
 - [Architecture](docs/ARCHITECTURE.md)
@@ -54,6 +53,7 @@ See:
 - [RFC 3161 Timestamp Attestation](docs/RFC3161_TIMESTAMP.md)
 - [Verified External Checkpoint Publication](docs/CHECKPOINT_PUBLICATION.md)
 - [Provenance Assurance Policy](docs/PROVENANCE_ASSURANCE.md)
+- [Assurance-Gated Release Manifest](docs/ASSURANCE_GATED_RELEASE.md)
 
 ## Local-first setup
 
@@ -76,7 +76,7 @@ Verification:
 
 > **If a light changes, a sequenced event explains why.**
 
-Every normal synthesis carries a deterministic dossier; it can be sealed, journaled, checkpointed, witnessed, time-attested, externally published, and then evaluated against an explicit non-numeric provenance assurance policy.
+Every normal synthesis carries a deterministic dossier; it can be sealed, journaled, checkpointed, witnessed, time-attested, externally published, evaluated against an explicit provenance policy, and separately authorized for governed release/export.
 
 ## Build ladder
 
@@ -102,6 +102,7 @@ Every normal synthesis carries a deterministic dossier; it can be sealed, journa
 20. ✅ Portable checkpoints + detached witnesses
 21. ✅ RFC 3161 trusted timestamp attestation
 22. ✅ Verified external checkpoint publication
-23. **Provenance assurance policy**
+23. ✅ Provenance assurance policy
+24. **Assurance-gated release manifest**
 
 **Φ THINK TANK is a control room, not eight chat cards.**
