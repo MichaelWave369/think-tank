@@ -34,6 +34,13 @@ const RFC3161_OPENSSL_BIN=(process.env.RFC3161_OPENSSL_BIN||"openssl").trim()||"
 const CHECKPOINT_PUBLISH_URL=(process.env.CHECKPOINT_PUBLISH_URL||"").trim();
 const CHECKPOINT_PUBLISH_RETRIEVAL_ORIGIN=(process.env.CHECKPOINT_PUBLISH_RETRIEVAL_ORIGIN||"").trim();
 const CHECKPOINT_PUBLISH_BEARER_TOKEN=(process.env.CHECKPOINT_PUBLISH_BEARER_TOKEN||"").trim();
+const RELEASE_PUBLISH_URL=(process.env.RELEASE_PUBLISH_URL||"").trim();
+const RELEASE_PUBLISH_RETRIEVAL_ORIGIN=(process.env.RELEASE_PUBLISH_RETRIEVAL_ORIGIN||"").trim();
+const RELEASE_PUBLISH_BEARER_TOKEN=(process.env.RELEASE_PUBLISH_BEARER_TOKEN||"").trim();
+const RELEASE_PUBLISH_MAX_BYTES=Math.max(
+  65536,
+  Math.min(10_000_000,Number(process.env.RELEASE_PUBLISH_MAX_BYTES||2_000_000))
+);
 
 const explicitOrigins=(process.env.THINK_TANK_ORIGIN||"")
   .split(",").map(value=>value.trim()).filter(Boolean);
@@ -63,13 +70,13 @@ const send=(res,status,body,origin)=>{
   res.end(JSON.stringify(body));
 };
 
-const readJson=(req)=>new Promise((resolve,reject)=>{
+const readJson=(req,maxBytes=MAX_BODY_BYTES)=>new Promise((resolve,reject)=>{
   let size=0;
   let data="";
   req.setEncoding("utf8");
   req.on("data",chunk=>{
     size+=Buffer.byteLength(chunk);
-    if(size>MAX_BODY_BYTES){
+    if(size>maxBytes){
       reject(new Error("Request body exceeds provider bridge limit."));
       req.destroy();
       return;
@@ -1805,6 +1812,425 @@ const publishAndVerifyCheckpoint=async(checkpoint)=>{
   });
 };
 
+
+export const releasePackageBasisFingerprintBridge=(packageValue)=>{
+  const text=stableCanonicalJson(packageValue);
+  let hash=0x811c9dc5;
+  for(let index=0;index<text.length;index++){
+    hash^=text.charCodeAt(index);
+    hash=Math.imul(hash,0x01000193)>>>0;
+  }
+  return "fnv1a32:"+hash.toString(16).padStart(8,"0");
+};
+
+export const validateReleasePackage=(packageValue)=>{
+  if(
+    !packageValue||
+    typeof packageValue!=="object"||
+    packageValue.schemaVersion!==1||
+    !packageValue.releaseManifest||
+    typeof packageValue.releaseManifest.id!=="string"||
+    !packageValue.releaseManifest.id.trim()||
+    !Array.isArray(packageValue.releaseSeals)||
+    !Array.isArray(packageValue.releaseSealVerifications)||
+    !Array.isArray(packageValue.releaseRfc3161Timestamps)||
+    !Array.isArray(packageValue.artifacts)
+  ){
+    throw bridgeError("Release package is incomplete or malformed.",400);
+  }
+
+  const manifest=packageValue.releaseManifest;
+  const artifactIds=packageValue.artifacts.map(item=>
+    item&&typeof item==="object"&&typeof item.id==="string"?item.id:""
+  );
+  if(
+    artifactIds.some(id=>!id)||
+    stableCanonicalJson(artifactIds)!==stableCanonicalJson(manifest.artifactIds)
+  ){
+    throw bridgeError("Release package artifacts do not match the REL manifest artifact list.",400);
+  }
+
+  const seals=new Map();
+  for(const seal of packageValue.releaseSeals){
+    if(seal.releaseId!==manifest.id){
+      throw bridgeError("Release package contains a seal for a different REL manifest.",400);
+    }
+    const result=verifyReleaseSealReceipt(manifest,seal);
+    if(!result.verified){
+      throw bridgeError("Release package contains an invalid RSEAL: "+result.reason,409);
+    }
+    if(seals.has(seal.id))throw bridgeError("Release package contains duplicate RSEAL ids.",400);
+    seals.set(seal.id,seal);
+  }
+
+  const verifiedSealIds=new Set();
+  for(const verification of packageValue.releaseSealVerifications){
+    const seal=seals.get(verification.sealId);
+    if(
+      !seal||
+      verification.id!=="RVER-"+seal.id||
+      verification.releaseId!==manifest.id||
+      verification.tool!=="ed25519-release-verifier"||
+      verification.algorithm!=="Ed25519"||
+      verification.manifestSha256!==seal.manifestSha256||
+      verification.publicKeyFingerprintSha256!==seal.publicKeyFingerprintSha256||
+      verification.verified!==true||
+      Number.isNaN(Date.parse(verification.verifiedAt||""))
+    ){
+      throw bridgeError("Release package contains an invalid RVER receipt.",400);
+    }
+    verifiedSealIds.add(seal.id);
+  }
+  if(!verifiedSealIds.size){
+    throw bridgeError("Release publication requires at least one successfully verified release seal.",409);
+  }
+
+  for(const timestamp of packageValue.releaseRfc3161Timestamps){
+    const seal=seals.get(timestamp.sealId);
+    if(
+      !seal||
+      timestamp.releaseId!==manifest.id||
+      timestamp.tool!=="rfc3161-release-seal-timestamp-verifier"||
+      timestamp.standard!=="RFC3161"||
+      timestamp.hashAlgorithm!=="SHA-256"||
+      timestamp.manifestSha256!==seal.manifestSha256||
+      timestamp.publicKeyFingerprintSha256!==seal.publicKeyFingerprintSha256||
+      timestamp.trust!=="configured-rfc3161-trust-anchor"
+    ){
+      throw bridgeError("Release package contains an invalid RTSA linkage.",400);
+    }
+  }
+
+  return packageValue;
+};
+
+const normalizedConfiguredReleasePublication=()=>{
+  if(!RELEASE_PUBLISH_URL)return null;
+
+  let publisher;
+  try{publisher=new URL(RELEASE_PUBLISH_URL);}
+  catch{throw bridgeError("RELEASE_PUBLISH_URL is invalid.",500);}
+  if(
+    publisher.protocol!=="https:"||
+    (publisher.port&&publisher.port!=="443")||
+    publisher.username||
+    publisher.password||
+    publisher.hash
+  ){
+    throw bridgeError(
+      "RELEASE_PUBLISH_URL must be an HTTPS URL on the standard port without credentials or fragments.",
+      500
+    );
+  }
+  if(RELEASE_PUBLISH_BEARER_TOKEN.length>8192){
+    throw bridgeError("RELEASE_PUBLISH_BEARER_TOKEN exceeds the 8192 character limit.",500);
+  }
+
+  let retrievalOrigin;
+  if(RELEASE_PUBLISH_RETRIEVAL_ORIGIN){
+    let configured;
+    try{configured=new URL(RELEASE_PUBLISH_RETRIEVAL_ORIGIN);}
+    catch{throw bridgeError("RELEASE_PUBLISH_RETRIEVAL_ORIGIN is invalid.",500);}
+    if(
+      configured.protocol!=="https:"||
+      (configured.port&&configured.port!=="443")||
+      configured.username||
+      configured.password||
+      configured.hash||
+      configured.pathname!=="/"||
+      configured.search
+    ){
+      throw bridgeError(
+        "RELEASE_PUBLISH_RETRIEVAL_ORIGIN must be an HTTPS origin with no path, query, credentials, or fragment.",
+        500
+      );
+    }
+    retrievalOrigin=configured.origin;
+  }else{
+    retrievalOrigin=publisher.origin;
+  }
+
+  return {
+    publisherUrl:publisher.toString(),
+    retrievalOrigin,
+    authConfigured:Boolean(RELEASE_PUBLISH_BEARER_TOKEN)
+  };
+};
+
+const releasePublicationStatus=()=>{
+  if(!RELEASE_PUBLISH_URL){
+    return {
+      ok:true,
+      state:"disabled",
+      protocol:"phi-release-publication-v1",
+      publisherUrl:null,
+      retrievalOrigin:null,
+      authConfigured:false,
+      maxBytes:RELEASE_PUBLISH_MAX_BYTES,
+      detail:"Set RELEASE_PUBLISH_URL to enable verified external release publication."
+    };
+  }
+
+  try{
+    const configured=normalizedConfiguredReleasePublication();
+    return {
+      ok:true,
+      state:"configured",
+      protocol:"phi-release-publication-v1",
+      ...configured,
+      maxBytes:RELEASE_PUBLISH_MAX_BYTES,
+      detail:"Configured release publisher will be verified by exact HTTPS read-back before RPUB is accepted."
+    };
+  }catch(error){
+    return {
+      ok:true,
+      state:"error",
+      protocol:"phi-release-publication-v1",
+      publisherUrl:RELEASE_PUBLISH_URL||null,
+      retrievalOrigin:RELEASE_PUBLISH_RETRIEVAL_ORIGIN||null,
+      authConfigured:Boolean(RELEASE_PUBLISH_BEARER_TOKEN),
+      maxBytes:RELEASE_PUBLISH_MAX_BYTES,
+      detail:error instanceof Error?error.message:String(error)
+    };
+  }
+};
+
+export const validateReleasePublicationResponse=({
+  packageValue,
+  packageSha256,
+  publisherResponse,
+  publisherUrl,
+  retrievalOrigin
+})=>{
+  validateReleasePackage(packageValue);
+  if(!publisherResponse||typeof publisherResponse!=="object"){
+    throw bridgeError("Release publisher returned no JSON receipt.",502);
+  }
+  if(
+    publisherResponse.protocol!=="phi-release-publication-v1"||
+    publisherResponse.releaseId!==packageValue.releaseManifest.id||
+    publisherResponse.packageSha256!==packageSha256||
+    typeof publisherResponse.publicationId!=="string"||
+    !publisherResponse.publicationId.trim()||
+    publisherResponse.publicationId.length>300||
+    Number.isNaN(Date.parse(publisherResponse.publishedAt||""))||
+    typeof publisherResponse.retrievalUrl!=="string"||
+    !publisherResponse.retrievalUrl.trim()
+  ){
+    throw bridgeError("Release publisher response does not match phi-release-publication-v1.",502);
+  }
+
+  let normalizedPublisher;
+  let retrieval;
+  try{
+    normalizedPublisher=new URL(publisherUrl);
+    retrieval=new URL(publisherResponse.retrievalUrl);
+  }catch{
+    throw bridgeError("Release publication response contains an invalid URL.",502);
+  }
+  if(
+    normalizedPublisher.protocol!=="https:"||
+    retrieval.protocol!=="https:"||
+    retrieval.username||
+    retrieval.password||
+    retrieval.hash
+  ){
+    throw bridgeError("Release publication/retrieval URLs must use HTTPS without credentials or fragments.",502);
+  }
+  if(retrieval.origin!==retrievalOrigin){
+    throw bridgeError("Release retrieval URL origin does not match configured retrieval origin.",502);
+  }
+
+  return {
+    protocol:"phi-release-publication-v1",
+    publicationId:publisherResponse.publicationId.trim(),
+    releaseId:packageValue.releaseManifest.id,
+    packageSha256,
+    retrievalUrl:retrieval.toString(),
+    publishedAt:new Date(Date.parse(publisherResponse.publishedAt)).toISOString(),
+    publisherUrl:normalizedPublisher.toString()
+  };
+};
+
+export const buildReleasePublicationReceipt=({
+  packageValue,
+  packageBasisFingerprint,
+  publisherResponse,
+  publisherUrl,
+  retrievalOrigin,
+  retrievedPackage,
+  retrievalHttpStatus=200,
+  retrievalContentType="application/json",
+  retrievalVerifiedAt=new Date().toISOString()
+})=>{
+  validateReleasePackage(packageValue);
+  validateReleasePackage(retrievedPackage);
+
+  const bridgeFingerprint=releasePackageBasisFingerprintBridge(packageValue);
+  if(packageBasisFingerprint!==bridgeFingerprint){
+    throw bridgeError("Release package basis fingerprint does not match received package.",409);
+  }
+  if(stableCanonicalJson(retrievedPackage)!==stableCanonicalJson(packageValue)){
+    throw bridgeError("Retrieved release package does not exactly match the published package.",409);
+  }
+  if(!Number.isInteger(retrievalHttpStatus)||retrievalHttpStatus<200||retrievalHttpStatus>=300){
+    throw bridgeError("Release package retrieval did not return a successful HTTP status.",502);
+  }
+  const contentType=String(retrievalContentType||"").split(";")[0].trim().toLowerCase();
+  if(contentType!=="application/json"){
+    throw bridgeError("Release package retrieval must return application/json.",415);
+  }
+  if(Number.isNaN(Date.parse(retrievalVerifiedAt))){
+    throw bridgeError("Release package retrieval verification time is invalid.",500);
+  }
+
+  const packageSha256=createHash("sha256")
+    .update(stableCanonicalJson(packageValue),"utf8")
+    .digest("hex");
+  const response=validateReleasePublicationResponse({
+    packageValue,
+    packageSha256,
+    publisherResponse,
+    publisherUrl,
+    retrievalOrigin
+  });
+  const manifestSha256=releaseManifestDigestSha256(packageValue.releaseManifest);
+  const basis={
+    schemaVersion:1,
+    releaseId:packageValue.releaseManifest.id,
+    tool:"verified-release-package-publisher",
+    protocol:"phi-release-publication-v1",
+    packageBasisFingerprint,
+    manifestSha256,
+    packageSha256,
+    publisherUrl:response.publisherUrl,
+    retrievalUrl:response.retrievalUrl,
+    publicationId:response.publicationId,
+    publisherClaimedAt:response.publishedAt,
+    retrievalHttpStatus,
+    retrievalContentType:contentType,
+    retrievalVerifiedAt:new Date(Date.parse(retrievalVerifiedAt)).toISOString(),
+    releaseSealIds:packageValue.releaseSeals.map(item=>item.id),
+    releaseVerificationIds:packageValue.releaseSealVerifications.map(item=>item.id),
+    releaseTimestampIds:packageValue.releaseRfc3161Timestamps.map(item=>item.id),
+    artifactIds:[...packageValue.releaseManifest.artifactIds],
+    trust:"externally-retrieved-release-publication"
+  };
+  const receiptSha256=createHash("sha256")
+    .update(stableCanonicalJson(basis),"utf8")
+    .digest("hex");
+
+  return {
+    id:"RPUB-"+packageValue.releaseManifest.id+"-"+receiptSha256.slice(0,12),
+    ...basis,
+    receiptSha256
+  };
+};
+
+const publishAndVerifyReleasePackage=async(packageValue,packageBasisFingerprint)=>{
+  validateReleasePackage(packageValue);
+  const bridgeFingerprint=releasePackageBasisFingerprintBridge(packageValue);
+  if(packageBasisFingerprint!==bridgeFingerprint){
+    throw bridgeError("Release package changed before publication request reached the bridge.",409);
+  }
+
+  const status=releasePublicationStatus();
+  if(status.state!=="configured"){
+    throw bridgeError("Release publisher is not configured: "+status.detail,503);
+  }
+
+  const packageSha256=createHash("sha256")
+    .update(stableCanonicalJson(packageValue),"utf8")
+    .digest("hex");
+  const publisherTarget=await assertPublicationHttpsTarget(
+    status.publisherUrl,
+    "Release publisher URL"
+  );
+  const body=Buffer.from(stableCanonicalJson({
+    protocol:"phi-release-publication-v1",
+    packageBasisFingerprint,
+    packageSha256,
+    releasePackage:packageValue
+  }),"utf8");
+  if(body.length>RELEASE_PUBLISH_MAX_BYTES){
+    throw bridgeError("Release publication payload exceeds configured byte limit.",413);
+  }
+
+  const headers={
+    "accept":"application/json",
+    "content-type":"application/json",
+    "content-length":String(body.length)
+  };
+  if(RELEASE_PUBLISH_BEARER_TOKEN){
+    headers.authorization="Bearer "+RELEASE_PUBLISH_BEARER_TOKEN;
+  }
+
+  const publishResponse=await requestPinnedPublication(
+    publisherTarget,
+    {method:"POST",headers,body,maxBytes:128_000}
+  );
+  if(publishResponse.status<200||publishResponse.status>=300){
+    throw bridgeError("Release publisher returned HTTP "+publishResponse.status+".",502);
+  }
+  const publishType=String(publishResponse.headers["content-type"]||"")
+    .split(";")[0].trim().toLowerCase();
+  if(publishType!=="application/json"){
+    throw bridgeError("Release publisher must return application/json.",502);
+  }
+
+  let publisherResponse;
+  try{publisherResponse=JSON.parse(publishResponse.body.toString("utf8"));}
+  catch{throw bridgeError("Release publisher returned invalid JSON.",502);}
+
+  const normalized=validateReleasePublicationResponse({
+    packageValue,
+    packageSha256,
+    publisherResponse,
+    publisherUrl:status.publisherUrl,
+    retrievalOrigin:status.retrievalOrigin
+  });
+
+  const retrievalTarget=await assertPublicationHttpsTarget(
+    normalized.retrievalUrl,
+    "Release retrieval URL"
+  );
+  if(retrievalTarget.url.origin!==status.retrievalOrigin){
+    throw bridgeError("Release retrieval URL origin changed during validation.",502);
+  }
+
+  const retrievalResponse=await requestPinnedPublication(
+    retrievalTarget,
+    {
+      method:"GET",
+      headers:{"accept":"application/json"},
+      maxBytes:RELEASE_PUBLISH_MAX_BYTES
+    }
+  );
+  if(retrievalResponse.status<200||retrievalResponse.status>=300){
+    throw bridgeError("Release retrieval returned HTTP "+retrievalResponse.status+".",502);
+  }
+  const retrievalType=String(retrievalResponse.headers["content-type"]||"")
+    .split(";")[0].trim().toLowerCase();
+  if(retrievalType!=="application/json"){
+    throw bridgeError("Release retrieval must return application/json.",415);
+  }
+
+  let retrievedPackage;
+  try{retrievedPackage=JSON.parse(retrievalResponse.body.toString("utf8"));}
+  catch{throw bridgeError("Release retrieval returned invalid JSON.",502);}
+
+  return buildReleasePublicationReceipt({
+    packageValue,
+    packageBasisFingerprint,
+    publisherResponse,
+    publisherUrl:status.publisherUrl,
+    retrievalOrigin:status.retrievalOrigin,
+    retrievedPackage,
+    retrievalHttpStatus:retrievalResponse.status,
+    retrievalContentType:retrievalType
+  });
+};
+
 const fetchEvidenceResource=async(requestedUri)=>{
   let target=await assertPublicHttpUrl(requestedUri);
   let redirects=0;
@@ -2001,7 +2427,7 @@ const remoteStatus=(seatId,provider,key,model)=>({
 
 const statusPayload=async()=>({
   ok:true,
-  bridgeVersion:"0.11.0",
+  bridgeVersion:"0.12.0",
   seats:[
     await ollamaStatus(),
     remoteStatus("openai","OpenAI",process.env.OPENAI_API_KEY,process.env.OPENAI_MODEL),
@@ -2114,7 +2540,7 @@ const server=http.createServer(async(req,res)=>{
 
   try{
     if(req.method==="GET"&&req.url==="/health"){
-      send(res,200,{ok:true,service:"phi-think-tank-provider-bridge",version:"0.11.0"},origin);
+      send(res,200,{ok:true,service:"phi-think-tank-provider-bridge",version:"0.12.0"},origin);
       return;
     }
 
@@ -2199,6 +2625,21 @@ const server=http.createServer(async(req,res)=>{
       const raw=await readJson(req);
       const timestamp=await requestRfc3161ReleaseSealTimestamp(raw.manifest,raw.seal);
       send(res,200,{ok:true,timestamp},origin);
+      return;
+    }
+
+    if(req.method==="GET"&&req.url==="/dossier/release/publication/status"){
+      send(res,200,releasePublicationStatus(),origin);
+      return;
+    }
+
+    if(req.method==="POST"&&req.url==="/dossier/release/publication"){
+      const raw=await readJson(req,RELEASE_PUBLISH_MAX_BYTES);
+      const publication=await publishAndVerifyReleasePackage(
+        raw.releasePackage,
+        raw.packageBasisFingerprint
+      );
+      send(res,200,{ok:true,publication},origin);
       return;
     }
 
