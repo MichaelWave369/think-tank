@@ -472,3 +472,33 @@ A new matching RPUB or RAUD makes an older report stale; unrelated package evide
 Dossier export includes linked releaseAvailabilityAssurances separately.
 
 See [RELEASE_AVAILABILITY_ASSURANCE.md](RELEASE_AVAILABILITY_ASSURANCE.md).
+
+## Publisher origin identity receipts
+
+PR 30 adds POID receipts linked to historical RPUB release publications.
+
+DossierPublisherOriginIdentityReceipt preserves:
+- REL id
+- RPUB id + RPUB receipt SHA-256
+- exact retrieval origin
+- fixed .well-known identity URL
+- complete descriptor SHA-256
+- self-attested publisher id
+- self-attested publisher label
+- self-attested administrative-domain claim
+- Ed25519 public key PEM
+- SPKI public-key fingerprint SHA-256
+- self-attested claimedAt
+- descriptor signature
+- local verifiedAt + untrusted-local-clock
+- POID receipt SHA-256
+- self-attested-origin-signing-key trust label
+- realWorldIdentityAuthority: false
+- operatorIndependenceAuthority: false
+- truthAuthority: false
+
+Dossier export includes linked publisherOriginIdentities separately.
+
+POID is not part of the governed release package and does not mutate RPUB, RAUD, or RAVA semantics.
+
+See [PUBLISHER_ORIGIN_IDENTITY.md](PUBLISHER_ORIGIN_IDENTITY.md).
