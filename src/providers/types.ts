@@ -1,4 +1,4 @@
-import type { DossierSealReceipt,RoleId,SeatId,SynthesisDecisionDossier } from "../domain/types";
+import type { DossierSealReceipt,DossierTransparencyReceipt,RoleId,SeatId,SynthesisDecisionDossier } from "../domain/types";
 
 export type ProviderConnectionState="connected"|"configured"|"disconnected"|"error";
 
@@ -161,4 +161,20 @@ export interface DossierSealError{
 
 export interface DossierSealRequest{
   dossier:SynthesisDecisionDossier;
+}
+
+export interface DossierTransparencyStatusResponse{
+  ok:true;
+  state:"ready"|"disabled"|"corrupt";
+  entryCount:number;
+  headSha256:string|null;
+  headEntryId:string|null;
+  clock:"untrusted-local-clock";
+  trust:"tamper-evident-local-journal";
+  detail:string;
+}
+
+export interface DossierTransparencyAppendResponse{
+  ok:true;
+  entry:DossierTransparencyReceipt;
 }
