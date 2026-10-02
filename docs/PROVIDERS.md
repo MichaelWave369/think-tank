@@ -91,9 +91,35 @@ That action emits canonical `seat.status` events.
 
 The bridge itself does not silently change routing authority.
 
+## LIVE prompt contract
+
+LIVE provider execution requires a non-empty operator directive.
+
+The UI separates two readiness conditions:
+- provider/routing readiness
+- operator directive readiness
+
+When the directive is blank, the LIVE action displays:
+
+`ENTER DIRECTIVE`
+
+and remains disabled.
+
+The live runner independently enforces the same contract before:
+- Crane Fly planning
+- event emission
+- provider invocation
+
+A blank LIVE prompt therefore produces:
+- zero canonical events
+- zero provider calls
+- no synthetic fallback directive
+
+The operator text remains visible as ACTIVE LIVE DIRECTIVE while the LIVE run is executing.
+
 ## LIVE execution order
 
-1. operator prompt
+1. explicit operator prompt
 2. Crane Fly assignment receipts
 3. routing complete
 4. session started
@@ -143,11 +169,23 @@ The operator rail action is:
 
 That path executes deterministic demo/scenario fixtures through the governed event kernel.
 
+Simulation fixture provenance is explicit in:
+- session messages
+- simulated role turns
+- fixture gate-score messages
+- fixture synthesis messages
+- Governance Panel execution source
+- Decision Dossier executionSource
+
+A fixture gate score is test data for governance mechanics.
+
+It is not live provider evidence.
+
 The Provider Bridge action is:
 
 `RUN LIVE PROVIDERS`
 
-That path executes the currently configured model/provider adapters.
+That path executes the currently configured model/provider adapters and requires an explicit operator directive.
 
 The two paths intentionally share governance and replay machinery but are not the same execution source.
 
@@ -330,3 +368,24 @@ PR 32 hardens that boundary:
 - simulation and LIVE provider buttons are unmistakably labeled
 
 Bridge version: `0.15.0`.
+
+
+## PR 33 field hardening
+
+The second installed field run verified that PR 32 fixed thinking-capable Ollama execution across the full five-role Council.
+
+That run also exposed two field seams:
+- blank LIVE input silently fell back to a synthetic session prompt
+- simulator fixture scores could be read without enough provenance context
+
+PR 33 closes both.
+
+LIVE now fails before routing/events/provider calls when the operator directive is blank.
+
+Simulation output is marked SIMULATION FIXTURE at the ledger/session/gate/synthesis layers, and Decision Dossiers carry:
+
+`executionSource: "simulation-fixture" | "live-provider" | "governed-system"`
+
+That field participates in the deterministic dossier basis fingerprint.
+
+Bridge version remains `0.15.0`.
