@@ -119,3 +119,9 @@ Every normal synthesis carries a deterministic dossier; it can be sealed, journa
 30. **Publisher origin identity attestation**
 
 **Φ THINK TANK is a control room, not eight chat cards.**
+
+## License
+
+Φ THINK TANK is open-source software released under the [MIT License](LICENSE).
+
+Copyright © 2026 MichaelWave369.
