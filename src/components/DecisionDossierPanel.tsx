@@ -346,13 +346,15 @@ export function DecisionDossierPanel({
   const releaseTimestamps=latestReleaseSeal
     ?state.dossierReleaseRfc3161Timestamps.filter(item=>item.sealId===latestReleaseSeal.id)
     :[];
+  const configuredTsaAuthority=rfc3161Status?.authorityUrl??null;
+  const configuredTsaTrustAnchor=rfc3161Status?.trustAnchorSha256??null;
   const currentReleaseTimestamp=(
-    rfc3161Status?.authorityUrl&&
-    rfc3161Status.trustAnchorSha256
+    configuredTsaAuthority&&
+    configuredTsaTrustAnchor
   )
     ?[...releaseTimestamps].reverse().find(item=>
-      item.authorityUrl===rfc3161Status.authorityUrl&&
-      item.trustAnchorSha256===rfc3161Status.trustAnchorSha256
+      item.authorityUrl===configuredTsaAuthority&&
+      item.trustAnchorSha256===configuredTsaTrustAnchor
     )??null
     :null;
   const latestReleaseTimestamp=releaseTimestamps[releaseTimestamps.length-1]??null;
