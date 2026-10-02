@@ -241,3 +241,18 @@ PR 21 does not:
 - alter Reality Gate scoring
 - authorize synthesis
 - create a blockchain
+
+## PR 22 publication relationship
+
+RFC 3161 timestamps and verified external publication are independent checkpoint evidence layers:
+
+```
+CHECKPOINT
+  ├─ DETACHED WITNESS
+  ├─ RFC 3161 TIME ATTESTATION
+  └─ VERIFIED EXTERNAL PUBLICATION
+```
+
+A publisher's `publishedAt` value is not promoted to trusted time. Use the verified RFC 3161 receipt for time-attestation semantics.
+
+See [Verified External Checkpoint Publication](CHECKPOINT_PUBLICATION.md).
