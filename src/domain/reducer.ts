@@ -228,6 +228,13 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
     ];
   }
 
+  if(event.kind==="dossier.assurance.completed"&&event.provenanceAssurance){
+    next.dossierProvenanceAssurances=[
+      ...state.dossierProvenanceAssurances,
+      event.provenanceAssurance
+    ];
+  }
+
   if(event.kind==="seat.status"&&event.seatId&&event.seatStatus){
     next.seatStatus={...state.seatStatus,[event.seatId]:event.seatStatus};
   }
