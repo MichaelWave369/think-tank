@@ -116,7 +116,7 @@ Every normal synthesis carries a deterministic dossier; it can be sealed, journa
 27. ✅ Verified external release publication
 28. ✅ Release publication durability audit
 29. ✅ Release availability assurance policy
-30. **Publisher origin identity attestation**
+30. ✅ Publisher origin identity attestation
 
 **Φ THINK TANK is a control room, not eight chat cards.**
 
