@@ -1,5 +1,5 @@
 import {useRef,useState} from "react";
-import type { DossierTransparencyCheckpoint,DossierTransparencyWitnessReceipt,ProvenanceAssurancePolicyKind,ThinkTankState } from "../domain/types";
+import type { DossierReleaseManifest,DossierTransparencyCheckpoint,DossierTransparencyWitnessReceipt,ProvenanceAssurancePolicyKind,ThinkTankState } from "../domain/types";
 import type { DossierPublicationStatusResponse,DossierRfc3161StatusResponse,DossierSealStatusResponse,DossierTransparencyStatusResponse } from "../providers/types";
 import { latestDecisionDossier,overrideForDossier } from "../domain/decisionDossier";
 import {
@@ -8,6 +8,7 @@ import {
   PROVENANCE_ASSURANCE_REQUIREMENT_LABELS,
   provenanceAssuranceIsFresh
 } from "../domain/provenanceAssurance";
+import {releaseManifestIsCurrent} from "../domain/releaseManifest";
 
 const short=(value:string)=>value.replace("fnv1a32:","").slice(0,10)+"…";
 
@@ -23,6 +24,49 @@ const downloadJson=(filename:string,value:unknown)=>{
 
 const exportCheckpoint=(checkpoint:DossierTransparencyCheckpoint)=>{
   downloadJson(checkpoint.id.toLowerCase()+"-transparency-checkpoint.json",checkpoint);
+};
+
+const exportReleasePackage=(state:ThinkTankState,manifest:DossierReleaseManifest)=>{
+  const candidates:unknown[]=[
+    ...state.decisionDossiers,
+    ...state.decisionOverrides,
+    ...state.dossierSeals,
+    ...state.dossierSealVerifications,
+    ...state.dossierTransparencyEntries,
+    ...state.dossierTransparencyCheckpoints,
+    ...state.dossierTransparencyWitnesses,
+    ...state.dossierTransparencyWitnessVerifications,
+    ...state.dossierRfc3161Timestamps,
+    ...state.dossierCheckpointPublications,
+    ...state.dossierProvenanceAssurances
+  ];
+  const index=new Map<string,unknown>();
+
+  for(const candidate of candidates){
+    if(
+      candidate&&
+      typeof candidate==="object"&&
+      "id" in candidate&&
+      typeof (candidate as {id?:unknown}).id==="string"
+    ){
+      index.set((candidate as {id:string}).id,candidate);
+    }
+  }
+
+  const artifacts=manifest.artifactIds.map(id=>{
+    const artifact=index.get(id);
+    if(!artifact)throw new Error("Release manifest references missing artifact "+id+".");
+    return artifact;
+  });
+
+  downloadJson(
+    manifest.id.toLowerCase()+"-release-package.json",
+    {
+      schemaVersion:1,
+      releaseManifest:manifest,
+      artifacts
+    }
+  );
 };
 
 const exportDossier=(state:ThinkTankState)=>{
@@ -42,6 +86,7 @@ const exportDossier=(state:ThinkTankState)=>{
   const rfc3161Timestamps=state.dossierRfc3161Timestamps.filter(item=>checkpointIds.has(item.checkpointId));
   const checkpointPublications=state.dossierCheckpointPublications.filter(item=>checkpointIds.has(item.checkpointId));
   const provenanceAssurances=state.dossierProvenanceAssurances.filter(item=>item.dossierId===dossier.id);
+  const releaseManifests=state.dossierReleaseManifests.filter(item=>item.dossierId===dossier.id);
   downloadJson(
     dossier.id.toLowerCase()+"-decision-dossier.json",
     {
@@ -55,7 +100,8 @@ const exportDossier=(state:ThinkTankState)=>{
       witnessVerifications,
       rfc3161Timestamps,
       checkpointPublications,
-      provenanceAssurances
+      provenanceAssurances,
+      releaseManifests
     }
   );
 };
@@ -85,7 +131,8 @@ export function DecisionDossierPanel({
   onWitnessImport,
   onTimestamp,
   onPublish,
-  onAssurance
+  onAssurance,
+  onRelease
 }:{
   state:ThinkTankState;
   sealStatus:DossierSealStatusResponse|null;
@@ -112,6 +159,7 @@ export function DecisionDossierPanel({
   onTimestamp:(checkpointId:string)=>void;
   onPublish:(checkpointId:string)=>void;
   onAssurance:(dossierId:string,policy:ProvenanceAssurancePolicyKind)=>void;
+  onRelease:(dossierId:string,policy:ProvenanceAssurancePolicyKind,assuranceReportId:string)=>void;
 }){
   const witnessFileRef=useRef<HTMLInputElement>(null);
   const [witnessImportError,setWitnessImportError]=useState("");
@@ -221,6 +269,23 @@ export function DecisionDossierPanel({
   const assuranceFresh=currentAssurance
     ?provenanceAssuranceIsFresh(state,currentAssurance)
     :false;
+  const currentRelease=currentAssurance
+    ?[...state.dossierReleaseManifests]
+      .reverse()
+      .find(item=>
+        item.dossierId===dossier.id&&
+        item.policy===assurancePolicy&&
+        item.assuranceReportId===currentAssurance.id
+      )??null
+    :null;
+  const releaseCurrent=currentRelease
+    ?releaseManifestIsCurrent(state,currentRelease)
+    :false;
+  const releaseState=currentRelease
+    ?releaseCurrent?"RELEASE AUTHORIZED":"HISTORICAL RELEASE"
+    :currentAssurance?.passed&&assuranceFresh
+      ?"READY FOR RELEASE"
+      :"RELEASE BLOCKED";
 
   const importWitnessFile=async(file:File|null)=>{
     if(!file||!latestCheckpoint)return;
@@ -665,13 +730,76 @@ export function DecisionDossierPanel({
                 Evaluate the selected policy against canonical dossier, seal, journal, checkpoint,
                 witness, timestamp, and publication receipts. No numeric trust score is produced.
               </p>}
+
+            <div className={"dossier-release "+(
+              currentRelease&&releaseCurrent
+                ?"release-authorized"
+                :currentAssurance?.passed&&assuranceFresh
+                  ?"release-ready"
+                  :"release-blocked"
+            )}>
+              <div className="dossier-transparency-head">
+                <div>
+                  <small>ASSURANCE-GATED RELEASE</small>
+                  <strong>{releaseState}</strong>
+                </div>
+                <span>{currentRelease?.id??"NO RELEASE MANIFEST"}</span>
+              </div>
+
+              {currentRelease
+                ?<div className="dossier-seal-details">
+                  <p><b>Manifest</b> {currentRelease.id}</p>
+                  <p><b>Policy</b> {PROVENANCE_ASSURANCE_POLICY_LABELS[currentRelease.policy]}</p>
+                  <p><b>Assurance</b> {currentRelease.assuranceReportId}</p>
+                  <p><b>Checkpoint</b> {currentRelease.checkpointId}</p>
+                  <p><b>Override</b> {currentRelease.operatorOverrideId||"NONE"}</p>
+                  <p><b>Artifacts</b> {currentRelease.artifactIds.length}</p>
+                  <p><b>Manifest fingerprint</b> {currentRelease.manifestFingerprint}</p>
+                  <p><b>Release authority</b> FRESH PASSING PROVENANCE POLICY</p>
+                  <p><b>Truth authority</b> NONE</p>
+                </div>
+                :<p>
+                  Release requires a fresh passing assurance report for the selected policy.
+                  Authorization creates an immutable manifest over the exact receipt ids that justified release.
+                </p>}
+
+              <div className="dossier-seal-actions">
+                <button
+                  type="button"
+                  disabled={
+                    busy||
+                    !currentAssurance||
+                    !currentAssurance.passed||
+                    !assuranceFresh||
+                    Boolean(currentRelease)
+                  }
+                  onClick={()=>
+                    currentAssurance&&
+                    onRelease(dossier.id,assurancePolicy,currentAssurance.id)
+                  }
+                >
+                  {currentRelease
+                    ?"RELEASE AUTHORIZED"
+                    :currentAssurance?.passed&&assuranceFresh
+                      ?"AUTHORIZE RELEASE"
+                      :"ASSURANCE REQUIRED"}
+                </button>
+                <button
+                  type="button"
+                  disabled={!currentRelease}
+                  onClick={()=>currentRelease&&exportReleasePackage(state,currentRelease)}
+                >
+                  EXPORT RELEASE PACKAGE
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </div>
 
     <footer>
-      <span>Integrity chain: dossier → seal → journal → checkpoint → witness / RFC3161 time / publication → assurance policy. Policy satisfaction still does not grant factual truth authority.</span>
+      <span>Integrity chain: dossier → provenance receipts → assurance policy → governed release manifest. Release authority applies to packaging/export only and never grants factual truth authority.</span>
       <button type="button" onClick={()=>exportDossier(state)}>TEAR / EXPORT DOSSIER</button>
     </footer>
   </section>;
