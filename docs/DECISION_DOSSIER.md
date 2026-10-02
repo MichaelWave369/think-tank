@@ -301,3 +301,34 @@ The publisher's claimed time is not trusted time. RFC 3161 receipts remain the t
 Publication is additive provenance evidence and does not rewrite the dossier, journal, checkpoint, witness, timestamp, governance result, or human override.
 
 See [CHECKPOINT_PUBLICATION.md](CHECKPOINT_PUBLICATION.md).
+
+## Provenance assurance reports
+
+PR 23 adds deterministic post-decision provenance assurance reports linked to a historical dossier.
+
+Available policy profiles:
+- integrity
+- witnessed
+- time-attested
+- published
+- full-provenance
+
+Reports evaluate one coherent linked checkpoint chain and record explicit MET / MISSING requirements.
+
+A report also carries:
+- deterministic provenance basis fingerprint
+- selected checkpoint id
+- current/historical/unavailable journal-head status
+- pass/fail result
+- deterministic reason
+- truthAuthority: false
+
+Reports become stale when linked provenance state changes, but stale reports are retained as historical receipts.
+
+A historical journal head does not itself make a report stale.
+
+These reports do not rewrite the original dossier or add synthesis authority.
+
+TEAR / EXPORT DOSSIER includes linked `provenanceAssurances`.
+
+See [PROVENANCE_ASSURANCE.md](PROVENANCE_ASSURANCE.md).
