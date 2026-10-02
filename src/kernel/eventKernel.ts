@@ -220,6 +220,130 @@ function assertDossierSealEvent(state:ThinkTankState,event:ThinkTankEvent):boole
   return false;
 }
 
+function assertDossierTransparencyEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
+  const action=[
+    "dossier.transparency.requested",
+    "dossier.transparency.completed",
+    "dossier.transparency.failed"
+  ].includes(event.kind);
+
+  if(
+    action&&
+    state.phase!=="intake"&&
+    state.phase!=="synthesis"&&
+    state.phase!=="complete"&&
+    state.phase!=="aborted"
+  ){
+    throw new KernelIntegrityError("Dossier transparency logging cannot run during active governed execution.",event.seq);
+  }
+
+  const seal=event.dossierSealId
+    ?state.dossierSeals.find(item=>item.id===event.dossierSealId)
+    :undefined;
+
+  if(event.kind==="dossier.transparency.requested"){
+    if(event.source!=="operator"){
+      throw new KernelIntegrityError("Transparency journal requests are operator-authorized.",event.seq);
+    }
+    if(!seal||!state.decisionDossiers.some(item=>item.id===seal.dossierId)){
+      throw new KernelIntegrityError("Transparency journal request requires an existing dossier seal.",event.seq);
+    }
+    if(event.decisionDossierId!==seal.dossierId){
+      throw new KernelIntegrityError("Transparency journal request dossier does not match its seal.",event.seq);
+    }
+    if(state.dossierTransparencyEntries.some(item=>item.sealId===seal.id)){
+      throw new KernelIntegrityError("This dossier seal is already present in the transparency journal.",event.seq);
+    }
+    return true;
+  }
+
+  if(event.kind==="dossier.transparency.completed"){
+    if(event.source!=="tool"){
+      throw new KernelIntegrityError("Transparency journal completion must be tool-originated.",event.seq);
+    }
+    const receipt=event.dossierTransparency;
+    if(!seal||!receipt||event.decisionDossierId!==seal.dossierId){
+      throw new KernelIntegrityError("Transparency journal receipt requires an existing matching dossier seal.",event.seq);
+    }
+    if(
+      receipt.dossierId!==seal.dossierId||
+      receipt.sealId!==seal.id||
+      receipt.dossierSha256!==seal.digestSha256||
+      receipt.publicKeyFingerprintSha256!==seal.publicKeyFingerprintSha256
+    ){
+      throw new KernelIntegrityError("Transparency journal receipt does not match its dossier seal.",event.seq);
+    }
+    if(
+      receipt.tool!=="sha256-dossier-transparency-journal"||
+      receipt.canonicalization!=="json-stable-v1"||
+      receipt.clock!=="untrusted-local-clock"||
+      receipt.trust!=="tamper-evident-local-journal"||
+      receipt.journalVerifiedAtAppend!==true||
+      !Number.isInteger(receipt.sequence)||
+      receipt.sequence<1||
+      !/^[a-f0-9]{64}$/.test(receipt.previousEntrySha256)||
+      !/^[a-f0-9]{64}$/.test(receipt.entrySha256)||
+      Number.isNaN(Date.parse(receipt.loggedAt))
+    ){
+      throw new KernelIntegrityError("Transparency journal receipt is incomplete or malformed.",event.seq);
+    }
+
+    const expectedId=
+      "TLOG-"+String(receipt.sequence).padStart(6,"0")+"-"+receipt.entrySha256.slice(0,12);
+    if(receipt.id!==expectedId){
+      throw new KernelIntegrityError("Transparency journal receipt id does not match its sequence/hash.",event.seq);
+    }
+    if(state.dossierTransparencyEntries.some(item=>item.id===receipt.id||item.sealId===receipt.sealId)){
+      throw new KernelIntegrityError("Transparency journal receipt or seal already exists.",event.seq);
+    }
+
+    const latest=state.dossierTransparencyEntries[state.dossierTransparencyEntries.length-1];
+    if(latest&&(
+      receipt.sequence!==latest.sequence+1||
+      receipt.previousEntrySha256!==latest.entrySha256
+    )){
+      throw new KernelIntegrityError("Transparency journal chain does not extend the latest accepted entry.",event.seq);
+    }
+
+    const request=[...state.events].reverse().find(item=>
+      item.kind==="dossier.transparency.requested"&&item.dossierSealId===seal.id
+    );
+    if(!request){
+      throw new KernelIntegrityError("Transparency journal completion has no matching operator request.",event.seq);
+    }
+    const terminal=[...state.events].reverse().find(item=>
+      (item.kind==="dossier.transparency.completed"||item.kind==="dossier.transparency.failed")&&
+      item.dossierSealId===seal.id
+    );
+    if(terminal&&terminal.seq>request.seq){
+      throw new KernelIntegrityError("Transparency journal request is already resolved.",event.seq);
+    }
+    return true;
+  }
+
+  if(event.kind==="dossier.transparency.failed"){
+    if(event.source!=="tool"||!seal){
+      throw new KernelIntegrityError("Transparency journal failure must be tool-originated for an existing seal.",event.seq);
+    }
+    const request=[...state.events].reverse().find(item=>
+      item.kind==="dossier.transparency.requested"&&item.dossierSealId===seal.id
+    );
+    if(!request){
+      throw new KernelIntegrityError("Transparency journal failure has no matching operator request.",event.seq);
+    }
+    const terminal=[...state.events].reverse().find(item=>
+      (item.kind==="dossier.transparency.completed"||item.kind==="dossier.transparency.failed")&&
+      item.dossierSealId===seal.id
+    );
+    if(terminal&&terminal.seq>request.seq){
+      throw new KernelIntegrityError("Transparency journal request is already resolved.",event.seq);
+    }
+    return true;
+  }
+
+  return false;
+}
+
 function assertArgumentReviewEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
   const action=[
     "argument.review.requested",
@@ -1100,6 +1224,7 @@ function assertRoutingEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
 }
 
 function assertPolicyEvent(state:ThinkTankState,event:ThinkTankEvent):void{
+  if(assertDossierTransparencyEvent(state,event))return;
   if(assertDossierSealEvent(state,event))return;
   if(assertArgumentReviewEvent(state,event))return;
   if(assertExcerptEvent(state,event))return;
@@ -1356,6 +1481,8 @@ export function buildEvent(state:ThinkTankState,input:ThinkTankEventInput):Think
     dossierSeal:input.dossierSeal,
     dossierSealId:input.dossierSealId,
     dossierVerification:input.dossierVerification,
+    dossierTransparency:input.dossierTransparency,
+    dossierTransparencyId:input.dossierTransparencyId,
     message:input.message,
     gateScore:input.gateScore,
     override:input.override,
