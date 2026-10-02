@@ -1616,6 +1616,12 @@ function assertDossierReleasePublicationAuditEvent(state:ThinkTankState,event:Th
         event.seq
       );
     }
+    if(event.dossierReleaseId!==publication.releaseId){
+      throw new KernelIntegrityError(
+        "Release publication durability request REL id does not match RPUB.",
+        event.seq
+      );
+    }
     try{
       buildDossierReleasePackageForPublication(state,publication);
     }catch(error){
@@ -1639,6 +1645,12 @@ function assertDossierReleasePublicationAuditEvent(state:ThinkTankState,event:Th
     if(!publication||!receipt){
       throw new KernelIntegrityError(
         "Release publication durability completion requires RPUB and RAUD receipts.",
+        event.seq
+      );
+    }
+    if(event.dossierReleaseId!==publication.releaseId){
+      throw new KernelIntegrityError(
+        "Release publication durability completion REL id does not match RPUB.",
         event.seq
       );
     }
@@ -1731,6 +1743,12 @@ function assertDossierReleasePublicationAuditEvent(state:ThinkTankState,event:Th
     if(event.source!=="tool"||!publication){
       throw new KernelIntegrityError(
         "Release publication durability failure must be tool-originated for an existing RPUB.",
+        event.seq
+      );
+    }
+    if(event.dossierReleaseId!==publication.releaseId){
+      throw new KernelIntegrityError(
+        "Release publication durability failure REL id does not match RPUB.",
         event.seq
       );
     }
