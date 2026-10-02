@@ -434,6 +434,28 @@ export interface DossierReleaseSealVerificationReceipt{
   verifiedAt:string;
 }
 
+export interface DossierReleaseRfc3161TimestampReceipt{
+  id:string;
+  releaseId:string;
+  sealId:string;
+  tool:"rfc3161-release-seal-timestamp-verifier";
+  standard:"RFC3161";
+  hashAlgorithm:"SHA-256";
+  releaseSealSha256:string;
+  manifestSha256:string;
+  publicKeyFingerprintSha256:string;
+  tokenSha256:string;
+  tokenBase64:string;
+  tsaPolicyOid:string;
+  tsaSerialNumber:string;
+  genTime:string;
+  tsaSubject:string;
+  authorityUrl:string;
+  trustAnchorSha256:string;
+  verifiedAt:string;
+  trust:"configured-rfc3161-trust-anchor";
+}
+
 export interface DecisionOverrideReceipt{
   id:string;
   dossierId:string;
@@ -580,6 +602,9 @@ export type ThinkTankEventKind=
   |"dossier.release.verify.requested"
   |"dossier.release.verify.completed"
   |"dossier.release.verify.failed"
+  |"dossier.release.timestamp.requested"
+  |"dossier.release.timestamp.completed"
+  |"dossier.release.timestamp.failed"
   |"session.aborted";
 
 export interface ThinkTankEvent{
@@ -642,6 +667,7 @@ export interface ThinkTankEvent{
   dossierReleaseSeal?:DossierReleaseSealReceipt;
   dossierReleaseSealId?:string;
   dossierReleaseVerification?:DossierReleaseSealVerificationReceipt;
+  dossierReleaseTimestamp?:DossierReleaseRfc3161TimestampReceipt;
   message?:string;
   gateScore?:number;
   override?:boolean;
@@ -711,6 +737,7 @@ export interface ThinkTankEventInput{
   dossierReleaseSeal?:DossierReleaseSealReceipt;
   dossierReleaseSealId?:string;
   dossierReleaseVerification?:DossierReleaseSealVerificationReceipt;
+  dossierReleaseTimestamp?:DossierReleaseRfc3161TimestampReceipt;
   message?:string;
   gateScore?:number;
   override?:boolean;
@@ -749,6 +776,7 @@ export interface ThinkTankState{
   dossierReleaseManifests:DossierReleaseManifest[];
   dossierReleaseSeals:DossierReleaseSealReceipt[];
   dossierReleaseSealVerifications:DossierReleaseSealVerificationReceipt[];
+  dossierReleaseRfc3161Timestamps:DossierReleaseRfc3161TimestampReceipt[];
   evidenceRefs:EvidenceRef[];
   evidenceExcerpts:EvidenceExcerpt[];
   claims:Claim[];
