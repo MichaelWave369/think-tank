@@ -23,6 +23,11 @@ import {
   buildDossierReleaseManifest,
   releaseEligibleAssurance
 } from "../domain/releaseManifest";
+import {
+  buildDossierReleasePackage,
+  releasePackageBasisFingerprint,
+  releasePackageHasVerifiedSeal
+} from "../domain/releasePackage";
 import { fingerprintProjection } from "./fingerprint";
 import { stableStringify } from "./stable";
 
@@ -1390,6 +1395,189 @@ function assertDossierReleaseTimestampEvent(state:ThinkTankState,event:ThinkTank
   return false;
 }
 
+function assertDossierReleasePublicationEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
+  const action=[
+    "dossier.release.publication.requested",
+    "dossier.release.publication.completed",
+    "dossier.release.publication.failed"
+  ].includes(event.kind);
+
+  if(
+    action&&
+    state.phase!=="intake"&&
+    state.phase!=="synthesis"&&
+    state.phase!=="complete"&&
+    state.phase!=="aborted"
+  ){
+    throw new KernelIntegrityError(
+      "Release publication cannot run during active governed execution.",
+      event.seq
+    );
+  }
+
+  const release=event.dossierReleaseId
+    ?state.dossierReleaseManifests.find(item=>item.id===event.dossierReleaseId)
+    :undefined;
+
+  if(event.kind==="dossier.release.publication.requested"){
+    if(event.source!=="operator"){
+      throw new KernelIntegrityError("Release publication requests are operator-authorized.",event.seq);
+    }
+    if(!release||!event.dossierReleasePackageFingerprint){
+      throw new KernelIntegrityError(
+        "Release publication request requires a release and pinned package fingerprint.",
+        event.seq
+      );
+    }
+    if(!releasePackageHasVerifiedSeal(state,release.id)){
+      throw new KernelIntegrityError(
+        "Release publication requires at least one successfully verified release seal.",
+        event.seq
+      );
+    }
+    const expected=releasePackageBasisFingerprint(state,release.id);
+    if(event.dossierReleasePackageFingerprint!==expected){
+      throw new KernelIntegrityError(
+        "Release publication request package fingerprint is stale or invalid.",
+        event.seq
+      );
+    }
+    return true;
+  }
+
+  if(event.kind==="dossier.release.publication.completed"){
+    if(event.source!=="tool"){
+      throw new KernelIntegrityError("Release publication completion must be tool-originated.",event.seq);
+    }
+    const receipt=event.dossierReleasePublication;
+    if(!release||!receipt){
+      throw new KernelIntegrityError(
+        "Release publication completion requires an existing release and receipt.",
+        event.seq
+      );
+    }
+
+    const currentFingerprint=releasePackageBasisFingerprint(state,release.id);
+    const packageValue=buildDossierReleasePackage(state,release.id);
+    const expectedSealIds=packageValue.releaseSeals.map(item=>item.id);
+    const expectedVerificationIds=packageValue.releaseSealVerifications.map(item=>item.id);
+    const expectedTimestampIds=packageValue.releaseRfc3161Timestamps.map(item=>item.id);
+    const expectedArtifactIds=[...release.artifactIds];
+    const verifiedSeal=packageValue.releaseSeals.find(seal=>
+      packageValue.releaseSealVerifications.some(item=>item.sealId===seal.id)
+    );
+
+    if(
+      receipt.releaseId!==release.id||
+      receipt.tool!=="verified-release-package-publisher"||
+      receipt.protocol!=="phi-release-publication-v1"||
+      receipt.packageBasisFingerprint!==currentFingerprint||
+      !verifiedSeal||
+      receipt.manifestSha256!==verifiedSeal.manifestSha256||
+      receipt.trust!=="externally-retrieved-release-publication"||
+      stableStringify(receipt.releaseSealIds)!==stableStringify(expectedSealIds)||
+      stableStringify(receipt.releaseVerificationIds)!==stableStringify(expectedVerificationIds)||
+      stableStringify(receipt.releaseTimestampIds)!==stableStringify(expectedTimestampIds)||
+      stableStringify(receipt.artifactIds)!==stableStringify(expectedArtifactIds)
+    ){
+      throw new KernelIntegrityError(
+        "Release publication receipt does not match the pinned canonical release package.",
+        event.seq
+      );
+    }
+
+    const expectedId="RPUB-"+release.id+"-"+receipt.receiptSha256.slice(0,12);
+    if(
+      receipt.id!==expectedId||
+      !/^fnv1a32:[a-f0-9]{8}$/.test(receipt.packageBasisFingerprint)||
+      !/^[a-f0-9]{64}$/.test(receipt.manifestSha256)||
+      !/^[a-f0-9]{64}$/.test(receipt.packageSha256)||
+      !/^[a-f0-9]{64}$/.test(receipt.receiptSha256)||
+      !receipt.publicationId.trim()||
+      receipt.publicationId.length>300||
+      receipt.retrievalHttpStatus<200||
+      receipt.retrievalHttpStatus>=300||
+      receipt.retrievalContentType!=="application/json"||
+      Number.isNaN(Date.parse(receipt.publisherClaimedAt))||
+      Number.isNaN(Date.parse(receipt.retrievalVerifiedAt))
+    ){
+      throw new KernelIntegrityError("Release publication receipt is incomplete or malformed.",event.seq);
+    }
+
+    for(const raw of [receipt.publisherUrl,receipt.retrievalUrl]){
+      try{
+        const url=new URL(raw);
+        if(url.protocol!=="https:"||url.username||url.password||url.hash)throw new Error("bad");
+      }catch{
+        throw new KernelIntegrityError(
+          "Release publication URLs must be credential-free HTTPS URLs without fragments.",
+          event.seq
+        );
+      }
+    }
+
+    const request=[...state.events].reverse().find(item=>
+      item.kind==="dossier.release.publication.requested"&&
+      item.dossierReleaseId===release.id&&
+      item.dossierReleasePackageFingerprint===receipt.packageBasisFingerprint
+    );
+    if(!request){
+      throw new KernelIntegrityError(
+        "Release publication completion has no matching operator request for this package basis.",
+        event.seq
+      );
+    }
+
+    if(state.dossierReleasePublications.some(existing=>existing.id===receipt.id)){
+      throw new KernelIntegrityError("Release publication receipt id already exists.",event.seq);
+    }
+    if(state.dossierReleasePublications.some(existing=>
+      existing.releaseId===release.id&&
+      existing.publisherUrl===receipt.publisherUrl&&
+      existing.packageBasisFingerprint===receipt.packageBasisFingerprint
+    )){
+      throw new KernelIntegrityError(
+        "This exact release package was already published through this publisher.",
+        event.seq
+      );
+    }
+
+    const terminal=[...state.events].reverse().find(item=>
+      (item.kind==="dossier.release.publication.completed"||
+       item.kind==="dossier.release.publication.failed")&&
+      item.dossierReleaseId===release.id&&
+      item.dossierReleasePackageFingerprint===receipt.packageBasisFingerprint
+    );
+    if(terminal&&terminal.seq>request.seq){
+      throw new KernelIntegrityError("Release publication request is already resolved.",event.seq);
+    }
+    return true;
+  }
+
+  if(event.kind==="dossier.release.publication.failed"){
+    if(event.source!=="tool"||!release||!event.dossierReleasePackageFingerprint){
+      throw new KernelIntegrityError(
+        "Release publication failure must be tool-originated for a pinned release package.",
+        event.seq
+      );
+    }
+    const request=[...state.events].reverse().find(item=>
+      item.kind==="dossier.release.publication.requested"&&
+      item.dossierReleaseId===release.id&&
+      item.dossierReleasePackageFingerprint===event.dossierReleasePackageFingerprint
+    );
+    if(!request){
+      throw new KernelIntegrityError(
+        "Release publication failure has no matching operator request.",
+        event.seq
+      );
+    }
+    return true;
+  }
+
+  return false;
+}
+
 function assertArgumentReviewEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
   const action=[
     "argument.review.requested",
@@ -2270,6 +2458,7 @@ function assertRoutingEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
 }
 
 function assertPolicyEvent(state:ThinkTankState,event:ThinkTankEvent):void{
+  if(assertDossierReleasePublicationEvent(state,event))return;
   if(assertDossierReleaseTimestampEvent(state,event))return;
   if(assertDossierReleaseSealEvent(state,event))return;
   if(assertDossierReleaseEvent(state,event))return;
@@ -2551,6 +2740,8 @@ export function buildEvent(state:ThinkTankState,input:ThinkTankEventInput):Think
     dossierReleaseSealId:input.dossierReleaseSealId,
     dossierReleaseVerification:input.dossierReleaseVerification,
     dossierReleaseTimestamp:input.dossierReleaseTimestamp,
+    dossierReleasePackageFingerprint:input.dossierReleasePackageFingerprint,
+    dossierReleasePublication:input.dossierReleasePublication,
     message:input.message,
     gateScore:input.gateScore,
     override:input.override,
