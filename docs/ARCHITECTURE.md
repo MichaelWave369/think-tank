@@ -346,6 +346,27 @@ This layer is optional and fail-closed. Missing OpenSSL, a missing CA file, malf
 
 See [RFC3161_TIMESTAMP.md](RFC3161_TIMESTAMP.md).
 
+## Verified external checkpoint publication
+
+PR 22 adds an optional externally retrievable publication layer above portable transparency checkpoints.
+
+The configured local bridge:
+1. validates the checkpoint
+2. resolves the configured publisher as an allowed public HTTPS destination
+3. POSTs the checkpoint using `phi-checkpoint-publication-v1`
+4. validates the publisher's checkpoint linkage and retrieval URL
+5. constrains retrieval to the configured HTTPS origin
+6. independently resolves and GETs the retrieval URL with no authentication token
+7. validates the returned checkpoint digest/id
+8. requires exact stable-canonical checkpoint equality
+9. stores a governed publication receipt only after successful read-back
+
+Both network requests use pinned validated public-network addresses and follow no redirects.
+
+The publisher's claimed publication time is retained as untrusted publisher metadata. RFC 3161 remains the standards-based trusted-time layer.
+
+See [CHECKPOINT_PUBLICATION.md](CHECKPOINT_PUBLICATION.md).
+
 ## PR ladder
 
 1. ✅ Room shell + operator authority
@@ -368,6 +389,7 @@ See [RFC3161_TIMESTAMP.md](RFC3161_TIMESTAMP.md).
 18. ✅ Cryptographic dossier sealing
 19. ✅ Local dossier transparency journal
 20. ✅ Portable checkpoints + detached witnesses
-21. RFC 3161 trusted timestamp attestation
+21. ✅ RFC 3161 trusted timestamp attestation
+22. Verified external checkpoint publication
 
-Future work can add proper PDF extraction, authenticated remote deployment, richer provider discovery, streaming, tool execution, voice, witness trust policies, public checkpoint publication, TSA trust-store management, and external signer identity attestation without changing the core event contract.
+Future work can add proper PDF extraction, authenticated remote deployment, richer provider discovery, streaming, tool execution, voice, witness trust policies, publication durability checks, multi-publisher policy, TSA trust-store management, and external signer identity attestation without changing the core event contract.
