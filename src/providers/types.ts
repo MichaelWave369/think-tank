@@ -1,4 +1,4 @@
-import type { DossierCheckpointPublicationReceipt,DossierReleaseManifest,DossierReleaseSealReceipt,DossierRfc3161TimestampReceipt,DossierSealReceipt,DossierTransparencyCheckpoint,DossierTransparencyReceipt,DossierTransparencyWitnessReceipt,RoleId,SeatId,SynthesisDecisionDossier } from "../domain/types";
+import type { DossierCheckpointPublicationReceipt,DossierReleaseManifest,DossierReleaseRfc3161TimestampReceipt,DossierReleaseSealReceipt,DossierRfc3161TimestampReceipt,DossierSealReceipt,DossierTransparencyCheckpoint,DossierTransparencyReceipt,DossierTransparencyWitnessReceipt,RoleId,SeatId,SynthesisDecisionDossier } from "../domain/types";
 
 export type ProviderConnectionState="connected"|"configured"|"disconnected"|"error";
 
@@ -261,4 +261,14 @@ export interface DossierReleaseVerifyResponse{
 
 export interface DossierReleaseSealRequest{
   manifest:DossierReleaseManifest;
+}
+
+export interface DossierReleaseRfc3161TimestampResponse{
+  ok:true;
+  timestamp:DossierReleaseRfc3161TimestampReceipt;
+}
+
+export interface DossierReleaseRfc3161TimestampRequest{
+  manifest:DossierReleaseManifest;
+  seal:DossierReleaseSealReceipt;
 }
