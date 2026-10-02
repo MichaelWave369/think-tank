@@ -2394,6 +2394,205 @@ const auditReleasePublication=async(packageValue,publication)=>{
   });
 };
 
+
+export const publisherOriginIdentityEnvelopeFor=(descriptor)=>({
+  schemaVersion:1,
+  protocol:"phi-publisher-identity-v1",
+  origin:descriptor.origin,
+  publisherId:descriptor.publisherId,
+  publisherLabel:descriptor.publisherLabel,
+  administrativeDomainClaim:descriptor.administrativeDomainClaim,
+  publicKeyPem:descriptor.publicKeyPem,
+  publicKeyFingerprintSha256:descriptor.publicKeyFingerprintSha256,
+  claimedAt:descriptor.claimedAt
+});
+
+export const verifyPublisherOriginIdentityDescriptor=(descriptor,expectedOrigin)=>{
+  if(!descriptor||typeof descriptor!=="object"){
+    throw bridgeError("Publisher identity endpoint returned no JSON descriptor.",502);
+  }
+  if(
+    descriptor.schemaVersion!==1||
+    descriptor.protocol!=="phi-publisher-identity-v1"||
+    descriptor.origin!==expectedOrigin||
+    typeof descriptor.publisherId!=="string"||
+    !descriptor.publisherId.trim()||
+    descriptor.publisherId.length>200||
+    typeof descriptor.publisherLabel!=="string"||
+    !descriptor.publisherLabel.trim()||
+    descriptor.publisherLabel.length>300||
+    typeof descriptor.administrativeDomainClaim!=="string"||
+    !descriptor.administrativeDomainClaim.trim()||
+    descriptor.administrativeDomainClaim.length>300||
+    typeof descriptor.publicKeyPem!=="string"||
+    !descriptor.publicKeyPem.includes("BEGIN PUBLIC KEY")||
+    descriptor.publicKeyPem.length>20_000||
+    !/^[a-f0-9]{64}$/.test(descriptor.publicKeyFingerprintSha256||"")||
+    typeof descriptor.signatureBase64!=="string"||
+    !descriptor.signatureBase64.trim()||
+    Number.isNaN(Date.parse(descriptor.claimedAt||""))||
+    new Date(Date.parse(descriptor.claimedAt)).toISOString()!==descriptor.claimedAt
+  ){
+    throw bridgeError("Publisher identity descriptor is incomplete or malformed.",502);
+  }
+
+  let publicKey;
+  try{
+    publicKey=createPublicKey(descriptor.publicKeyPem);
+  }catch{
+    throw bridgeError("Publisher identity descriptor contains an invalid public key.",502);
+  }
+  if(publicKey.asymmetricKeyType!=="ed25519"){
+    throw bridgeError("Publisher identity descriptor key must be Ed25519.",502);
+  }
+
+  const fingerprint=publicKeyFingerprint(publicKey);
+  if(fingerprint!==descriptor.publicKeyFingerprintSha256){
+    throw bridgeError("Publisher identity descriptor key fingerprint does not match its public key.",409);
+  }
+
+  let signature;
+  try{signature=Buffer.from(descriptor.signatureBase64,"base64");}
+  catch{throw bridgeError("Publisher identity descriptor signature is invalid Base64.",502);}
+  if(!signature.length){
+    throw bridgeError("Publisher identity descriptor signature is empty.",502);
+  }
+
+  const envelope=publisherOriginIdentityEnvelopeFor(descriptor);
+  const verified=cryptoVerify(
+    null,
+    Buffer.from(stableCanonicalJson(envelope),"utf8"),
+    publicKey,
+    signature
+  );
+  if(!verified){
+    throw bridgeError("Publisher identity descriptor Ed25519 signature is invalid.",409);
+  }
+
+  return {
+    ...envelope,
+    signatureBase64:descriptor.signatureBase64
+  };
+};
+
+export const buildPublisherOriginIdentityReceipt=({
+  packageValue,
+  publication,
+  descriptor,
+  identityUrl,
+  verifiedAt=new Date().toISOString()
+})=>{
+  validateReleasePublicationForAudit(packageValue,publication);
+
+  let retrieval;
+  let identity;
+  try{
+    retrieval=new URL(publication.retrievalUrl);
+    identity=new URL(identityUrl);
+  }catch{
+    throw bridgeError("Publisher identity verification received an invalid URL.",400);
+  }
+  const expectedOrigin=retrieval.origin;
+  const expectedIdentityUrl=new URL(
+    "/.well-known/phi-publisher-identity.json",
+    expectedOrigin
+  ).toString();
+
+  if(identity.toString()!==expectedIdentityUrl){
+    throw bridgeError("Publisher identity URL does not match the RPUB retrieval origin.",400);
+  }
+  const normalized=verifyPublisherOriginIdentityDescriptor(descriptor,expectedOrigin);
+  if(Number.isNaN(Date.parse(verifiedAt))){
+    throw bridgeError("Publisher identity verification time is invalid.",500);
+  }
+
+  const descriptorSha256=createHash("sha256")
+    .update(stableCanonicalJson(descriptor),"utf8")
+    .digest("hex");
+
+  const basis={
+    schemaVersion:1,
+    releaseId:publication.releaseId,
+    publicationReceiptId:publication.id,
+    publicationReceiptSha256:publication.receiptSha256,
+    tool:"publisher-origin-identity-verifier",
+    protocol:"phi-publisher-identity-v1",
+    retrievalOrigin:expectedOrigin,
+    identityUrl:expectedIdentityUrl,
+    descriptorSha256,
+    publisherId:normalized.publisherId,
+    publisherLabel:normalized.publisherLabel,
+    administrativeDomainClaim:normalized.administrativeDomainClaim,
+    publicKeyPem:normalized.publicKeyPem,
+    publicKeyFingerprintSha256:normalized.publicKeyFingerprintSha256,
+    claimedAt:normalized.claimedAt,
+    signatureBase64:normalized.signatureBase64,
+    verified:true,
+    verifiedAt:new Date(Date.parse(verifiedAt)).toISOString(),
+    clock:"untrusted-local-clock",
+    trust:"self-attested-origin-signing-key",
+    realWorldIdentityAuthority:false,
+    operatorIndependenceAuthority:false,
+    truthAuthority:false
+  };
+
+  const receiptSha256=createHash("sha256")
+    .update(stableCanonicalJson(basis),"utf8")
+    .digest("hex");
+
+  return {
+    id:"POID-"+publication.id+"-"+receiptSha256.slice(0,12),
+    ...basis,
+    receiptSha256
+  };
+};
+
+const verifyPublisherOriginIdentity=async(packageValue,publication)=>{
+  validateReleasePublicationForAudit(packageValue,publication);
+
+  const retrieval=new URL(publication.retrievalUrl);
+  const identityUrl=new URL(
+    "/.well-known/phi-publisher-identity.json",
+    retrieval.origin
+  ).toString();
+  const target=await assertPublicationHttpsTarget(
+    identityUrl,
+    "Publisher identity URL"
+  );
+
+  if(target.url.origin!==retrieval.origin){
+    throw bridgeError("Publisher identity URL origin changed during validation.",502);
+  }
+
+  const response=await requestPinnedPublication(
+    target,
+    {
+      method:"GET",
+      headers:{"accept":"application/json"},
+      maxBytes:128_000
+    }
+  );
+  if(response.status<200||response.status>=300){
+    throw bridgeError("Publisher identity retrieval returned HTTP "+response.status+".",502);
+  }
+  const contentType=String(response.headers["content-type"]||"")
+    .split(";")[0].trim().toLowerCase();
+  if(contentType!=="application/json"){
+    throw bridgeError("Publisher identity endpoint must return application/json.",415);
+  }
+
+  let descriptor;
+  try{descriptor=JSON.parse(response.body.toString("utf8"));}
+  catch{throw bridgeError("Publisher identity endpoint returned invalid JSON.",502);}
+
+  return buildPublisherOriginIdentityReceipt({
+    packageValue,
+    publication,
+    descriptor,
+    identityUrl
+  });
+};
+
 const fetchEvidenceResource=async(requestedUri)=>{
   let target=await assertPublicHttpUrl(requestedUri);
   let redirects=0;
@@ -2590,7 +2789,7 @@ const remoteStatus=(seatId,provider,key,model)=>({
 
 const statusPayload=async()=>({
   ok:true,
-  bridgeVersion:"0.13.0",
+  bridgeVersion:"0.14.0",
   seats:[
     await ollamaStatus(),
     remoteStatus("openai","OpenAI",process.env.OPENAI_API_KEY,process.env.OPENAI_MODEL),
@@ -2703,7 +2902,7 @@ const server=http.createServer(async(req,res)=>{
 
   try{
     if(req.method==="GET"&&req.url==="/health"){
-      send(res,200,{ok:true,service:"phi-think-tank-provider-bridge",version:"0.13.0"},origin);
+      send(res,200,{ok:true,service:"phi-think-tank-provider-bridge",version:"0.14.0"},origin);
       return;
     }
 
@@ -2810,6 +3009,16 @@ const server=http.createServer(async(req,res)=>{
       const raw=await readJson(req,RELEASE_PUBLISH_MAX_BYTES);
       const audit=await auditReleasePublication(raw.releasePackage,raw.publication);
       send(res,200,{ok:true,audit},origin);
+      return;
+    }
+
+    if(req.method==="POST"&&req.url==="/dossier/release/publisher/identity"){
+      const raw=await readJson(req,RELEASE_PUBLISH_MAX_BYTES);
+      const identity=await verifyPublisherOriginIdentity(
+        raw.releasePackage,
+        raw.publication
+      );
+      send(res,200,{ok:true,identity},origin);
       return;
     }
 
