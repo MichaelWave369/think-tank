@@ -25,7 +25,8 @@ import type {
   DossierPublicationResponse,
   DossierReleaseSealStatusResponse,
   DossierReleaseSealResponse,
-  DossierReleaseVerifyResponse
+  DossierReleaseVerifyResponse,
+  DossierReleaseRfc3161TimestampResponse
 } from "./types";
 
 const DEFAULT_BRIDGE="http://127.0.0.1:3691";
@@ -403,6 +404,29 @@ export async function verifyDossierReleaseSeal(
   if(!response.ok||!body.ok){
     const errorBody=body as DossierSealError;
     throw new Error(errorBody.error?.message||("Release seal verification returned HTTP "+response.status+"."));
+  }
+  return body;
+}
+
+export async function requestDossierReleaseRfc3161Timestamp(
+  manifest:import("../domain/types").DossierReleaseManifest,
+  seal:import("../domain/types").DossierReleaseSealReceipt,
+  signal?:AbortSignal
+):Promise<DossierReleaseRfc3161TimestampResponse>{
+  const response=await fetchWithTimeout(
+    providerBridgeUrl+"/dossier/release/timestamp",
+    {
+      method:"POST",
+      headers:{"content-type":"application/json"},
+      body:JSON.stringify({manifest,seal}),
+      signal
+    },
+    45000
+  );
+  const body=await response.json() as DossierReleaseRfc3161TimestampResponse|DossierSealError;
+  if(!response.ok||!body.ok){
+    const errorBody=body as DossierSealError;
+    throw new Error(errorBody.error?.message||("Release RFC3161 timestamp returned HTTP "+response.status+"."));
   }
   return body;
 }
