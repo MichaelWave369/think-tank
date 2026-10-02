@@ -62,6 +62,8 @@ const exportReleasePackage=(state:ThinkTankState,manifest:DossierReleaseManifest
   const releaseSealIds=new Set(releaseSeals.map(item=>item.id));
   const releaseSealVerifications=state.dossierReleaseSealVerifications
     .filter(item=>releaseSealIds.has(item.sealId));
+  const releaseRfc3161Timestamps=state.dossierReleaseRfc3161Timestamps
+    .filter(item=>releaseSealIds.has(item.sealId));
 
   downloadJson(
     manifest.id.toLowerCase()+"-release-package.json",
@@ -70,6 +72,7 @@ const exportReleasePackage=(state:ThinkTankState,manifest:DossierReleaseManifest
       releaseManifest:manifest,
       releaseSeals,
       releaseSealVerifications,
+      releaseRfc3161Timestamps,
       artifacts
     }
   );
@@ -98,6 +101,8 @@ const exportDossier=(state:ThinkTankState)=>{
   const releaseSealIds=new Set(releaseSeals.map(item=>item.id));
   const releaseSealVerifications=state.dossierReleaseSealVerifications
     .filter(item=>releaseSealIds.has(item.sealId));
+  const releaseRfc3161Timestamps=state.dossierReleaseRfc3161Timestamps
+    .filter(item=>releaseSealIds.has(item.sealId));
   downloadJson(
     dossier.id.toLowerCase()+"-decision-dossier.json",
     {
@@ -114,7 +119,8 @@ const exportDossier=(state:ThinkTankState)=>{
       provenanceAssurances,
       releaseManifests,
       releaseSeals,
-      releaseSealVerifications
+      releaseSealVerifications,
+      releaseRfc3161Timestamps
     }
   );
 };
@@ -135,12 +141,14 @@ export function DecisionDossierPanel({
   publicationBusy,
   releaseSealBusy,
   releaseVerifyBusy,
+  releaseTimestampBusy,
   error,
   transparencyError,
   witnessError,
   timestampError,
   publicationError,
   releaseSealError,
+  releaseTimestampError,
   onSeal,
   onVerify,
   onTransparencyAppend,
@@ -151,7 +159,8 @@ export function DecisionDossierPanel({
   onAssurance,
   onRelease,
   onReleaseSeal,
-  onReleaseVerify
+  onReleaseVerify,
+  onReleaseTimestamp
 }:{
   state:ThinkTankState;
   sealStatus:DossierSealStatusResponse|null;
@@ -168,12 +177,14 @@ export function DecisionDossierPanel({
   publicationBusy:boolean;
   releaseSealBusy:boolean;
   releaseVerifyBusy:boolean;
+  releaseTimestampBusy:boolean;
   error:string;
   transparencyError:string;
   witnessError:string;
   timestampError:string;
   publicationError:string;
   releaseSealError:string;
+  releaseTimestampError:string;
   onSeal:(dossierId:string)=>void;
   onVerify:(dossierId:string,sealId:string)=>void;
   onTransparencyAppend:(dossierId:string,sealId:string)=>void;
@@ -185,6 +196,7 @@ export function DecisionDossierPanel({
   onRelease:(dossierId:string,policy:ProvenanceAssurancePolicyKind,assuranceReportId:string)=>void;
   onReleaseSeal:(releaseId:string)=>void;
   onReleaseVerify:(releaseId:string,sealId:string)=>void;
+  onReleaseTimestamp:(releaseId:string,sealId:string)=>void;
 }){
   const witnessFileRef=useRef<HTMLInputElement>(null);
   const [witnessImportError,setWitnessImportError]=useState("");
@@ -331,6 +343,28 @@ export function DecisionDossierPanel({
       :latestReleaseVerification
         ?"VERIFIED"
         :"SEALED · UNVERIFIED";
+  const releaseTimestamps=latestReleaseSeal
+    ?state.dossierReleaseRfc3161Timestamps.filter(item=>item.sealId===latestReleaseSeal.id)
+    :[];
+  const currentReleaseTimestamp=(
+    rfc3161Status?.authorityUrl&&
+    rfc3161Status.trustAnchorSha256
+  )
+    ?[...releaseTimestamps].reverse().find(item=>
+      item.authorityUrl===rfc3161Status.authorityUrl&&
+      item.trustAnchorSha256===rfc3161Status.trustAnchorSha256
+    )??null
+    :null;
+  const latestReleaseTimestamp=releaseTimestamps[releaseTimestamps.length-1]??null;
+  const releaseTimestampState=!latestReleaseVerification
+    ?"VERIFIED RELEASE SEAL REQUIRED"
+    :currentReleaseTimestamp
+      ?"RFC3161 VERIFIED"
+      :rfc3161Status?.state==="configured"
+        ?"TSA READY"
+        :rfc3161Status?.state==="error"
+          ?"TSA ERROR"
+          :"TSA DISABLED";
 
   const importWitnessFile=async(file:File|null)=>{
     if(!file||!latestCheckpoint)return;
@@ -906,6 +940,62 @@ export function DecisionDossierPanel({
                         :"VERIFY RELEASE SEAL"}
                   </button>
                 </div>
+
+                <div className={"dossier-release-time "+(currentReleaseTimestamp?"release-time-verified":"")}>
+                  <div className="dossier-transparency-head">
+                    <div>
+                      <small>TRUSTED RELEASE TIME</small>
+                      <strong>{releaseTimestampState}</strong>
+                    </div>
+                    <span>RFC 3161 · SHA-256</span>
+                  </div>
+
+                  {latestReleaseTimestamp
+                    ?<div className="dossier-seal-details">
+                      <p><b>Receipt</b> {latestReleaseTimestamp.id}</p>
+                      <p><b>Release seal SHA-256</b> {latestReleaseTimestamp.releaseSealSha256}</p>
+                      <p><b>Manifest SHA-256</b> {latestReleaseTimestamp.manifestSha256}</p>
+                      <p><b>Signer key</b> {latestReleaseTimestamp.publicKeyFingerprintSha256}</p>
+                      <p><b>TSA time</b> {latestReleaseTimestamp.genTime}</p>
+                      <p><b>Token SHA-256</b> {latestReleaseTimestamp.tokenSha256}</p>
+                      <p><b>Policy</b> {latestReleaseTimestamp.tsaPolicyOid}</p>
+                      <p><b>Serial</b> {latestReleaseTimestamp.tsaSerialNumber}</p>
+                      <p><b>TSA</b> {latestReleaseTimestamp.tsaSubject}</p>
+                      <p><b>Authority</b> {latestReleaseTimestamp.authorityUrl}</p>
+                      <p><b>Trust anchor SHA-256</b> {latestReleaseTimestamp.trustAnchorSha256}</p>
+                      <p><b>Locally verified</b> {latestReleaseTimestamp.verifiedAt}</p>
+                    </div>
+                    :<p>
+                      RFC 3161 can attest when this exact verified RSEAL receipt existed.
+                      The TSA time does not establish signer identity or content truth.
+                    </p>}
+
+                  {releaseTimestampError&&<div className="dossier-seal-error">{releaseTimestampError}</div>}
+
+                  <div className="dossier-seal-actions">
+                    <button
+                      type="button"
+                      disabled={
+                        busy||
+                        !currentRelease||
+                        !latestReleaseSeal||
+                        !latestReleaseVerification||
+                        rfc3161Status?.state!=="configured"||
+                        Boolean(currentReleaseTimestamp)
+                      }
+                      onClick={()=>
+                        currentRelease&&latestReleaseSeal&&
+                        onReleaseTimestamp(currentRelease.id,latestReleaseSeal.id)
+                      }
+                    >
+                      {releaseTimestampBusy
+                        ?"REQUESTING TRUSTED TIME…"
+                        :currentReleaseTimestamp
+                          ?"TRUSTED RELEASE TIME VERIFIED"
+                          :"REQUEST TRUSTED RELEASE TIME"}
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -914,7 +1004,7 @@ export function DecisionDossierPanel({
     </div>
 
     <footer>
-      <span>Integrity chain: dossier → provenance → assurance → release manifest → optional Ed25519 release seal. Signature validity never upgrades release authority or factual truth.</span>
+      <span>Integrity chain: dossier → provenance → assurance → REL → RSEAL → RVER → optional RFC3161 trusted release time. Trusted time still does not establish signer identity or content truth.</span>
       <button type="button" onClick={()=>exportDossier(state)}>TEAR / EXPORT DOSSIER</button>
     </footer>
   </section>;
