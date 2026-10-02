@@ -256,3 +256,25 @@ CHECKPOINT
 A publisher's `publishedAt` value is not promoted to trusted time. Use the verified RFC 3161 receipt for time-attestation semantics.
 
 See [Verified External Checkpoint Publication](CHECKPOINT_PUBLICATION.md).
+
+## PR 26 release-seal timestamp relationship
+
+PR 26 reuses this same RFC 3161/OpenSSL verifier for a second, distinct message-imprint surface.
+
+Checkpoint timestamp:
+
+```
+SHA256 checkpoint commitment → TSA
+```
+
+Release timestamp:
+
+```
+SHA256 complete verified RSEAL receipt → TSA
+```
+
+The shared implementation does not merge their semantics. A checkpoint timestamp attests checkpoint existence time; an RTSA receipt attests existence time of one exact verified release-signature receipt.
+
+Both are scoped to the operator-configured TSA trust anchor.
+
+See [RFC 3161 Trusted Release Timestamp](RFC3161_RELEASE_TIMESTAMP.md).
