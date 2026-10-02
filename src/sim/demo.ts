@@ -14,7 +14,7 @@ const utteranceFor=(roleId:RoleId,mode:CollaborationMode):string=>{
     archivist:"I am checking continuity, provenance, and whether the ledger can reconstruct the decision.",
     vessie:"I am aligning the scheduled voices and preparing the governed synthesis."
   };
-  return lines[roleId]+" MODE="+mode.toUpperCase()+".";
+  return "SIMULATION FIXTURE · "+lines[roleId]+" MODE="+mode.toUpperCase()+".";
 };
 
 export function scenarioEventInputs(
@@ -36,7 +36,7 @@ export function scenarioEventInputs(
       kind:"mode.selected",
       mode:targetMode,
       phase:"intake",
-      message:"Governance drill selected COUNCIL mode."
+      message:"SIMULATION FIXTURE · Governance drill selected COUNCIL mode."
     });
   }
 
@@ -45,27 +45,27 @@ export function scenarioEventInputs(
       source:"operator",
       kind:"operator.prompt",
       phase:"intake",
-      message:prompt.trim()||("Run "+targetMode.toUpperCase()+" governed demonstration.")
+      message:prompt.trim()||("SIMULATION FIXTURE · Run "+targetMode.toUpperCase()+" governed demonstration.")
     },
     {
       source:"system",
       kind:"session.started",
       phase:"routing",
-      message:"Governed "+targetMode.toUpperCase()+" session opened."
+      message:"SIMULATION FIXTURE · Governed "+targetMode.toUpperCase()+" session opened. No live provider execution."
     },
     {
       source:"system",
       kind:"schedule.planned",
       phase:"routing",
       turnPlan:plan,
-      message:"Scheduler locked "+plan.speakerQueue.join(" → ")+"; max rounds "+plan.maxRounds+"."
+      message:"SIMULATION FIXTURE · Scheduler locked "+plan.speakerQueue.join(" → ")+"; max rounds "+plan.maxRounds+"."
     },
     {
       source:"system",
       kind:"round.started",
       phase:"independent",
       round:1,
-      message:"Round 1 started."
+      message:"SIMULATION FIXTURE · Round 1 started."
     }
   );
 
@@ -77,7 +77,7 @@ export function scenarioEventInputs(
         kind:"turn.started",
         phase:"independent",
         roleId,
-        message:roleId.toUpperCase()+" turn started."
+        message:"SIMULATION FIXTURE · "+roleId.toUpperCase()+" turn started."
       },
       {
         source:"system",
@@ -86,7 +86,7 @@ export function scenarioEventInputs(
         roleId,
         faultCode:"TURN_TIMEOUT",
         governanceReason:"Scheduled speaker exceeded the turn timeout.",
-        message:"Turn timeout recorded for "+roleId.toUpperCase()+"."
+        message:"SIMULATION FIXTURE · Turn timeout recorded for "+roleId.toUpperCase()+". Not a live provider timeout."
       },
       {
         source:"system",
@@ -94,7 +94,7 @@ export function scenarioEventInputs(
         phase:"synthesis",
         faultCode:"TURN_TIMEOUT",
         governanceReason:"Scheduler could not complete the required speaker queue.",
-        message:"Governance fault: required queue did not complete."
+        message:"SIMULATION FIXTURE · Governance fault: required fixture queue did not complete."
       }
     );
 
@@ -110,7 +110,7 @@ export function scenarioEventInputs(
       outputLabel:decision.outputLabel,
       actionAllowed:decision.actionAllowed,
       governanceReason:decision.reason,
-      message:"Synthesis withheld after timeout."
+      message:"SIMULATION FIXTURE · Synthesis withheld after deterministic timeout drill."
     });
 
     return inputs;
@@ -124,7 +124,7 @@ export function scenarioEventInputs(
       kind:"turn.started",
       phase:roleId==="challenger"?"challenge":"independent",
       roleId,
-      message:roleId.toUpperCase()+" turn started."
+      message:"SIMULATION FIXTURE · "+roleId.toUpperCase()+" turn started."
     });
 
     if(roleId==="challenger"){
@@ -153,7 +153,7 @@ export function scenarioEventInputs(
     kind:"gate.scored",
     phase:"synthesis",
     gateScore:score,
-    message:"Reality Gate scored "+score.toFixed(2)+"."
+    message:"SIMULATION FIXTURE SCORE "+score.toFixed(2)+" · deterministic fixture value, not live evidence."
   });
 
   const decision=evaluateGovernance(targetMode,score,.75,objectionCount,false,claimGovernance,argumentGovernance);
@@ -168,8 +168,8 @@ export function scenarioEventInputs(
     actionAllowed:decision.actionAllowed,
     governanceReason:decision.reason,
     message:decision.synthesisAllowed
-      ?"Governed synthesis completed as "+decision.outputLabel+"."
-      :"Governed synthesis withheld."
+      ?"SIMULATION FIXTURE · Governed fixture synthesis completed as "+decision.outputLabel+". Not live-provider evidence."
+      :"SIMULATION FIXTURE · Governed fixture synthesis withheld."
   });
 
   return inputs;
