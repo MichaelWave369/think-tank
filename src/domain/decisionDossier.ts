@@ -29,6 +29,17 @@ const currentRunStartSeq=(state:ThinkTankState)=>{
   return started?.seq??0;
 };
 
+export const decisionExecutionSource=(
+  state:ThinkTankState,
+  decisionSeq:number
+):"live-provider"|"simulation-fixture"|"governed-system"=>{
+  const runStart=currentRunStartSeq(state);
+  const runEvents=state.events.filter(event=>event.seq>=runStart&&event.seq<=decisionSeq);
+  if(runEvents.some(event=>event.source==="provider"))return "live-provider";
+  if(runEvents.some(event=>event.source==="simulator"))return "simulation-fixture";
+  return "governed-system";
+};
+
 export function decisionDossierBasis(
   state:ThinkTankState,
   decisionSeq:number,
@@ -46,6 +57,7 @@ export function decisionDossierBasis(
     seed:state.seed,
     decisionSeq,
     mode:state.mode,
+    executionSource:decisionExecutionSource(state,decisionSeq),
     operatorPrompt:state.operatorPrompt,
     outcome,
     outputLabel,
