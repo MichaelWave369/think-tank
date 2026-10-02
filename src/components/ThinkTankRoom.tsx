@@ -24,10 +24,10 @@ import { buildEvent,buildEventBatch,replayEvents,verifyReplay } from "../kernel/
 import { deriveMotionCue } from "../motion/motion";
 import { useEventPlayback } from "../motion/useEventPlayback";
 import { useMotionPolicy } from "../motion/useMotionPolicy";
-import { fetchDossierSealStatus,fetchMachineEvidence,fetchProviderStatus,fetchResearchStatus,invokeProvider,pinMachineEvidenceExcerpt,projectMachineEvidence,sealDecisionDossier,searchResearch,verifyDecisionDossierSeal } from "../providers/client";
+import { appendDossierTransparency,fetchDossierSealStatus,fetchDossierTransparencyStatus,fetchMachineEvidence,fetchProviderStatus,fetchResearchStatus,invokeProvider,pinMachineEvidenceExcerpt,projectMachineEvidence,sealDecisionDossier,searchResearch,verifyDecisionDossierSeal } from "../providers/client";
 import { runLiveProviderSession } from "../providers/liveRunner";
 import { buildArgumentReviewMessages,parseArgumentReviewResponse } from "../providers/argumentReview";
-import type { DossierSealStatusResponse,EvidenceProjectionResponse,ProviderStatusResponse,ResearchBackendStatusResponse } from "../providers/types";
+import type { DossierSealStatusResponse,DossierTransparencyStatusResponse,EvidenceProjectionResponse,ProviderStatusResponse,ResearchBackendStatusResponse } from "../providers/types";
 import { scenarioEventInputs,type DemoScenario } from "../sim/demo";
 import { TerminalPanel } from "./TerminalPanel";
 import { ArgumentReviewPanel } from "./ArgumentReviewPanel";
@@ -71,12 +71,16 @@ export function ThinkTankRoom(){
   const [dossierSealStatus,setDossierSealStatus]=useState<DossierSealStatusResponse|null>(null);
   const [dossierSealBusy,setDossierSealBusy]=useState(false);
   const [dossierSealError,setDossierSealError]=useState("");
+  const [dossierTransparencyStatus,setDossierTransparencyStatus]=useState<DossierTransparencyStatusResponse|null>(null);
+  const [dossierTransparencyBusy,setDossierTransparencyBusy]=useState(false);
+  const [dossierTransparencyError,setDossierTransparencyError]=useState("");
   const liveAbortRef=useRef<AbortController|null>(null);
   const evidenceAbortRef=useRef<AbortController|null>(null);
   const researchAbortRef=useRef<AbortController|null>(null);
   const excerptAbortRef=useRef<AbortController|null>(null);
   const argumentReviewAbortRef=useRef<AbortController|null>(null);
   const dossierSealAbortRef=useRef<AbortController|null>(null);
+  const dossierTransparencyAbortRef=useRef<AbortController|null>(null);
   const motionMode=useMotionPolicy();
 
   const applyEvent=useCallback((event:ThinkTankEvent)=>{
@@ -85,7 +89,7 @@ export function ThinkTankRoom(){
   },[]);
 
   const playback=useEventPlayback(applyEvent,motionMode);
-  const busy=playback.playing||liveRunning||evidenceFetching||researchSearching||excerptBusy||argumentReviewBusy||dossierSealBusy;
+  const busy=playback.playing||liveRunning||evidenceFetching||researchSearching||excerptBusy||argumentReviewBusy||dossierSealBusy||dossierTransparencyBusy;
 
   const refreshProviders=useCallback(async()=>{
     try{
@@ -126,11 +130,23 @@ export function ThinkTankRoom(){
     }
   },[]);
 
+  const refreshDossierTransparency=useCallback(async()=>{
+    try{
+      const next=await fetchDossierTransparencyStatus();
+      setDossierTransparencyStatus(next);
+      setDossierTransparencyError("");
+    }catch(error){
+      setDossierTransparencyStatus(null);
+      setDossierTransparencyError(error instanceof Error?error.message:String(error));
+    }
+  },[]);
+
   useEffect(()=>{
     void refreshProviders();
     void refreshResearch();
     void refreshDossierSeal();
-  },[refreshProviders,refreshResearch,refreshDossierSeal]);
+    void refreshDossierTransparency();
+  },[refreshProviders,refreshResearch,refreshDossierSeal,refreshDossierTransparency]);
 
   const latestEvent=state.events[state.events.length-1];
   const cue=useMemo(()=>deriveMotionCue(latestEvent,state),[latestEvent,state]);
@@ -853,6 +869,59 @@ export function ThinkTankRoom(){
     }
   };
 
+  const appendTransparencyJournal=async(dossierId:string,dossierSealId:string)=>{
+    if(busy)return;
+    const seal=stateRef.current.dossierSeals.find(item=>item.id===dossierSealId);
+    if(!seal||seal.dossierId!==dossierId)return;
+
+    const controller=new AbortController();
+    dossierTransparencyAbortRef.current=controller;
+    setDossierTransparencyBusy(true);
+    setDossierTransparencyError("");
+
+    emitInput({
+      source:"operator",
+      kind:"dossier.transparency.requested",
+      phase:stateRef.current.phase,
+      decisionDossierId:dossierId,
+      dossierSealId,
+      message:"Operator requested transparency-journal append for "+dossierSealId+"."
+    });
+
+    try{
+      const response=await appendDossierTransparency(seal,controller.signal);
+      emitInput({
+        source:"tool",
+        kind:"dossier.transparency.completed",
+        phase:stateRef.current.phase,
+        decisionDossierId:dossierId,
+        dossierSealId,
+        dossierTransparency:response.entry,
+        dossierTransparencyId:response.entry.id,
+        message:
+          "Transparency journal entry "+response.entry.id+" appended for "+dossierSealId+
+          " · SHA-256 "+response.entry.entrySha256.slice(0,16)+"…."
+      });
+    }catch(error){
+      const message=error instanceof Error?error.message:String(error);
+      setDossierTransparencyError(message);
+      try{
+        emitInput({
+          source:"tool",
+          kind:"dossier.transparency.failed",
+          phase:stateRef.current.phase,
+          decisionDossierId:dossierId,
+          dossierSealId,
+          message:"Transparency journal append failed: "+message
+        });
+      }catch{}
+    }finally{
+      dossierTransparencyAbortRef.current=null;
+      setDossierTransparencyBusy(false);
+      void refreshDossierTransparency();
+    }
+  };
+
   const runAutoRoute=()=>playInputs(routingEventInputs(routingPreview));
 
   const pinRole=(roleId:RoleId,seatId:SeatId)=>{
@@ -975,6 +1044,7 @@ export function ThinkTankRoom(){
     excerptAbortRef.current?.abort();
     argumentReviewAbortRef.current?.abort();
     dossierSealAbortRef.current?.abort();
+    dossierTransparencyAbortRef.current?.abort();
     liveAbortRef.current?.abort();
     playback.cancel();
     setLiveRunning(false);
@@ -1157,11 +1227,15 @@ export function ThinkTankRoom(){
         <DecisionDossierPanel
           state={state}
           sealStatus={dossierSealStatus}
+          transparencyStatus={dossierTransparencyStatus}
           busy={busy}
           sealBusy={dossierSealBusy}
+          transparencyBusy={dossierTransparencyBusy}
           error={dossierSealError}
+          transparencyError={dossierTransparencyError}
           onSeal={dossierId=>void sealDossier(dossierId)}
           onVerify={(dossierId,sealId)=>void verifyDossierSeal(dossierId,sealId)}
+          onTransparencyAppend={(dossierId,sealId)=>void appendTransparencyJournal(dossierId,sealId)}
         />
 
         {state.synthesisWithheld&&<div className="gate-block">
