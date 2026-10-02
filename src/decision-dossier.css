@@ -23,3 +23,7 @@
 .dossier-timestamp{margin-top:8px;border:1px solid #555a67;background:#090a0f;padding:8px;display:grid;gap:7px}
 .dossier-timestamp.timestamp-verified{border-color:#526f62}.dossier-timestamp.timestamp-error{border-color:#8b4141}
 .dossier-timestamp>p,.dossier-tool-detail{margin:0;font-size:.53rem;line-height:1.42;opacity:.78}
+
+.dossier-publication{margin-top:8px;border:1px solid #4e5e64;background:#080c0e;padding:8px;display:grid;gap:7px}
+.dossier-publication.publication-verified{border-color:#4f7b68}.dossier-publication.publication-error{border-color:#8b4141}
+.dossier-publication>p{margin:0;font-size:.53rem;line-height:1.42;opacity:.78}
