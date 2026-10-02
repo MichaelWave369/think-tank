@@ -1,6 +1,6 @@
 import {useRef,useState} from "react";
 import type { DossierTransparencyCheckpoint,DossierTransparencyWitnessReceipt,ThinkTankState } from "../domain/types";
-import type { DossierRfc3161StatusResponse,DossierSealStatusResponse,DossierTransparencyStatusResponse } from "../providers/types";
+import type { DossierPublicationStatusResponse,DossierRfc3161StatusResponse,DossierSealStatusResponse,DossierTransparencyStatusResponse } from "../providers/types";
 import { latestDecisionDossier,overrideForDossier } from "../domain/decisionDossier";
 
 const short=(value:string)=>value.replace("fnv1a32:","").slice(0,10)+"…";
@@ -34,6 +34,7 @@ const exportDossier=(state:ThinkTankState)=>{
   const witnessIds=new Set(witnesses.map(item=>item.id));
   const witnessVerifications=state.dossierTransparencyWitnessVerifications.filter(item=>witnessIds.has(item.witnessId));
   const rfc3161Timestamps=state.dossierRfc3161Timestamps.filter(item=>checkpointIds.has(item.checkpointId));
+  const checkpointPublications=state.dossierCheckpointPublications.filter(item=>checkpointIds.has(item.checkpointId));
   downloadJson(
     dossier.id.toLowerCase()+"-decision-dossier.json",
     {
@@ -45,7 +46,8 @@ const exportDossier=(state:ThinkTankState)=>{
       transparencyCheckpoints,
       witnesses,
       witnessVerifications,
-      rfc3161Timestamps
+      rfc3161Timestamps,
+      checkpointPublications
     }
   );
 };
@@ -55,43 +57,51 @@ export function DecisionDossierPanel({
   sealStatus,
   transparencyStatus,
   rfc3161Status,
+  publicationStatus,
   busy,
   sealBusy,
   transparencyBusy,
   checkpointBusy,
   witnessBusy,
   timestampBusy,
+  publicationBusy,
   error,
   transparencyError,
   witnessError,
   timestampError,
+  publicationError,
   onSeal,
   onVerify,
   onTransparencyAppend,
   onCheckpoint,
   onWitnessImport,
-  onTimestamp
+  onTimestamp,
+  onPublish
 }:{
   state:ThinkTankState;
   sealStatus:DossierSealStatusResponse|null;
   transparencyStatus:DossierTransparencyStatusResponse|null;
   rfc3161Status:DossierRfc3161StatusResponse|null;
+  publicationStatus:DossierPublicationStatusResponse|null;
   busy:boolean;
   sealBusy:boolean;
   transparencyBusy:boolean;
   checkpointBusy:boolean;
   witnessBusy:boolean;
   timestampBusy:boolean;
+  publicationBusy:boolean;
   error:string;
   transparencyError:string;
   witnessError:string;
   timestampError:string;
+  publicationError:string;
   onSeal:(dossierId:string)=>void;
   onVerify:(dossierId:string,sealId:string)=>void;
   onTransparencyAppend:(dossierId:string,sealId:string)=>void;
   onCheckpoint:()=>void;
   onWitnessImport:(checkpointId:string,witness:DossierTransparencyWitnessReceipt)=>void;
   onTimestamp:(checkpointId:string)=>void;
+  onPublish:(checkpointId:string)=>void;
 }){
   const witnessFileRef=useRef<HTMLInputElement>(null);
   const [witnessImportError,setWitnessImportError]=useState("");
@@ -179,6 +189,20 @@ export function DecisionDossierPanel({
       :rfc3161Status?.state==="error"
         ?"TSA ERROR"
         :"TSA DISABLED";
+  const publications=latestCheckpoint
+    ?state.dossierCheckpointPublications.filter(item=>item.checkpointId===latestCheckpoint.id)
+    :[];
+  const currentPublisherPublication=publicationStatus?.publisherUrl
+    ?[...publications].reverse().find(item=>item.publisherUrl===publicationStatus.publisherUrl)??null
+    :null;
+  const latestPublication=publications[publications.length-1]??null;
+  const publicationState=currentPublisherPublication
+    ?"PUBLISHED · READ-BACK VERIFIED"
+    :publicationStatus?.state==="configured"
+      ?"PUBLISHER READY"
+      :publicationStatus?.state==="error"
+        ?"PUBLISHER ERROR"
+        :"PUBLISHER DISABLED";
 
   const importWitnessFile=async(file:File|null)=>{
     if(!file||!latestCheckpoint)return;
@@ -499,12 +523,70 @@ export function DecisionDossierPanel({
               </button>
             </div>
           </div>
+
+          <div className={"dossier-publication "+(
+            currentPublisherPublication?"publication-verified":
+            publicationStatus?.state==="error"?"publication-error":""
+          )}>
+            <div className="dossier-transparency-head">
+              <div>
+                <small>EXTERNAL CHECKPOINT PUBLICATION</small>
+                <strong>{publicationState}</strong>
+              </div>
+              <span>
+                {publications.length
+                  ?String(publications.length)+" VERIFIED PUBLICATION"+(publications.length===1?"":"S")
+                  :publicationStatus?.protocol??"phi-checkpoint-publication-v1"}
+              </span>
+            </div>
+
+            {latestPublication
+              ?<div className="dossier-seal-details">
+                <p><b>Receipt</b> {latestPublication.id}</p>
+                <p><b>Publication id</b> {latestPublication.publicationId}</p>
+                <p><b>Checkpoint SHA-256</b> {latestPublication.checkpointSha256}</p>
+                <p><b>Canonical payload SHA-256</b> {latestPublication.payloadSha256}</p>
+                <p><b>Publisher</b> {latestPublication.publisherUrl}</p>
+                <p><b>Retrieval URL</b> {latestPublication.retrievalUrl}</p>
+                <p><b>Publisher-claimed time</b> {latestPublication.publisherClaimedAt}</p>
+                <p><b>Read-back verified</b> {latestPublication.retrievalVerifiedAt}</p>
+                <p><b>Receipt SHA-256</b> {latestPublication.receiptSha256}</p>
+                <p><b>Trust</b> EXTERNALLY RETRIEVED PUBLICATION</p>
+              </div>
+              :<p>
+                Publish this checkpoint through the configured external publisher. Acceptance requires
+                a second HTTPS read-back of the exact canonical checkpoint from the configured public origin.
+              </p>}
+
+            {publicationStatus?.detail&&<p className="dossier-tool-detail">{publicationStatus.detail}</p>}
+            {publicationError&&<div className="dossier-seal-error">{publicationError}</div>}
+
+            <div className="dossier-seal-actions">
+              <button
+                type="button"
+                onClick={()=>latestCheckpoint&&onPublish(latestCheckpoint.id)}
+                disabled={
+                  busy||
+                  publicationBusy||
+                  !latestCheckpoint||
+                  Boolean(currentPublisherPublication)||
+                  publicationStatus?.state!=="configured"
+                }
+              >
+                {publicationBusy
+                  ?"PUBLISHING + VERIFYING…"
+                  :currentPublisherPublication
+                    ?"CURRENT PUBLISHER VERIFIED"
+                    :"PUBLISH + VERIFY CHECKPOINT"}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
 
     <footer>
-      <span>Integrity chain: dossier → seal → local journal → checkpoint → detached witness / RFC3161 time attestation. Provenance and time evidence still do not grant factual truth authority.</span>
+      <span>Integrity chain: dossier → seal → journal → checkpoint → witness / RFC3161 time / verified external publication. None of these provenance layers grants factual truth authority.</span>
       <button type="button" onClick={()=>exportDossier(state)}>TEAR / EXPORT DOSSIER</button>
     </footer>
   </section>;
