@@ -271,3 +271,21 @@ PR 24 does not:
 - cryptographically sign the release manifest
 - upload the release package anywhere
 - make provenance equivalent to truth
+
+## PR 25 cryptographic release-seal extension
+
+PR 24 itself deliberately created deterministic release manifests without signing them.
+
+PR 25 adds a later optional Ed25519 layer over the exact REL manifest.
+
+The states remain separate:
+
+    RELEASE AUTHORIZED
+      → optional RELEASE SEALED
+      → optional RELEASE SEAL VERIFIED
+
+A release signature does not modify release eligibility or the original REL manifest.
+
+EXPORT RELEASE PACKAGE now carries any linked release seals and release-seal verification receipts beside the immutable artifact list.
+
+See [Cryptographic Release Sealing](CRYPTOGRAPHIC_RELEASE_SEALING.md).
