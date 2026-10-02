@@ -226,3 +226,16 @@ PR 26 does not:
 - alter release authorization
 - alter synthesis governance
 - make release content true
+
+## PR 27 publication relationship
+
+RTSA remains optional for external release publication.
+
+If one or more RTSA receipts exist when the operator publishes, they are part of the canonical release package and therefore covered by:
+- the package-basis fingerprint
+- package SHA-256
+- exact public read-back comparison
+
+If a new RTSA is added later, the package basis changes and a new explicit publication request is required.
+
+See [Verified External Release Publication](RELEASE_PUBLICATION.md).

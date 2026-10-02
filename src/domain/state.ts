@@ -28,6 +28,7 @@ export const createInitialState=():ThinkTankState=>({
   dossierReleaseSeals:[],
   dossierReleaseSealVerifications:[],
   dossierReleaseRfc3161Timestamps:[],
+  dossierReleasePublications:[],
   evidenceRefs:[],
   evidenceExcerpts:[],
   claims:[],

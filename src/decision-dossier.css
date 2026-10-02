@@ -49,3 +49,7 @@
 .dossier-release-time{margin-top:7px;border-top:1px solid #343945;padding-top:8px;display:grid;gap:7px}
 .dossier-release-time.release-time-verified{border-top-color:#4f7b68}
 .dossier-release-time>p{margin:0;font-size:.53rem;line-height:1.42;opacity:.78}
+
+.dossier-release-publication{margin-top:7px;border-top:1px solid #343945;padding-top:8px;display:grid;gap:7px}
+.dossier-release-publication.release-publication-verified{border-top-color:#4f7b68}
+.dossier-release-publication>p{margin:0;font-size:.53rem;line-height:1.42;opacity:.78}

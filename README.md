@@ -6,28 +6,31 @@ A governed, event-sourced multi-mind control room. Cognitive roles are staffed b
 
 ## Current rung
 
-**PR 26 — RFC 3161 Trusted Release Timestamp**
+**PR 27 — Verified External Release Publication**
 
-The Think Tank can now request and locally verify an RFC 3161 timestamp over the SHA-256 of an already verified cryptographic release-seal receipt.
+The Think Tank can now publish one exact governed release package through an optional constrained HTTPS publisher and independently read the public package back before accepting an RPUB receipt.
 
-PR 26 adds:
-- RVER prerequisite before release timestamping
-- bridge-side REL + RSEAL re-verification before TSA contact
-- stable-canonical complete RSEAL SHA-256 message imprint
-- shared checkpoint/release RFC 3161 verifier path
-- raw release timestamp-token retention
-- TSA time/policy/serial/subject + trust-anchor digest receipts
-- governed release timestamp request/completion/failure events
-- one accepted receipt per RSEAL + TSA URL + trust-anchor digest
-- trusted release-time UI + package/dossier export
-- bridge version 0.11.0
-- receipt + kernel/replay failure tests
+PR 27 adds:
+- centralized deterministic release-package builder
+- verified-RSEAL prerequisite for external publication
+- pinned package-basis fingerprint at operator request time
+- bridge-side package fingerprint recomputation
+- full RSEAL/RVER/RTSA/package validation before publish
+- phi-release-publication-v1 protocol
+- separate release publisher URL / retrieval origin / bearer credential
+- public-network validation + pinned HTTPS requests + no redirects
+- exact stable-canonical package read-back verification
+- package SHA-256 + RPUB receipt SHA-256
+- governed release publication events + replay state
+- external release publication UI + dossier export
+- bridge version 0.12.0
+- package tamper/race/duplicate tests
 
 ### Important semantic rule
 
-**RFC3161 RELEASE TIME VERIFIED ≠ TRUSTED SIGNER IDENTITY ≠ CONTENT TRUE.**
+**PUBLISHED RELEASE ≠ IMMUTABLE ≠ ENDORSED ≠ CONTENT TRUE.**
 
-A verified RTSA receipt proves the configured RFC 3161 trust chain attested that one exact verified RSEAL receipt existed at the TSA generation time. It does not identify the signer, make the release correct, or make the underlying dossier true.
+A verified RPUB receipt proves one exact governed release package was published and then independently retrieved unchanged from the accepted public URL. It does not prove permanent availability, append-only storage, publisher endorsement, trusted publisher time, or factual correctness.
 
 See:
 - [Architecture](docs/ARCHITECTURE.md)
@@ -56,6 +59,7 @@ See:
 - [Assurance-Gated Release Manifest](docs/ASSURANCE_GATED_RELEASE.md)
 - [Cryptographic Release Sealing](docs/CRYPTOGRAPHIC_RELEASE_SEALING.md)
 - [RFC 3161 Trusted Release Timestamp](docs/RFC3161_RELEASE_TIMESTAMP.md)
+- [Verified External Release Publication](docs/RELEASE_PUBLICATION.md)
 
 ## Local-first setup
 
@@ -78,7 +82,7 @@ Verification:
 
 > **If a light changes, a sequenced event explains why.**
 
-Every normal synthesis carries a deterministic dossier; it can be sealed, journaled, checkpointed, witnessed, time-attested, externally published, evaluated against an explicit provenance policy, authorized for governed release/export, Ed25519-sealed at the REL layer, and optionally RFC 3161 time-attested at the verified RSEAL layer.
+Every normal synthesis carries a deterministic dossier; it can be sealed, journaled, checkpointed, witnessed, time-attested, externally published, evaluated against an explicit provenance policy, authorized for governed release/export, Ed25519-sealed, RFC 3161 time-attested, and externally published as an exact verified release package.
 
 ## Build ladder
 
@@ -107,6 +111,7 @@ Every normal synthesis carries a deterministic dossier; it can be sealed, journa
 23. ✅ Provenance assurance policy
 24. ✅ Assurance-gated release manifest
 25. ✅ Cryptographic release sealing
-26. **RFC 3161 trusted release timestamp**
+26. ✅ RFC 3161 trusted release timestamp
+27. **Verified external release publication**
 
 **Φ THINK TANK is a control room, not eight chat cards.**

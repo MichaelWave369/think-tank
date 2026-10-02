@@ -24,14 +24,19 @@ import type {
 } from "../domain/types";
 import { evaluateProvenanceAssurance } from "../domain/provenanceAssurance";
 import { buildDossierReleaseManifest } from "../domain/releaseManifest";
+import {
+  buildDossierReleasePackage,
+  releasePackageBasisFingerprint,
+  releasePackageHasVerifiedSeal
+} from "../domain/releasePackage";
 import { buildEvent,buildEventBatch,replayEvents,verifyReplay } from "../kernel/eventKernel";
 import { deriveMotionCue } from "../motion/motion";
 import { useEventPlayback } from "../motion/useEventPlayback";
 import { useMotionPolicy } from "../motion/useMotionPolicy";
-import { appendDossierTransparency,fetchDossierPublicationStatus,fetchDossierRfc3161Status,fetchDossierSealStatus,fetchDossierTransparencyCheckpoint,fetchDossierTransparencyStatus,fetchMachineEvidence,fetchProviderStatus,fetchReleaseSealStatus,fetchResearchStatus,invokeProvider,pinMachineEvidenceExcerpt,projectMachineEvidence,publishDossierCheckpoint,requestDossierReleaseRfc3161Timestamp,requestDossierRfc3161Timestamp,sealDecisionDossier,sealDossierRelease,searchResearch,verifyDecisionDossierSeal,verifyDossierReleaseSeal,verifyDossierTransparencyWitness } from "../providers/client";
+import { appendDossierTransparency,fetchDossierPublicationStatus,fetchDossierRfc3161Status,fetchDossierSealStatus,fetchDossierTransparencyCheckpoint,fetchDossierTransparencyStatus,fetchMachineEvidence,fetchProviderStatus,fetchReleasePublicationStatus,fetchReleaseSealStatus,fetchResearchStatus,invokeProvider,pinMachineEvidenceExcerpt,projectMachineEvidence,publishDossierCheckpoint,publishDossierReleasePackage,requestDossierReleaseRfc3161Timestamp,requestDossierRfc3161Timestamp,sealDecisionDossier,sealDossierRelease,searchResearch,verifyDecisionDossierSeal,verifyDossierReleaseSeal,verifyDossierTransparencyWitness } from "../providers/client";
 import { runLiveProviderSession } from "../providers/liveRunner";
 import { buildArgumentReviewMessages,parseArgumentReviewResponse } from "../providers/argumentReview";
-import type { DossierPublicationStatusResponse,DossierReleaseSealStatusResponse,DossierRfc3161StatusResponse,DossierSealStatusResponse,DossierTransparencyStatusResponse,EvidenceProjectionResponse,ProviderStatusResponse,ResearchBackendStatusResponse } from "../providers/types";
+import type { DossierPublicationStatusResponse,DossierReleasePublicationStatusResponse,DossierReleaseSealStatusResponse,DossierRfc3161StatusResponse,DossierSealStatusResponse,DossierTransparencyStatusResponse,EvidenceProjectionResponse,ProviderStatusResponse,ResearchBackendStatusResponse } from "../providers/types";
 import { scenarioEventInputs,type DemoScenario } from "../sim/demo";
 import { TerminalPanel } from "./TerminalPanel";
 import { ArgumentReviewPanel } from "./ArgumentReviewPanel";
@@ -91,8 +96,11 @@ export function ThinkTankRoom(){
   const [releaseSealBusy,setReleaseSealBusy]=useState(false);
   const [releaseVerifyBusy,setReleaseVerifyBusy]=useState(false);
   const [releaseTimestampBusy,setReleaseTimestampBusy]=useState(false);
+  const [releasePublicationStatus,setReleasePublicationStatus]=useState<DossierReleasePublicationStatusResponse|null>(null);
+  const [releasePublicationBusy,setReleasePublicationBusy]=useState(false);
   const [releaseSealError,setReleaseSealError]=useState("");
   const [releaseTimestampError,setReleaseTimestampError]=useState("");
+  const [releasePublicationError,setReleasePublicationError]=useState("");
   const liveAbortRef=useRef<AbortController|null>(null);
   const evidenceAbortRef=useRef<AbortController|null>(null);
   const researchAbortRef=useRef<AbortController|null>(null);
@@ -107,6 +115,7 @@ export function ThinkTankRoom(){
   const releaseSealAbortRef=useRef<AbortController|null>(null);
   const releaseVerifyAbortRef=useRef<AbortController|null>(null);
   const releaseTimestampAbortRef=useRef<AbortController|null>(null);
+  const releasePublicationAbortRef=useRef<AbortController|null>(null);
   const motionMode=useMotionPolicy();
 
   const applyEvent=useCallback((event:ThinkTankEvent)=>{
@@ -115,7 +124,7 @@ export function ThinkTankRoom(){
   },[]);
 
   const playback=useEventPlayback(applyEvent,motionMode);
-  const busy=playback.playing||liveRunning||evidenceFetching||researchSearching||excerptBusy||argumentReviewBusy||dossierSealBusy||dossierTransparencyBusy||dossierCheckpointBusy||dossierWitnessBusy||dossierTimestampBusy||dossierPublicationBusy||releaseSealBusy||releaseVerifyBusy||releaseTimestampBusy;
+  const busy=playback.playing||liveRunning||evidenceFetching||researchSearching||excerptBusy||argumentReviewBusy||dossierSealBusy||dossierTransparencyBusy||dossierCheckpointBusy||dossierWitnessBusy||dossierTimestampBusy||dossierPublicationBusy||releaseSealBusy||releaseVerifyBusy||releaseTimestampBusy||releasePublicationBusy;
 
   const refreshProviders=useCallback(async()=>{
     try{
@@ -200,6 +209,17 @@ export function ThinkTankRoom(){
     }
   },[]);
 
+  const refreshReleasePublication=useCallback(async()=>{
+    try{
+      const next=await fetchReleasePublicationStatus();
+      setReleasePublicationStatus(next);
+      setReleasePublicationError("");
+    }catch(error){
+      setReleasePublicationStatus(null);
+      setReleasePublicationError(error instanceof Error?error.message:String(error));
+    }
+  },[]);
+
   useEffect(()=>{
     void refreshProviders();
     void refreshResearch();
@@ -208,6 +228,7 @@ export function ThinkTankRoom(){
     void refreshDossierRfc3161();
     void refreshDossierPublication();
     void refreshReleaseSeal();
+    void refreshReleasePublication();
   },[
     refreshProviders,
     refreshResearch,
@@ -215,7 +236,8 @@ export function ThinkTankRoom(){
     refreshDossierTransparency,
     refreshDossierRfc3161,
     refreshDossierPublication,
-    refreshReleaseSeal
+    refreshReleaseSeal,
+    refreshReleasePublication
   ]);
 
   const latestEvent=state.events[state.events.length-1];
@@ -1459,6 +1481,66 @@ export function ThinkTankRoom(){
     }
   };
 
+  const publishReleasePackage=async(releaseId:string)=>{
+    if(busy)return;
+    const manifest=stateRef.current.dossierReleaseManifests.find(item=>item.id===releaseId);
+    if(!manifest||!releasePackageHasVerifiedSeal(stateRef.current,releaseId))return;
+
+    const releasePackage=buildDossierReleasePackage(stateRef.current,releaseId);
+    const packageBasisFingerprint=releasePackageBasisFingerprint(stateRef.current,releaseId);
+    const controller=new AbortController();
+    releasePublicationAbortRef.current=controller;
+    setReleasePublicationBusy(true);
+    setReleasePublicationError("");
+
+    emitInput({
+      source:"operator",
+      kind:"dossier.release.publication.requested",
+      phase:stateRef.current.phase,
+      dossierReleaseId:manifest.id,
+      dossierReleasePackageFingerprint:packageBasisFingerprint,
+      message:
+        "Operator requested verified external publication of release "+manifest.id+
+        " package basis "+packageBasisFingerprint+"."
+    });
+
+    try{
+      const response=await publishDossierReleasePackage(
+        releasePackage,
+        packageBasisFingerprint,
+        controller.signal
+      );
+      emitInput({
+        source:"tool",
+        kind:"dossier.release.publication.completed",
+        phase:stateRef.current.phase,
+        dossierReleaseId:manifest.id,
+        dossierReleasePackageFingerprint:packageBasisFingerprint,
+        dossierReleasePublication:response.publication,
+        message:
+          "Release package "+manifest.id+" published and read-back verified as "+
+          response.publication.id+"."
+      });
+    }catch(error){
+      const message=error instanceof Error?error.message:String(error);
+      setReleasePublicationError(message);
+      try{
+        emitInput({
+          source:"tool",
+          kind:"dossier.release.publication.failed",
+          phase:stateRef.current.phase,
+          dossierReleaseId:manifest.id,
+          dossierReleasePackageFingerprint:packageBasisFingerprint,
+          message:"Release publication failed: "+message
+        });
+      }catch{}
+    }finally{
+      releasePublicationAbortRef.current=null;
+      setReleasePublicationBusy(false);
+      void refreshReleasePublication();
+    }
+  };
+
   const runAutoRoute=()=>playInputs(routingEventInputs(routingPreview));
 
   const pinRole=(roleId:RoleId,seatId:SeatId)=>{
@@ -1589,6 +1671,7 @@ export function ThinkTankRoom(){
     releaseSealAbortRef.current?.abort();
     releaseVerifyAbortRef.current?.abort();
     releaseTimestampAbortRef.current?.abort();
+    releasePublicationAbortRef.current?.abort();
     liveAbortRef.current?.abort();
     playback.cancel();
     setLiveRunning(false);
@@ -1775,6 +1858,7 @@ export function ThinkTankRoom(){
           rfc3161Status={dossierRfc3161Status}
           publicationStatus={dossierPublicationStatus}
           releaseSealStatus={releaseSealStatus}
+          releasePublicationStatus={releasePublicationStatus}
           busy={busy}
           sealBusy={dossierSealBusy}
           transparencyBusy={dossierTransparencyBusy}
@@ -1785,6 +1869,7 @@ export function ThinkTankRoom(){
           releaseSealBusy={releaseSealBusy}
           releaseVerifyBusy={releaseVerifyBusy}
           releaseTimestampBusy={releaseTimestampBusy}
+          releasePublicationBusy={releasePublicationBusy}
           error={dossierSealError}
           transparencyError={dossierTransparencyError}
           witnessError={dossierWitnessError}
@@ -1792,6 +1877,7 @@ export function ThinkTankRoom(){
           publicationError={dossierPublicationError}
           releaseSealError={releaseSealError}
           releaseTimestampError={releaseTimestampError}
+          releasePublicationError={releasePublicationError}
           onSeal={dossierId=>void sealDossier(dossierId)}
           onVerify={(dossierId,sealId)=>void verifyDossierSeal(dossierId,sealId)}
           onTransparencyAppend={(dossierId,sealId)=>void appendTransparencyJournal(dossierId,sealId)}
@@ -1806,6 +1892,7 @@ export function ThinkTankRoom(){
           onReleaseSeal={releaseId=>void sealReleaseManifest(releaseId)}
           onReleaseVerify={(releaseId,sealId)=>void verifyReleaseSeal(releaseId,sealId)}
           onReleaseTimestamp={(releaseId,sealId)=>void requestReleaseTimestamp(releaseId,sealId)}
+          onReleasePublish={releaseId=>void publishReleasePackage(releaseId)}
         />
 
         {state.synthesisWithheld&&<div className="gate-block">

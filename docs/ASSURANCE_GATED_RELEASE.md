@@ -309,3 +309,22 @@ fresh passing assurance
 RTSA is additive provenance for the signed release package. It is not a prerequisite for release authorization.
 
 See [RFC 3161 Trusted Release Timestamp](RFC3161_RELEASE_TIMESTAMP.md).
+
+## PR 27 external publication extension
+
+PR 27 can publish the exact governed release package after the release has at least one successfully verified RSEAL.
+
+The extended path is:
+
+```
+fresh passing assurance
+  → REL authorization
+  → RSEAL
+  → RVER
+  → optional RTSA
+  → optional RPUB verified external publication
+```
+
+RPUB is not part of release eligibility and does not modify the REL manifest.
+
+See [Verified External Release Publication](RELEASE_PUBLICATION.md).

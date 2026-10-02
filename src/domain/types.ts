@@ -456,6 +456,29 @@ export interface DossierReleaseRfc3161TimestampReceipt{
   trust:"configured-rfc3161-trust-anchor";
 }
 
+export interface DossierReleasePublicationReceipt{
+  id:string;
+  releaseId:string;
+  tool:"verified-release-package-publisher";
+  protocol:"phi-release-publication-v1";
+  packageBasisFingerprint:string;
+  manifestSha256:string;
+  packageSha256:string;
+  publisherUrl:string;
+  retrievalUrl:string;
+  publicationId:string;
+  publisherClaimedAt:string;
+  retrievalHttpStatus:number;
+  retrievalContentType:string;
+  retrievalVerifiedAt:string;
+  releaseSealIds:string[];
+  releaseVerificationIds:string[];
+  releaseTimestampIds:string[];
+  artifactIds:string[];
+  receiptSha256:string;
+  trust:"externally-retrieved-release-publication";
+}
+
 export interface DecisionOverrideReceipt{
   id:string;
   dossierId:string;
@@ -605,6 +628,9 @@ export type ThinkTankEventKind=
   |"dossier.release.timestamp.requested"
   |"dossier.release.timestamp.completed"
   |"dossier.release.timestamp.failed"
+  |"dossier.release.publication.requested"
+  |"dossier.release.publication.completed"
+  |"dossier.release.publication.failed"
   |"session.aborted";
 
 export interface ThinkTankEvent{
@@ -668,6 +694,8 @@ export interface ThinkTankEvent{
   dossierReleaseSealId?:string;
   dossierReleaseVerification?:DossierReleaseSealVerificationReceipt;
   dossierReleaseTimestamp?:DossierReleaseRfc3161TimestampReceipt;
+  dossierReleasePackageFingerprint?:string;
+  dossierReleasePublication?:DossierReleasePublicationReceipt;
   message?:string;
   gateScore?:number;
   override?:boolean;
@@ -738,6 +766,8 @@ export interface ThinkTankEventInput{
   dossierReleaseSealId?:string;
   dossierReleaseVerification?:DossierReleaseSealVerificationReceipt;
   dossierReleaseTimestamp?:DossierReleaseRfc3161TimestampReceipt;
+  dossierReleasePackageFingerprint?:string;
+  dossierReleasePublication?:DossierReleasePublicationReceipt;
   message?:string;
   gateScore?:number;
   override?:boolean;
@@ -777,6 +807,7 @@ export interface ThinkTankState{
   dossierReleaseSeals:DossierReleaseSealReceipt[];
   dossierReleaseSealVerifications:DossierReleaseSealVerificationReceipt[];
   dossierReleaseRfc3161Timestamps:DossierReleaseRfc3161TimestampReceipt[];
+  dossierReleasePublications:DossierReleasePublicationReceipt[];
   evidenceRefs:EvidenceRef[];
   evidenceExcerpts:EvidenceExcerpt[];
   claims:Claim[];

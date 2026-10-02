@@ -1,4 +1,4 @@
-import type { DossierCheckpointPublicationReceipt,DossierReleaseManifest,DossierReleaseRfc3161TimestampReceipt,DossierReleaseSealReceipt,DossierRfc3161TimestampReceipt,DossierSealReceipt,DossierTransparencyCheckpoint,DossierTransparencyReceipt,DossierTransparencyWitnessReceipt,RoleId,SeatId,SynthesisDecisionDossier } from "../domain/types";
+import type { DossierCheckpointPublicationReceipt,DossierReleaseManifest,DossierReleasePublicationReceipt,DossierReleaseRfc3161TimestampReceipt,DossierReleaseSealReceipt,DossierRfc3161TimestampReceipt,DossierSealReceipt,DossierTransparencyCheckpoint,DossierTransparencyReceipt,DossierTransparencyWitnessReceipt,RoleId,SeatId,SynthesisDecisionDossier } from "../domain/types";
 
 export type ProviderConnectionState="connected"|"configured"|"disconnected"|"error";
 
@@ -271,4 +271,20 @@ export interface DossierReleaseRfc3161TimestampResponse{
 export interface DossierReleaseRfc3161TimestampRequest{
   manifest:DossierReleaseManifest;
   seal:DossierReleaseSealReceipt;
+}
+
+export interface DossierReleasePublicationStatusResponse{
+  ok:true;
+  state:"configured"|"disabled"|"error";
+  protocol:"phi-release-publication-v1";
+  publisherUrl:string|null;
+  retrievalOrigin:string|null;
+  authConfigured:boolean;
+  maxBytes:number;
+  detail:string;
+}
+
+export interface DossierReleasePublicationResponse{
+  ok:true;
+  publication:DossierReleasePublicationReceipt;
 }
