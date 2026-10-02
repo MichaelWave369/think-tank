@@ -1,11 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {generateKeyPairSync} from "node:crypto";
+import {createHash,generateKeyPairSync} from "node:crypto";
 import {
   buildReleasePublicationReceipt,
   releaseManifestDigestSha256,
   releasePackageBasisFingerprintBridge,
   sealReleaseWithPrivateKey,
+  stableCanonicalJson,
   validateReleasePackage
 } from "./provider-bridge.mjs";
 
@@ -69,9 +70,8 @@ test("rejects package with no successful RVER",()=>{
 test("builds RPUB only after exact canonical read-back",()=>{
   const pkg=packageValue();
   const fingerprint=releasePackageBasisFingerprintBridge(pkg);
-  const packageSha256=(await import("node:crypto"))
-    .createHash("sha256")
-    .update((await import("./provider-bridge.mjs")).stableCanonicalJson(pkg),"utf8")
+  const packageSha256=createHash("sha256")
+    .update(stableCanonicalJson(pkg),"utf8")
     .digest("hex");
   const response={
     protocol:"phi-release-publication-v1",
@@ -101,9 +101,9 @@ test("builds RPUB only after exact canonical read-back",()=>{
 test("rejects altered public read-back even when ids are unchanged",()=>{
   const pkg=packageValue();
   const fingerprint=releasePackageBasisFingerprintBridge(pkg);
-  const canonical=(await import("./provider-bridge.mjs")).stableCanonicalJson;
-  const packageSha256=(await import("node:crypto"))
-    .createHash("sha256").update(canonical(pkg),"utf8").digest("hex");
+  const packageSha256=createHash("sha256")
+    .update(stableCanonicalJson(pkg),"utf8")
+    .digest("hex");
   const response={
     protocol:"phi-release-publication-v1",
     publicationId:"release-pub-1",
@@ -132,9 +132,9 @@ test("rejects altered public read-back even when ids are unchanged",()=>{
 
 test("rejects forged browser package fingerprint",()=>{
   const pkg=packageValue();
-  const canonical=(await import("./provider-bridge.mjs")).stableCanonicalJson;
-  const packageSha256=(await import("node:crypto"))
-    .createHash("sha256").update(canonical(pkg),"utf8").digest("hex");
+  const packageSha256=createHash("sha256")
+    .update(stableCanonicalJson(pkg),"utf8")
+    .digest("hex");
   assert.throws(
     ()=>buildReleasePublicationReceipt({
       packageValue:pkg,
