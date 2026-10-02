@@ -225,3 +225,12 @@ CHECKPOINT
 Neither layer upgrades the other into factual truth authority.
 
 See [RFC 3161 Timestamp Attestation](RFC3161_TIMESTAMP.md).
+
+
+## PR 22 publication relationship
+
+Detached witness signatures and verified external publication remain independent checkpoint evidence layers.
+
+Publication proves successful external read-back of the exact checkpoint from a constrained HTTPS location. It does not identify or replace a witness key.
+
+See [Verified External Checkpoint Publication](CHECKPOINT_PUBLICATION.md).
