@@ -235,6 +235,13 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
     ];
   }
 
+  if(event.kind==="dossier.release.authorized"&&event.dossierRelease){
+    next.dossierReleaseManifests=[
+      ...state.dossierReleaseManifests,
+      event.dossierRelease
+    ];
+  }
+
   if(event.kind==="seat.status"&&event.seatId&&event.seatStatus){
     next.seatStatus={...state.seatStatus,[event.seatId]:event.seatStatus};
   }
