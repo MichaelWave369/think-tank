@@ -396,3 +396,26 @@ Each DossierReleaseRfc3161TimestampReceipt preserves:
 The TSA generation time is trusted only within the configured RFC 3161 trust boundary. It does not identify the release signer or change release/synthesis authority.
 
 See [RFC3161_RELEASE_TIMESTAMP.md](RFC3161_RELEASE_TIMESTAMP.md).
+
+## Verified external release publication receipts
+
+PR 27 adds RPUB receipts for externally published governed release packages.
+
+DossierReleasePublicationReceipt preserves:
+- REL id
+- package-basis fingerprint
+- REL manifest SHA-256
+- full release-package SHA-256
+- publisher URL + public retrieval URL
+- publication id
+- publisher-claimed time
+- local read-back verification metadata
+- exact included RSEAL / RVER / RTSA ids
+- exact REL artifact ids
+- receipt SHA-256
+
+RPUB is deliberately excluded from the release package it attests, preventing recursive package mutation.
+
+Dossier export includes linked releasePublications separately.
+
+See [RELEASE_PUBLICATION.md](RELEASE_PUBLICATION.md).
