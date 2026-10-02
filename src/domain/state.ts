@@ -15,6 +15,8 @@ export const createInitialState=():ThinkTankState=>({
   argumentGovernance:null,
   decisionDossiers:[],
   decisionOverrides:[],
+  dossierSeals:[],
+  dossierSealVerifications:[],
   evidenceRefs:[],
   evidenceExcerpts:[],
   claims:[],

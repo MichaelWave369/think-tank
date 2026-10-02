@@ -6,36 +6,35 @@ A governed, event-sourced multi-mind control room. Cognitive roles are staffed b
 
 ## Current rung
 
-**PR 17 — Synthesis Decision Dossier**
+**PR 18 — Cryptographic Dossier Sealing**
 
-The Think Tank now freezes every normal synthesis decision into one deterministic dossier that captures the exact governance/provenance basis without inventing new authority.
+The Think Tank can now cryptographically seal portable decision dossiers with a persistent local Ed25519 signer while keeping replay checksums, signer identity trust, and factual truth as separate concepts.
 
-PR 17 adds:
-- canonical SynthesisDecisionDossier receipts
-- deterministic decision-basis fingerprints
-- normal outcome / label / action authority
-- Reality Gate snapshot
-- Claim Policy receipt
-- Argument Policy receipt
-- claim / binding / evidence / excerpt basis
-- structural-review basis fingerprints
-- provider argument-map basis fingerprints
-- current-run provider turn provenance
-- immutable dossier history
-- automatic dossier minting for LIVE and SIM synthesis
-- governance-reason integrity checks
-- separate linked DecisionOverrideReceipt for FORCE SYNTHESIS
-- one-override-per-withheld-dossier law
-- completed-dossier override rejection
-- Decision Dossier UI
-- JSON dossier export
-- ledger DOS / OVR linkage
+PR 18 adds:
+- optional persistent Ed25519 dossier signer
+- SHA-256 dossier content digests
+- json-stable-v1 canonicalization
+- public-key SHA-256 fingerprints
+- self-attested local signer trust label
+- persistent key generation command
+- private-key bridge boundary
+- governed seal request/completion events
+- governed verification request/completion events
+- one seal per dossier per signer key
+- multi-signer-ready receipt model
+- signing endpoint self-verification
+- independent verification without private key
+- stored verification receipts
+- tamper-detection tests
+- Decision Dossier seal UI
+- seal/verifier telemetry
+- dossier export with seals + verification receipts
 
 ### Important semantic rule
 
-**DOSSIER ≠ NEW AUTHORITY.**
+**VALID SIGNATURE ≠ TRUSTED SIGNER ≠ TRUE DECISION.**
 
-The dossier records why a decision existed. It does not make that decision more true, more evidenced, or more authorized.
+Cryptography proves content integrity under a key. External identity trust and decision correctness remain separate questions.
 
 See:
 - [Architecture](docs/ARCHITECTURE.md)
@@ -55,6 +54,7 @@ See:
 - [Excerpt-Aware Argument Review](docs/ARGUMENT_REVIEW.md)
 - [Argument-Map Governance](docs/ARGUMENT_GOVERNANCE.md)
 - [Synthesis Decision Dossier](docs/DECISION_DOSSIER.md)
+- [Cryptographic Dossier Sealing](docs/CRYPTOGRAPHIC_SEALING.md)
 
 ## Local-first setup
 
@@ -77,7 +77,7 @@ Verification:
 
 > **If a light changes, a sequenced event explains why.**
 
-Every normal synthesis now carries a deterministic decision dossier; any FORCE SYNTHESIS action is a separate linked operator override receipt.
+Every normal synthesis carries a deterministic dossier; PR 18 can optionally seal that portable receipt with a persistent local Ed25519 key.
 
 ## Build ladder
 
@@ -97,6 +97,7 @@ Every normal synthesis now carries a deterministic decision dossier; any FORCE S
 14. ✅ Hash-locked source excerpts
 15. ✅ Excerpt-aware Challenger argument review
 16. ✅ Argument-map governance
-17. **Synthesis decision dossier**
+17. ✅ Synthesis decision dossier
+18. **Cryptographic dossier sealing**
 
 **Φ THINK TANK is a control room, not eight chat cards.**

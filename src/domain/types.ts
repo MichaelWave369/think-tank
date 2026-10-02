@@ -234,6 +234,33 @@ export interface SynthesisDecisionDossier{
   governanceReason:string;
 }
 
+export interface DossierSealReceipt{
+  id:string;
+  dossierId:string;
+  tool:"ed25519-dossier-sealer";
+  algorithm:"Ed25519";
+  canonicalization:"json-stable-v1";
+  digestSha256:string;
+  publicKeyPem:string;
+  publicKeyFingerprintSha256:string;
+  signatureBase64:string;
+  signedAt:string;
+  signerLabel:string;
+  trust:"self-attested-local-key";
+}
+
+export interface DossierSealVerificationReceipt{
+  id:string;
+  dossierId:string;
+  sealId:string;
+  tool:"ed25519-dossier-verifier";
+  algorithm:"Ed25519";
+  digestSha256:string;
+  publicKeyFingerprintSha256:string;
+  verified:boolean;
+  verifiedAt:string;
+}
+
 export interface DecisionOverrideReceipt{
   id:string;
   dossierId:string;
@@ -349,6 +376,12 @@ export type ThinkTankEventKind=
   |"synthesis.withheld"
   |"synthesis.completed"
   |"operator.override"
+  |"dossier.seal.requested"
+  |"dossier.seal.completed"
+  |"dossier.seal.failed"
+  |"dossier.verify.requested"
+  |"dossier.verify.completed"
+  |"dossier.verify.failed"
   |"session.aborted";
 
 export interface ThinkTankEvent{
@@ -392,6 +425,9 @@ export interface ThinkTankEvent{
   decisionDossier?:SynthesisDecisionDossier;
   decisionDossierId?:string;
   decisionOverride?:DecisionOverrideReceipt;
+  dossierSeal?:DossierSealReceipt;
+  dossierSealId?:string;
+  dossierVerification?:DossierSealVerificationReceipt;
   message?:string;
   gateScore?:number;
   override?:boolean;
@@ -442,6 +478,9 @@ export interface ThinkTankEventInput{
   decisionDossier?:SynthesisDecisionDossier;
   decisionDossierId?:string;
   decisionOverride?:DecisionOverrideReceipt;
+  dossierSeal?:DossierSealReceipt;
+  dossierSealId?:string;
+  dossierVerification?:DossierSealVerificationReceipt;
   message?:string;
   gateScore?:number;
   override?:boolean;
@@ -468,6 +507,8 @@ export interface ThinkTankState{
   argumentGovernance:ArgumentGovernanceReport|null;
   decisionDossiers:SynthesisDecisionDossier[];
   decisionOverrides:DecisionOverrideReceipt[];
+  dossierSeals:DossierSealReceipt[];
+  dossierSealVerifications:DossierSealVerificationReceipt[];
   evidenceRefs:EvidenceRef[];
   evidenceExcerpts:EvidenceExcerpt[];
   claims:Claim[];

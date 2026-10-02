@@ -250,3 +250,34 @@ The provider must return raw JSON and is not allowed to supply canonical quotati
 The browser validates the structured payload before it can enter the event kernel; the kernel independently validates the cited excerpt set, basis fingerprint, Challenger seat, and field limits.
 
 See [ARGUMENT_REVIEW.md](ARGUMENT_REVIEW.md).
+
+
+## Dossier cryptographic service
+
+PR 18 advances the local bridge to v0.5.0 and adds:
+
+GET /dossier/seal/status
+
+POST /dossier/seal
+
+POST /dossier/verify
+
+The private Ed25519 signing key is loaded only by the local bridge from:
+
+DOSSIER_SIGNING_PRIVATE_KEY_FILE
+
+The browser never receives the private key.
+
+The sign endpoint:
+- stable-canonicalizes the dossier
+- computes dossier SHA-256
+- derives the public key
+- fingerprints the public key with SHA-256
+- signs the seal envelope with Ed25519
+- self-verifies the generated signature before returning it
+
+The verify endpoint requires no private key and can validate an exported dossier + seal using the public key embedded in the seal.
+
+Trust remains self-attested until a later external identity/attestation layer pins the public key.
+
+See [CRYPTOGRAPHIC_SEALING.md](CRYPTOGRAPHIC_SEALING.md).

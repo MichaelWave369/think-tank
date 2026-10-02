@@ -24,10 +24,10 @@ import { buildEvent,buildEventBatch,replayEvents,verifyReplay } from "../kernel/
 import { deriveMotionCue } from "../motion/motion";
 import { useEventPlayback } from "../motion/useEventPlayback";
 import { useMotionPolicy } from "../motion/useMotionPolicy";
-import { fetchMachineEvidence,fetchProviderStatus,fetchResearchStatus,invokeProvider,pinMachineEvidenceExcerpt,projectMachineEvidence,searchResearch } from "../providers/client";
+import { fetchDossierSealStatus,fetchMachineEvidence,fetchProviderStatus,fetchResearchStatus,invokeProvider,pinMachineEvidenceExcerpt,projectMachineEvidence,sealDecisionDossier,searchResearch,verifyDecisionDossierSeal } from "../providers/client";
 import { runLiveProviderSession } from "../providers/liveRunner";
 import { buildArgumentReviewMessages,parseArgumentReviewResponse } from "../providers/argumentReview";
-import type { EvidenceProjectionResponse,ProviderStatusResponse,ResearchBackendStatusResponse } from "../providers/types";
+import type { DossierSealStatusResponse,EvidenceProjectionResponse,ProviderStatusResponse,ResearchBackendStatusResponse } from "../providers/types";
 import { scenarioEventInputs,type DemoScenario } from "../sim/demo";
 import { TerminalPanel } from "./TerminalPanel";
 import { ArgumentReviewPanel } from "./ArgumentReviewPanel";
@@ -68,11 +68,15 @@ export function ThinkTankRoom(){
   const [excerptError,setExcerptError]=useState("");
   const [argumentReviewBusy,setArgumentReviewBusy]=useState(false);
   const [argumentReviewError,setArgumentReviewError]=useState("");
+  const [dossierSealStatus,setDossierSealStatus]=useState<DossierSealStatusResponse|null>(null);
+  const [dossierSealBusy,setDossierSealBusy]=useState(false);
+  const [dossierSealError,setDossierSealError]=useState("");
   const liveAbortRef=useRef<AbortController|null>(null);
   const evidenceAbortRef=useRef<AbortController|null>(null);
   const researchAbortRef=useRef<AbortController|null>(null);
   const excerptAbortRef=useRef<AbortController|null>(null);
   const argumentReviewAbortRef=useRef<AbortController|null>(null);
+  const dossierSealAbortRef=useRef<AbortController|null>(null);
   const motionMode=useMotionPolicy();
 
   const applyEvent=useCallback((event:ThinkTankEvent)=>{
@@ -81,7 +85,7 @@ export function ThinkTankRoom(){
   },[]);
 
   const playback=useEventPlayback(applyEvent,motionMode);
-  const busy=playback.playing||liveRunning||evidenceFetching||researchSearching||excerptBusy||argumentReviewBusy;
+  const busy=playback.playing||liveRunning||evidenceFetching||researchSearching||excerptBusy||argumentReviewBusy||dossierSealBusy;
 
   const refreshProviders=useCallback(async()=>{
     try{
@@ -111,10 +115,22 @@ export function ThinkTankRoom(){
     }
   },[]);
 
+  const refreshDossierSeal=useCallback(async()=>{
+    try{
+      const next=await fetchDossierSealStatus();
+      setDossierSealStatus(next);
+      setDossierSealError("");
+    }catch(error){
+      setDossierSealStatus(null);
+      setDossierSealError(error instanceof Error?error.message:String(error));
+    }
+  },[]);
+
   useEffect(()=>{
     void refreshProviders();
     void refreshResearch();
-  },[refreshProviders,refreshResearch]);
+    void refreshDossierSeal();
+  },[refreshProviders,refreshResearch,refreshDossierSeal]);
 
   const latestEvent=state.events[state.events.length-1];
   const cue=useMemo(()=>deriveMotionCue(latestEvent,state),[latestEvent,state]);
@@ -726,6 +742,117 @@ export function ThinkTankRoom(){
     });
   };
 
+  const sealDossier=async(dossierId:string)=>{
+    if(busy)return;
+    const dossier=stateRef.current.decisionDossiers.find(item=>item.id===dossierId);
+    if(!dossier)return;
+
+    const controller=new AbortController();
+    dossierSealAbortRef.current=controller;
+    setDossierSealBusy(true);
+    setDossierSealError("");
+
+    emitInput({
+      source:"operator",
+      kind:"dossier.seal.requested",
+      phase:stateRef.current.phase,
+      decisionDossierId:dossierId,
+      message:"Operator requested cryptographic seal for "+dossierId+"."
+    });
+
+    try{
+      const response=await sealDecisionDossier(dossier,controller.signal);
+      emitInput({
+        source:"tool",
+        kind:"dossier.seal.completed",
+        phase:stateRef.current.phase,
+        decisionDossierId:dossierId,
+        dossierSeal:response.seal,
+        message:
+          "Ed25519 seal "+response.seal.id+" created for "+dossierId+
+          " · key "+response.seal.publicKeyFingerprintSha256.slice(0,16)+"…."
+      });
+    }catch(error){
+      const message=error instanceof Error?error.message:String(error);
+      setDossierSealError(message);
+      try{
+        emitInput({
+          source:"tool",
+          kind:"dossier.seal.failed",
+          phase:stateRef.current.phase,
+          decisionDossierId:dossierId,
+          message:"Dossier sealing failed: "+message
+        });
+      }catch{}
+    }finally{
+      dossierSealAbortRef.current=null;
+      setDossierSealBusy(false);
+      void refreshDossierSeal();
+    }
+  };
+
+  const verifyDossierSeal=async(dossierId:string,dossierSealId:string)=>{
+    if(busy)return;
+    const dossier=stateRef.current.decisionDossiers.find(item=>item.id===dossierId);
+    const seal=stateRef.current.dossierSeals.find(item=>item.id===dossierSealId);
+    if(!dossier||!seal)return;
+
+    const controller=new AbortController();
+    dossierSealAbortRef.current=controller;
+    setDossierSealBusy(true);
+    setDossierSealError("");
+
+    emitInput({
+      source:"operator",
+      kind:"dossier.verify.requested",
+      phase:stateRef.current.phase,
+      decisionDossierId:dossierId,
+      dossierSealId,
+      message:"Operator requested cryptographic verification for "+dossierSealId+"."
+    });
+
+    try{
+      const response=await verifyDecisionDossierSeal(dossier,seal,controller.signal);
+      emitInput({
+        source:"tool",
+        kind:"dossier.verify.completed",
+        phase:stateRef.current.phase,
+        decisionDossierId:dossierId,
+        dossierSealId,
+        dossierVerification:{
+          id:"VER-"+String(stateRef.current.seq+1).padStart(4,"0"),
+          dossierId:response.dossierId,
+          sealId:response.sealId,
+          tool:"ed25519-dossier-verifier",
+          algorithm:"Ed25519",
+          digestSha256:response.digestSha256,
+          publicKeyFingerprintSha256:response.publicKeyFingerprintSha256,
+          verified:response.verified,
+          verifiedAt:response.verifiedAt
+        },
+        message:
+          "Dossier seal "+dossierSealId+" verification: "+
+          (response.verified?"VALID":"INVALID")+" · "+response.reason
+      });
+    }catch(error){
+      const message=error instanceof Error?error.message:String(error);
+      setDossierSealError(message);
+      try{
+        emitInput({
+          source:"tool",
+          kind:"dossier.verify.failed",
+          phase:stateRef.current.phase,
+          decisionDossierId:dossierId,
+          dossierSealId,
+          message:"Dossier verification failed: "+message
+        });
+      }catch{}
+    }finally{
+      dossierSealAbortRef.current=null;
+      setDossierSealBusy(false);
+    }
+  };
+
   const runAutoRoute=()=>playInputs(routingEventInputs(routingPreview));
 
   const pinRole=(roleId:RoleId,seatId:SeatId)=>{
@@ -847,6 +974,7 @@ export function ThinkTankRoom(){
     researchAbortRef.current?.abort();
     excerptAbortRef.current?.abort();
     argumentReviewAbortRef.current?.abort();
+    dossierSealAbortRef.current?.abort();
     liveAbortRef.current?.abort();
     playback.cancel();
     setLiveRunning(false);
@@ -1026,7 +1154,15 @@ export function ThinkTankRoom(){
           onTimeout={()=>runScenario("timeout")}
         />
 
-        <DecisionDossierPanel state={state}/>
+        <DecisionDossierPanel
+          state={state}
+          sealStatus={dossierSealStatus}
+          busy={busy}
+          sealBusy={dossierSealBusy}
+          error={dossierSealError}
+          onSeal={dossierId=>void sealDossier(dossierId)}
+          onVerify={(dossierId,sealId)=>void verifyDossierSeal(dossierId,sealId)}
+        />
 
         {state.synthesisWithheld&&<div className="gate-block">
           <strong>SYNTHESIS WITHHELD</strong>

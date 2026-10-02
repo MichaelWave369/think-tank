@@ -1,9 +1,11 @@
 import http from "node:http";
 import https from "node:https";
-import {createHash} from "node:crypto";
+import {createHash,createPrivateKey,createPublicKey,sign as cryptoSign,verify as cryptoVerify} from "node:crypto";
 import {lookup} from "node:dns/promises";
 import {isIP} from "node:net";
 import {pathToFileURL} from "node:url";
+import {readFileSync} from "node:fs";
+import {resolve} from "node:path";
 
 try{process.loadEnvFile(".env");}catch{}
 
@@ -19,6 +21,8 @@ const EVIDENCE_PROJECTION_MAX_CHARS=Math.max(2000,Math.min(200000,Number(process
 const EVIDENCE_EXCERPT_MAX_CHARS=Math.max(200,Math.min(4000,Number(process.env.EVIDENCE_EXCERPT_MAX_CHARS||1600)));
 const SEARXNG_URL=(process.env.SEARXNG_URL||"").replace(/\/$/,"");
 const RESEARCH_MAX_RESULTS=Math.max(1,Math.min(10,Number(process.env.RESEARCH_MAX_RESULTS||5)));
+const DOSSIER_SIGNING_PRIVATE_KEY_FILE=(process.env.DOSSIER_SIGNING_PRIVATE_KEY_FILE||"").trim();
+const DOSSIER_SIGNING_KEY_LABEL=(process.env.DOSSIER_SIGNING_KEY_LABEL||"local-bridge").trim()||"local-bridge";
 
 const explicitOrigins=(process.env.THINK_TANK_ORIGIN||"")
   .split(",").map(value=>value.trim()).filter(Boolean);
@@ -73,6 +77,167 @@ const bridgeError=(message,status=500)=>{
   error.status=status;
   return error;
 };
+
+export const stableCanonicalJson=(value)=>{
+  if(value===null||typeof value!=="object")return JSON.stringify(value);
+  if(Array.isArray(value))return "["+value.map(stableCanonicalJson).join(",")+"]";
+  return "{"+Object.keys(value).sort()
+    .map(key=>JSON.stringify(key)+":"+stableCanonicalJson(value[key]))
+    .join(",")+"}";
+};
+
+export const dossierDigestSha256=(dossier)=>
+  createHash("sha256").update(stableCanonicalJson(dossier),"utf8").digest("hex");
+
+const publicKeyFingerprint=(publicKey)=>{
+  const der=publicKey.export({type:"spki",format:"der"});
+  return createHash("sha256").update(der).digest("hex");
+};
+
+export const sealEnvelopeFor=(seal)=>({
+  schemaVersion:1,
+  dossierId:seal.dossierId,
+  algorithm:"Ed25519",
+  canonicalization:"json-stable-v1",
+  digestSha256:seal.digestSha256,
+  publicKeyFingerprintSha256:seal.publicKeyFingerprintSha256,
+  signedAt:seal.signedAt,
+  signerLabel:seal.signerLabel,
+  trust:"self-attested-local-key"
+});
+
+export const sealDossierWithPrivateKey=(dossier,privateKeyPem,signerLabel="local-bridge",signedAt=new Date().toISOString())=>{
+  if(!dossier||typeof dossier!=="object"||typeof dossier.id!=="string"||!dossier.id.trim()){
+    throw bridgeError("Dossier seal requires a canonical dossier with an id.",400);
+  }
+  if(Number.isNaN(Date.parse(signedAt))){
+    throw bridgeError("Dossier seal timestamp is invalid.",400);
+  }
+
+  let privateKey;
+  try{privateKey=createPrivateKey(privateKeyPem);}
+  catch{throw bridgeError("Dossier signing private key could not be parsed.",500);}
+  if(privateKey.asymmetricKeyType!=="ed25519"){
+    throw bridgeError("Dossier signing key must be Ed25519.",500);
+  }
+
+  const publicKey=createPublicKey(privateKey);
+  const publicKeyPem=publicKey.export({type:"spki",format:"pem"}).toString();
+  const keyFingerprint=publicKeyFingerprint(publicKey);
+  const digestSha256=dossierDigestSha256(dossier);
+
+  const unsigned={
+    id:"SEAL-"+dossier.id+"-"+keyFingerprint.slice(0,12),
+    dossierId:dossier.id,
+    tool:"ed25519-dossier-sealer",
+    algorithm:"Ed25519",
+    canonicalization:"json-stable-v1",
+    digestSha256,
+    publicKeyPem,
+    publicKeyFingerprintSha256:keyFingerprint,
+    signedAt,
+    signerLabel,
+    trust:"self-attested-local-key"
+  };
+  const envelope=sealEnvelopeFor(unsigned);
+  const signatureBase64=cryptoSign(
+    null,
+    Buffer.from(stableCanonicalJson(envelope),"utf8"),
+    privateKey
+  ).toString("base64");
+
+  return {...unsigned,signatureBase64};
+};
+
+export const verifyDossierSealReceipt=(dossier,seal)=>{
+  if(!dossier||typeof dossier!=="object"||!seal||typeof seal!=="object"){
+    throw bridgeError("Dossier verification requires dossier and seal objects.",400);
+  }
+  if(
+    seal.tool!=="ed25519-dossier-sealer"||
+    seal.algorithm!=="Ed25519"||
+    seal.canonicalization!=="json-stable-v1"||
+    seal.trust!=="self-attested-local-key"
+  ){
+    throw bridgeError("Dossier seal metadata is not supported.",400);
+  }
+  if(dossier.id!==seal.dossierId){
+    throw bridgeError("Dossier id does not match seal receipt.",400);
+  }
+  if(dossierDigestSha256(dossier)!==seal.digestSha256){
+    return {verified:false,reason:"Dossier SHA-256 does not match the seal receipt."};
+  }
+
+  let publicKey;
+  try{publicKey=createPublicKey(seal.publicKeyPem);}
+  catch{throw bridgeError("Dossier seal public key could not be parsed.",400);}
+  if(publicKey.asymmetricKeyType!=="ed25519"){
+    throw bridgeError("Dossier seal public key must be Ed25519.",400);
+  }
+  if(publicKeyFingerprint(publicKey)!==seal.publicKeyFingerprintSha256){
+    return {verified:false,reason:"Public key fingerprint does not match the seal receipt."};
+  }
+
+  let signature;
+  try{signature=Buffer.from(seal.signatureBase64,"base64");}
+  catch{throw bridgeError("Dossier signature encoding is invalid.",400);}
+  const verified=cryptoVerify(
+    null,
+    Buffer.from(stableCanonicalJson(sealEnvelopeFor(seal)),"utf8"),
+    publicKey,
+    signature
+  );
+  return {
+    verified,
+    reason:verified?"Ed25519 signature verified.":"Ed25519 signature verification failed."
+  };
+};
+
+const loadConfiguredDossierSigner=()=>{
+  if(!DOSSIER_SIGNING_PRIVATE_KEY_FILE)return null;
+  let privateKeyPem;
+  try{privateKeyPem=readFileSync(resolve(DOSSIER_SIGNING_PRIVATE_KEY_FILE),"utf8");}
+  catch{throw bridgeError("Configured dossier signing key file could not be read.",500);}
+  let privateKey;
+  try{privateKey=createPrivateKey(privateKeyPem);}
+  catch{throw bridgeError("Configured dossier signing key could not be parsed.",500);}
+  if(privateKey.asymmetricKeyType!=="ed25519"){
+    throw bridgeError("Configured dossier signing key must be Ed25519.",500);
+  }
+  const publicKey=createPublicKey(privateKey);
+  return {
+    privateKeyPem,
+    signerLabel:DOSSIER_SIGNING_KEY_LABEL,
+    publicKeyFingerprintSha256:publicKeyFingerprint(publicKey)
+  };
+};
+
+const dossierSignerStatus=()=>{
+  if(!DOSSIER_SIGNING_PRIVATE_KEY_FILE){
+    return {
+      ok:true,
+      state:"disabled",
+      algorithm:"Ed25519",
+      canonicalization:"json-stable-v1",
+      keyFingerprint:null,
+      signerLabel:null,
+      trust:"self-attested-local-key",
+      detail:"Set DOSSIER_SIGNING_PRIVATE_KEY_FILE to enable dossier sealing."
+    };
+  }
+  const signer=loadConfiguredDossierSigner();
+  return {
+    ok:true,
+    state:"configured",
+    algorithm:"Ed25519",
+    canonicalization:"json-stable-v1",
+    keyFingerprint:signer.publicKeyFingerprintSha256,
+    signerLabel:signer.signerLabel,
+    trust:"self-attested-local-key",
+    detail:"Persistent local Ed25519 dossier signer is configured."
+  };
+};
+
 
 export const normalizeMessages=(raw)=>{
   if(!Array.isArray(raw)||raw.length===0)throw bridgeError("Provider messages must be a non-empty array.",400);
@@ -512,7 +677,7 @@ const remoteStatus=(seatId,provider,key,model)=>({
 
 const statusPayload=async()=>({
   ok:true,
-  bridgeVersion:"0.4.0",
+  bridgeVersion:"0.5.0",
   seats:[
     await ollamaStatus(),
     remoteStatus("openai","OpenAI",process.env.OPENAI_API_KEY,process.env.OPENAI_MODEL),
@@ -625,12 +790,48 @@ const server=http.createServer(async(req,res)=>{
 
   try{
     if(req.method==="GET"&&req.url==="/health"){
-      send(res,200,{ok:true,service:"phi-think-tank-provider-bridge",version:"0.4.0"},origin);
+      send(res,200,{ok:true,service:"phi-think-tank-provider-bridge",version:"0.5.0"},origin);
       return;
     }
 
     if(req.method==="GET"&&req.url==="/providers/status"){
       send(res,200,await statusPayload(),origin);
+      return;
+    }
+
+    if(req.method==="GET"&&req.url==="/dossier/seal/status"){
+      send(res,200,dossierSignerStatus(),origin);
+      return;
+    }
+
+    if(req.method==="POST"&&req.url==="/dossier/seal"){
+      const raw=await readJson(req);
+      const signer=loadConfiguredDossierSigner();
+      if(!signer)throw bridgeError("Dossier sealing is disabled.",503);
+      const seal=sealDossierWithPrivateKey(
+        raw.dossier,
+        signer.privateKeyPem,
+        signer.signerLabel
+      );
+      const selfCheck=verifyDossierSealReceipt(raw.dossier,seal);
+      if(!selfCheck.verified)throw bridgeError("Generated dossier seal failed self-verification.",500);
+      send(res,200,{ok:true,seal},origin);
+      return;
+    }
+
+    if(req.method==="POST"&&req.url==="/dossier/verify"){
+      const raw=await readJson(req);
+      const result=verifyDossierSealReceipt(raw.dossier,raw.seal);
+      send(res,200,{
+        ok:true,
+        verified:result.verified,
+        reason:result.reason,
+        dossierId:raw.dossier?.id??"",
+        sealId:raw.seal?.id??"",
+        digestSha256:raw.seal?.digestSha256??"",
+        publicKeyFingerprintSha256:raw.seal?.publicKeyFingerprintSha256??"",
+        verifiedAt:new Date().toISOString()
+      },origin);
       return;
     }
 

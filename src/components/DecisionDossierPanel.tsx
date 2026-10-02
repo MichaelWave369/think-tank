@@ -1,4 +1,5 @@
 import type { ThinkTankState } from "../domain/types";
+import type { DossierSealStatusResponse } from "../providers/types";
 import { latestDecisionDossier,overrideForDossier } from "../domain/decisionDossier";
 
 const short=(value:string)=>value.replace("fnv1a32:","").slice(0,10)+"…";
@@ -7,8 +8,11 @@ const exportDossier=(state:ThinkTankState)=>{
   const dossier=latestDecisionDossier(state);
   if(!dossier)return;
   const override=overrideForDossier(state,dossier.id);
+  const seals=state.dossierSeals.filter(item=>item.dossierId===dossier.id);
+  const sealIds=new Set(seals.map(item=>item.id));
+  const verifications=state.dossierSealVerifications.filter(item=>sealIds.has(item.sealId));
   const blob=new Blob(
-    [JSON.stringify({dossier,override},null,2)],
+    [JSON.stringify({dossier,override,seals,verifications},null,2)],
     {type:"application/json;charset=utf-8"}
   );
   const url=URL.createObjectURL(blob);
@@ -19,7 +23,23 @@ const exportDossier=(state:ThinkTankState)=>{
   URL.revokeObjectURL(url);
 };
 
-export function DecisionDossierPanel({state}:{state:ThinkTankState}){
+export function DecisionDossierPanel({
+  state,
+  sealStatus,
+  busy,
+  sealBusy,
+  error,
+  onSeal,
+  onVerify
+}:{
+  state:ThinkTankState;
+  sealStatus:DossierSealStatusResponse|null;
+  busy:boolean;
+  sealBusy:boolean;
+  error:string;
+  onSeal:(dossierId:string)=>void;
+  onVerify:(dossierId:string,sealId:string)=>void;
+}){
   const dossier=latestDecisionDossier(state);
 
   if(!dossier){
@@ -38,6 +58,25 @@ export function DecisionDossierPanel({state}:{state:ThinkTankState}){
   const override=overrideForDossier(state,dossier.id);
   const claimPass=dossier.claimGovernance.passed;
   const argumentPass=dossier.argumentGovernance.passed;
+
+  const seals=state.dossierSeals.filter(item=>item.dossierId===dossier.id);
+  const latestSeal=seals[seals.length-1]??null;
+  const latestVerification=latestSeal
+    ?[...state.dossierSealVerifications]
+      .reverse()
+      .find(item=>item.sealId===latestSeal.id)??null
+    :null;
+  const configuredSignerAlreadySealed=Boolean(
+    sealStatus?.keyFingerprint&&
+    seals.some(item=>item.publicKeyFingerprintSha256===sealStatus.keyFingerprint)
+  );
+  const sealState=!latestSeal
+    ?"UNSEALED"
+    :!latestVerification
+      ?"SEALED · UNVERIFIED"
+      :latestVerification.verified
+        ?"VERIFIED"
+        :"INVALID";
 
   return <section className="decision-dossier-panel">
     <header>
@@ -91,6 +130,63 @@ export function DecisionDossierPanel({state}:{state:ThinkTankState}){
           <span>{override.outputLabel} · ACTION AUTHORIZED</span>
         </>
         :<p>None. Normal governance receipt remains controlling.</p>}
+    </div>
+
+    <div className={"dossier-seal "+(
+      latestVerification?.verified?"seal-valid":
+      latestVerification&&!latestVerification.verified?"seal-invalid":"seal-pending"
+    )}>
+      <div className="dossier-seal-head">
+        <div>
+          <small>CRYPTOGRAPHIC SEAL</small>
+          <strong>{sealState}</strong>
+        </div>
+        <span>
+          {sealStatus?.state==="configured"
+            ?"SIGNER "+(sealStatus.signerLabel??"LOCAL")
+            :"SIGNER DISABLED"}
+        </span>
+      </div>
+
+      {latestSeal
+        ?<div className="dossier-seal-details">
+          <p><b>Seal</b> {latestSeal.id}</p>
+          <p><b>Dossier SHA-256</b> {latestSeal.digestSha256}</p>
+          <p><b>Key fingerprint</b> {latestSeal.publicKeyFingerprintSha256}</p>
+          <p><b>Algorithm</b> {latestSeal.algorithm} · {latestSeal.canonicalization}</p>
+          <p><b>Trust</b> SELF-ATTESTED LOCAL KEY · {latestSeal.signerLabel}</p>
+          <p><b>Signed</b> {latestSeal.signedAt}</p>
+          {latestVerification&&<p>
+            <b>Verified</b> {latestVerification.verified?"VALID":"INVALID"} · {latestVerification.verifiedAt}
+          </p>}
+        </div>
+        :<p>
+          No cryptographic seal yet. The deterministic dossier remains valid replay state,
+          but it has not been signed by a configured local key.
+        </p>}
+
+      {error&&<div className="dossier-seal-error">{error}</div>}
+
+      <div className="dossier-seal-actions">
+        <button
+          type="button"
+          onClick={()=>onSeal(dossier.id)}
+          disabled={busy||sealStatus?.state!=="configured"||configuredSignerAlreadySealed}
+        >
+          {sealBusy
+            ?"WORKING…"
+            :configuredSignerAlreadySealed
+              ?"CURRENT SIGNER ALREADY SEALED"
+              :"SEAL DOSSIER"}
+        </button>
+        <button
+          type="button"
+          onClick={()=>latestSeal&&onVerify(dossier.id,latestSeal.id)}
+          disabled={busy||!latestSeal}
+        >
+          VERIFY SEAL
+        </button>
+      </div>
     </div>
 
     <footer>

@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "bridge": "node scripts/provider-bridge.mjs",
     "bridge:check": "node --check scripts/provider-bridge.mjs",
-    "bridge:test": "node --test scripts/evidence-verifier.node.mjs"
+    "bridge:test": "node --test scripts/evidence-verifier.node.mjs",
+    "dossier:keygen": "node scripts/generate-dossier-key.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",
