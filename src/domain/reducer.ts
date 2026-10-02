@@ -373,6 +373,9 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
     next.currentSpeaker=null;
     next.faultCode=event.faultCode??"PROVIDER_FAILED";
     next.governanceReason=event.governanceReason??event.message??"Provider execution failed.";
+    if(event.roleId){
+      next.terminalStates={...state.terminalStates,[event.roleId]:"warning"};
+    }
   }
 
   if(event.roleId&&event.message&&(event.kind==="utterance.complete"||event.kind==="challenge.raised")){
