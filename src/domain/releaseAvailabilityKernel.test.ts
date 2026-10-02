@@ -219,7 +219,10 @@ describe("release availability assurance kernel",()=>{
     const expected=evaluateReleaseAvailabilityAssurance(
       state,manifest.id,packageSha,"rechecked"
     );
-    const forged={...expected,truthAuthority:true as false};
+    const forged={
+      ...expected,
+      truthAuthority:true
+    } as unknown as typeof expected;
 
     expect(()=>buildEvent(state,{
       source:"system",
