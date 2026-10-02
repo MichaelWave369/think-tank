@@ -581,7 +581,8 @@ See [PUBLISHER_ORIGIN_IDENTITY.md](PUBLISHER_ORIGIN_IDENTITY.md).
 28. ✅ Release publication durability audit
 29. ✅ Release availability assurance policy
 30. ✅ Publisher origin identity attestation
-32. Live Ollama hardening + run-path clarity
+32. ✅ Live Ollama hardening + run-path clarity
+33. Live prompt contract + simulation provenance clarity
 
 Future work can add proper PDF extraction, authenticated remote deployment, richer provider discovery, streaming, tool execution, voice, witness trust registries, scheduled durability monitoring, explicit identity-aware availability policy, stronger external operator identity attestation, TSA trust-store management, release-signer identity attestation, and optional post-release policy automation without changing the core event contract.
 
@@ -606,3 +607,32 @@ The UI also names the two execution paths explicitly:
 - RUN LIVE PROVIDERS = actual provider invocation
 
 Bridge version: `0.15.0`.
+
+
+## Live prompt contract + simulation provenance
+
+PR 33 removes the synthetic LIVE-session fallback prompt.
+
+LIVE provider execution now requires explicit non-empty operator text before routing or provider invocation. The UI and runner both enforce the contract.
+
+The execution paths remain distinct:
+
+```
+RUN LIVE PROVIDERS
+  → explicit operator directive
+  → provider events
+  → live-provider dossier provenance
+```
+
+```
+RUN SIMULATION
+  → deterministic fixture events
+  → SIMULATION FIXTURE score
+  → simulation-fixture dossier provenance
+```
+
+Decision Dossier executionSource is part of the deterministic basis fingerprint, so fixture/live provenance survives export and all later integrity layers.
+
+A simulation fixture score is a governance-mechanics test value, not live provider evidence.
+
+Bridge version remains `0.15.0`.

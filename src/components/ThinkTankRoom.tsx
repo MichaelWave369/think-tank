@@ -257,8 +257,9 @@ export function ThinkTankRoom(){
     [state]
   );
   const routeReady=routingPreview.unresolved.length===0;
+  const livePromptReady=Boolean(prompt.trim());
 
-  const liveReady=useMemo(()=>{
+  const liveProviderReady=useMemo(()=>{
     if(!providerStatus||!routeReady)return false;
 
     return routingPreview.decisions.every(decision=>{
@@ -270,6 +271,7 @@ export function ThinkTankRoom(){
       return provider.state==="configured"||provider.state==="connected";
     });
   },[providerStatus,routeReady,routingPreview,localModel]);
+  const liveReady=livePromptReady&&liveProviderReady;
 
   const challengerProvider=useMemo(()=>{
     const assignment=state.assignments.find(item=>item.roleId==="challenger");
@@ -1807,12 +1809,16 @@ export function ThinkTankRoom(){
   const runLive=async()=>{
     if(busy||!liveReady)return;
 
+    const livePrompt=prompt.trim();
+    if(!livePrompt){
+      setProviderError("ENTER DIRECTIVE · LIVE provider execution requires operator text.");
+      return;
+    }
+
     const controller=new AbortController();
     liveAbortRef.current=controller;
     setLiveRunning(true);
     setProviderError("");
-    const livePrompt=prompt;
-    setPrompt("");
 
     try{
       const result=await runLiveProviderSession({
@@ -1829,6 +1835,7 @@ export function ThinkTankRoom(){
     }finally{
       liveAbortRef.current=null;
       setLiveRunning(false);
+      setPrompt("");
       void refreshProviders();
     }
   };
@@ -1956,6 +1963,9 @@ export function ThinkTankRoom(){
           localModel={localModel}
           liveBusy={liveRunning}
           liveReady={liveReady}
+          livePromptReady={livePromptReady}
+          liveProviderReady={liveProviderReady}
+          directive={prompt}
           onLocalModel={setLocalModel}
           onRefresh={()=>void refreshProviders()}
           onSync={syncProviderHealth}

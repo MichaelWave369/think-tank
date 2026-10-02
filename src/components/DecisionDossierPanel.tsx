@@ -465,8 +465,9 @@ export function DecisionDossierPanel({
 
     <div className="dossier-grid">
       <div><small>OUTPUT</small><span>{dossier.outputLabel}</span></div>
+      <div><small>EXECUTION SOURCE</small><span>{dossier.executionSource.toUpperCase()}</span></div>
       <div><small>NORMAL ACTION</small><span>{dossier.actionAllowed?"AUTHORIZED":"LOCKED"}</span></div>
-      <div><small>REALITY GATE</small><span>{dossier.gateScore.toFixed(2)} / {dossier.gateThreshold.toFixed(2)}</span></div>
+      <div><small>{dossier.executionSource==="simulation-fixture"?"FIXTURE GATE":"REALITY GATE"}</small><span>{dossier.gateScore.toFixed(2)} / {dossier.gateThreshold.toFixed(2)}</span></div>
       <div><small>CLAIM POLICY</small><span>{claimPass?"PASS":"BLOCK"}</span></div>
       <div><small>ARGUMENT POLICY</small><span>{argumentPass?"PASS":"BLOCK"}</span></div>
       <div><small>OBJECTIONS</small><span>{dossier.objectionCount}</span></div>
@@ -484,6 +485,11 @@ export function DecisionDossierPanel({
       <small>NORMAL GOVERNANCE DECISION</small>
       <p>{dossier.governanceReason}</p>
     </div>
+
+    {dossier.executionSource==="simulation-fixture"&&<div className="dossier-reason">
+      <small>SIMULATION FIXTURE PROVENANCE</small>
+      <p>Deterministic fixture run · gate score is not live-provider evidence.</p>
+    </div>}
 
     <div className="dossier-provider-turns">
       <small>CURRENT RUN PROVIDER PROVENANCE</small>

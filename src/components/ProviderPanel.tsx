@@ -9,6 +9,9 @@ export function ProviderPanel({
   localModel,
   liveBusy,
   liveReady,
+  livePromptReady,
+  liveProviderReady,
+  directive,
   onLocalModel,
   onRefresh,
   onSync,
@@ -19,6 +22,9 @@ export function ProviderPanel({
   localModel:string;
   liveBusy:boolean;
   liveReady:boolean;
+  livePromptReady:boolean;
+  liveProviderReady:boolean;
+  directive:string;
   onLocalModel:(model:string)=>void;
   onRefresh:()=>void;
   onSync:()=>void;
@@ -54,6 +60,11 @@ export function ProviderPanel({
       })}
     </div>
 
+    <div className={"provider-live-directive "+(livePromptReady?"directive-ready":"directive-missing")}>
+      <small>{liveBusy?"ACTIVE LIVE DIRECTIVE":"LIVE DIRECTIVE"}</small>
+      <p>{directive.trim()||"ENTER OPERATOR DIRECTIVE BEFORE LIVE EXECUTION"}</p>
+    </div>
+
     <div className="provider-controls">
       <label>
         <span>LOCAL OLLAMA MODEL</span>
@@ -70,7 +81,13 @@ export function ProviderPanel({
       <button type="button" onClick={onRefresh} disabled={liveBusy}>REFRESH PROVIDERS</button>
       <button type="button" onClick={onSync} disabled={liveBusy||!status}>SYNC HEALTH → CRANE FLY</button>
       <button type="button" className="live-run" onClick={onRunLive} disabled={liveBusy||!liveReady}>
-        {liveBusy?"LIVE PROVIDERS ACTIVE":"RUN LIVE PROVIDERS"}
+        {liveBusy
+          ?"LIVE PROVIDERS ACTIVE"
+          :!livePromptReady
+            ?"ENTER DIRECTIVE"
+            :!liveProviderReady
+              ?"PROVIDERS NOT READY"
+              :"RUN LIVE PROVIDERS"}
       </button>
     </div>
 

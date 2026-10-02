@@ -23,6 +23,7 @@ const stateWithIntegrityAssurance=()=>{
     seed:base.seed,
     decisionSeq:1,
     mode:base.mode,
+    executionSource:"governed-system" as const,
     operatorPrompt:"Release test",
     outcome:"completed" as const,
     outputLabel:"STANDARD" as const,

@@ -1,13 +1,62 @@
 import { describe,expect,it } from "vitest";
 import { createInitialState } from "./state";
+import type { ThinkTankEvent } from "./types";
 import {
   buildDecisionOverrideReceipt,
   buildSynthesisDecisionDossier,
   decisionDossierBasis,
+  decisionExecutionSource,
   overrideForDossier
 } from "./decisionDossier";
 
 describe("synthesis decision dossier",()=>{
+  it("binds live vs simulation execution provenance into the dossier basis",()=>{
+    const base=createInitialState();
+    const event=(seq:number,source:ThinkTankEvent["source"],kind:ThinkTankEvent["kind"]):ThinkTankEvent=>({
+      schemaVersion:1,
+      sessionId:base.sessionId,
+      seq,
+      seed:base.seed,
+      source,
+      mode:"council",
+      kind,
+      phase:kind==="session.started"?"routing":"independent",
+      message:source==="simulator"?"SIMULATION FIXTURE · test":"LIVE test",
+      stateBefore:"fnv1a32:00000000",
+      stateAfter:"fnv1a32:11111111"
+    });
+
+    const simulated={
+      ...base,
+      events:[
+        event(1,"system","session.started"),
+        event(2,"simulator","utterance.complete")
+      ]
+    };
+    const live={
+      ...base,
+      events:[
+        event(1,"system","session.started"),
+        event(2,"provider","utterance.complete")
+      ]
+    };
+
+    expect(decisionExecutionSource(simulated,3)).toBe("simulation-fixture");
+    expect(decisionExecutionSource(live,3)).toBe("live-provider");
+
+    const simulatedDossier=buildSynthesisDecisionDossier(
+      simulated,3,"completed","STANDARD",true,"Fixture."
+    );
+    const liveDossier=buildSynthesisDecisionDossier(
+      live,3,"completed","STANDARD",true,"Live."
+    );
+
+    expect(simulatedDossier.executionSource).toBe("simulation-fixture");
+    expect(liveDossier.executionSource).toBe("live-provider");
+    expect(simulatedDossier.basisFingerprint).not.toBe(liveDossier.basisFingerprint);
+  });
+
+
   it("is deterministic for the same decision basis",()=>{
     const state=createInitialState();
 

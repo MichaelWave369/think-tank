@@ -21,6 +21,23 @@ export function GovernancePanel({
   const lastClaimPolicy=state.claimGovernance;
   const argumentPolicy=evaluateArgumentGovernance(state,state.mode);
   const lastArgumentPolicy=state.argumentGovernance;
+  const latestPromptSeq=[...state.events].reverse()
+    .find(event=>event.kind==="operator.prompt")?.seq??0;
+  const runEvents=state.events.filter(event=>event.seq>=latestPromptSeq);
+  const fixtureRunDetected=runEvents.some(event=>
+    event.source==="simulator"||
+    event.message?.includes("SIMULATION FIXTURE")
+  );
+  const liveRunDetected=runEvents.some(event=>
+    event.source==="provider"||
+    (event.kind==="session.started"&&event.message?.includes("LIVE provider"))
+  );
+  const executionSource=fixtureRunDetected
+    ?"SIMULATION FIXTURE"
+    :liveRunDetected
+      ?"LIVE PROVIDERS"
+      :"NOT STARTED";
+  const fixtureRun=executionSource==="SIMULATION FIXTURE";
 
   return <section className="governance-panel">
     <header>
@@ -42,7 +59,8 @@ export function GovernancePanel({
       <div><small>GATE LAW</small><span>{law.gate}</span></div>
       <div><small>CLAIM POLICY</small><span>{law.claimPolicy.toUpperCase()}</span></div>
       <div><small>ARGUMENT POLICY</small><span>{law.argumentPolicy.toUpperCase()}</span></div>
-      <div><small>GATE SCORE</small><span>{state.gateScore===null?"WAITING":state.gateScore.toFixed(2)}</span></div>
+      <div><small>EXECUTION</small><span>{executionSource}</span></div>
+      <div><small>{fixtureRun?"FIXTURE SCORE":"GATE SCORE"}</small><span>{state.gateScore===null?"WAITING":state.gateScore.toFixed(2)}</span></div>
       <div><small>GATE CAP</small><span>{state.gateBreakdown?.cap.toFixed(2)??"—"}</span></div>
       <div><small>EVIDENCE</small><span>{state.evidenceRefs.length} REFS</span></div>
       <div><small>CLAIMS APPLICABLE</small><span>{claimPolicy.applicableClaimIds.length}</span></div>
@@ -63,6 +81,9 @@ export function GovernancePanel({
       <div><small>ACTION</small><span>{state.actionAllowed?"AUTHORIZED":"LOCKED"}</span></div>
     </div>
 
+    {fixtureRun&&<p className="gov-fixture">
+      SIMULATION FIXTURE · deterministic drill output · NOT LIVE PROVIDER EVIDENCE
+    </p>}
     <p>{state.governanceReason||law.actionRule}</p>
     <p className={claimPolicy.passed?"gov-good":"gov-bad"}>
       CLAIM POLICY: {claimPolicy.reason}

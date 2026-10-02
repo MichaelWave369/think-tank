@@ -27,6 +27,7 @@ The dossier stores:
 - seed
 - decision sequence
 - mode
+- execution source: live-provider / simulation-fixture / governed-system
 - operator prompt
 - normal outcome: completed or withheld
 - output label
@@ -66,6 +67,20 @@ fnv1a32:1a2b3c4d
 This is a deterministic replay/basis checksum.
 
 It is not a cryptographic signature and must not be presented as one.
+
+## Execution provenance
+
+Every dossier binds one executionSource into its deterministic basis:
+
+- `live-provider`
+- `simulation-fixture`
+- `governed-system`
+
+This prevents a deterministic fixture gate score from becoming indistinguishable from a live provider decision after export, sealing, journaling, publication, or later replay.
+
+For simulation fixtures, the dossier UI labels the gate as FIXTURE GATE and explicitly states that the deterministic fixture score is not live-provider evidence.
+
+Changing execution provenance changes the dossier basis fingerprint.
 
 ## Provider turn provenance
 
@@ -154,6 +169,7 @@ The Decision Dossier panel exposes:
 
 - dossier id / decision sequence
 - mode
+- execution source
 - basis fingerprint
 - normal outcome
 - output label
