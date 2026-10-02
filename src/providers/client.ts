@@ -29,7 +29,8 @@ import type {
   DossierReleaseRfc3161TimestampResponse,
   DossierReleasePublicationStatusResponse,
   DossierReleasePublicationResponse,
-  DossierReleasePublicationAuditResponse
+  DossierReleasePublicationAuditResponse,
+  DossierPublisherOriginIdentityResponse
 } from "./types";
 
 const DEFAULT_BRIDGE="http://127.0.0.1:3691";
@@ -490,6 +491,29 @@ export async function auditDossierReleasePublication(
   if(!response.ok||!body.ok){
     const errorBody=body as DossierSealError;
     throw new Error(errorBody.error?.message||("Release publication durability audit returned HTTP "+response.status+"."));
+  }
+  return body;
+}
+
+export async function verifyDossierPublisherOriginIdentity(
+  releasePackage:import("../domain/releasePackage").DossierReleasePackage,
+  publication:import("../domain/types").DossierReleasePublicationReceipt,
+  signal?:AbortSignal
+):Promise<DossierPublisherOriginIdentityResponse>{
+  const response=await fetchWithTimeout(
+    providerBridgeUrl+"/dossier/release/publisher/identity",
+    {
+      method:"POST",
+      headers:{"content-type":"application/json"},
+      body:JSON.stringify({releasePackage,publication}),
+      signal
+    },
+    45000
+  );
+  const body=await response.json() as DossierPublisherOriginIdentityResponse|DossierSealError;
+  if(!response.ok||!body.ok){
+    const errorBody=body as DossierSealError;
+    throw new Error(errorBody.error?.message||("Publisher-origin identity verification returned HTTP "+response.status+"."));
   }
   return body;
 }
