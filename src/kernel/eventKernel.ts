@@ -15,6 +15,10 @@ import {
   argumentReviewEligibleExcerpts,
   argumentReviewIsFresh
 } from "../domain/argumentReview";
+import {
+  evaluateProvenanceAssurance,
+  PROVENANCE_ASSURANCE_POLICIES
+} from "../domain/provenanceAssurance";
 import { fingerprintProjection } from "./fingerprint";
 import { stableStringify } from "./stable";
 
@@ -788,6 +792,111 @@ function assertDossierPublicationEvent(state:ThinkTankState,event:ThinkTankEvent
     );
     if(terminal&&terminal.seq>request.seq){
       throw new KernelIntegrityError("Checkpoint publication request is already resolved.",event.seq);
+    }
+    return true;
+  }
+
+  return false;
+}
+
+function assertDossierAssuranceEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
+  const action=[
+    "dossier.assurance.requested",
+    "dossier.assurance.completed"
+  ].includes(event.kind);
+
+  if(
+    action&&
+    state.phase!=="intake"&&
+    state.phase!=="synthesis"&&
+    state.phase!=="complete"&&
+    state.phase!=="aborted"
+  ){
+    throw new KernelIntegrityError(
+      "Provenance assurance evaluation cannot run during active governed execution.",
+      event.seq
+    );
+  }
+
+  const dossier=event.decisionDossierId
+    ?state.decisionDossiers.find(item=>item.id===event.decisionDossierId)
+    :undefined;
+  const policy=event.provenancePolicy;
+
+  if(event.kind==="dossier.assurance.requested"){
+    if(event.source!=="operator"){
+      throw new KernelIntegrityError("Provenance assurance requests are operator-authorized.",event.seq);
+    }
+    if(!dossier){
+      throw new KernelIntegrityError("Provenance assurance requires an existing decision dossier.",event.seq);
+    }
+    if(!policy||!PROVENANCE_ASSURANCE_POLICIES[policy]){
+      throw new KernelIntegrityError("Provenance assurance request has an unsupported policy.",event.seq);
+    }
+    return true;
+  }
+
+  if(event.kind==="dossier.assurance.completed"){
+    if(event.source!=="system"){
+      throw new KernelIntegrityError("Provenance assurance completion must be system-originated.",event.seq);
+    }
+    if(!dossier||!policy||!event.provenanceAssurance){
+      throw new KernelIntegrityError(
+        "Provenance assurance completion requires dossier, policy, and report.",
+        event.seq
+      );
+    }
+
+    let expected;
+    try{
+      expected=evaluateProvenanceAssurance(state,dossier.id,policy);
+    }catch(error){
+      throw new KernelIntegrityError(
+        error instanceof Error?error.message:String(error),
+        event.seq
+      );
+    }
+
+    if(stableStringify(event.provenanceAssurance)!==stableStringify(expected)){
+      throw new KernelIntegrityError(
+        "Provenance assurance report does not match deterministic recomputation.",
+        event.seq
+      );
+    }
+    if(event.provenanceAssurance.truthAuthority!==false){
+      throw new KernelIntegrityError(
+        "Provenance assurance reports cannot claim factual truth authority.",
+        event.seq
+      );
+    }
+    if(state.dossierProvenanceAssurances.some(item=>item.id===expected.id)){
+      throw new KernelIntegrityError(
+        "This dossier/policy/provenance basis already has an assurance report.",
+        event.seq
+      );
+    }
+
+    const request=[...state.events].reverse().find(item=>
+      item.kind==="dossier.assurance.requested"&&
+      item.decisionDossierId===dossier.id&&
+      item.provenancePolicy===policy
+    );
+    if(!request){
+      throw new KernelIntegrityError(
+        "Provenance assurance completion has no matching operator request.",
+        event.seq
+      );
+    }
+    const terminal=[...state.events].reverse().find(item=>
+      item.kind==="dossier.assurance.completed"&&
+      item.decisionDossierId===dossier.id&&
+      item.provenancePolicy===policy
+    );
+    if(terminal&&terminal.seq>request.seq){
+      throw new KernelIntegrityError(
+        "Provenance assurance request is already resolved.",
+        event.seq
+      );
     }
     return true;
   }
@@ -1675,6 +1784,7 @@ function assertRoutingEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
 }
 
 function assertPolicyEvent(state:ThinkTankState,event:ThinkTankEvent):void{
+  if(assertDossierAssuranceEvent(state,event))return;
   if(assertDossierPublicationEvent(state,event))return;
   if(assertDossierTimestampEvent(state,event))return;
   if(assertDossierCheckpointWitnessEvent(state,event))return;
@@ -1943,6 +2053,8 @@ export function buildEvent(state:ThinkTankState,input:ThinkTankEventInput):Think
     dossierWitnessVerification:input.dossierWitnessVerification,
     dossierTimestamp:input.dossierTimestamp,
     dossierPublication:input.dossierPublication,
+    provenancePolicy:input.provenancePolicy,
+    provenanceAssurance:input.provenanceAssurance,
     message:input.message,
     gateScore:input.gateScore,
     override:input.override,
