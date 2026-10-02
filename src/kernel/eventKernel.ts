@@ -1232,6 +1232,164 @@ function assertDossierReleaseSealEvent(state:ThinkTankState,event:ThinkTankEvent
   return false;
 }
 
+function assertDossierReleaseTimestampEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
+  const action=[
+    "dossier.release.timestamp.requested",
+    "dossier.release.timestamp.completed",
+    "dossier.release.timestamp.failed"
+  ].includes(event.kind);
+
+  if(
+    action&&
+    state.phase!=="intake"&&
+    state.phase!=="synthesis"&&
+    state.phase!=="complete"&&
+    state.phase!=="aborted"
+  ){
+    throw new KernelIntegrityError(
+      "Release timestamping cannot run during active governed execution.",
+      event.seq
+    );
+  }
+
+  const seal=event.dossierReleaseSealId
+    ?state.dossierReleaseSeals.find(item=>item.id===event.dossierReleaseSealId)
+    :undefined;
+
+  if(event.kind==="dossier.release.timestamp.requested"){
+    if(event.source!=="operator"){
+      throw new KernelIntegrityError("Release timestamp requests are operator-authorized.",event.seq);
+    }
+    if(!seal){
+      throw new KernelIntegrityError("Release timestamp request requires an existing release seal.",event.seq);
+    }
+    const verified=state.dossierReleaseSealVerifications.some(item=>
+      item.sealId===seal.id&&item.releaseId===seal.releaseId&&item.verified===true
+    );
+    if(!verified){
+      throw new KernelIntegrityError(
+        "Release timestamp requires a successfully verified release seal.",
+        event.seq
+      );
+    }
+    return true;
+  }
+
+  if(event.kind==="dossier.release.timestamp.completed"){
+    if(event.source!=="tool"){
+      throw new KernelIntegrityError("Release timestamp completion must be tool-originated.",event.seq);
+    }
+    const receipt=event.dossierReleaseTimestamp;
+    if(!seal||!receipt){
+      throw new KernelIntegrityError(
+        "Release timestamp completion requires an existing release seal and receipt.",
+        event.seq
+      );
+    }
+    if(
+      receipt.releaseId!==seal.releaseId||
+      receipt.sealId!==seal.id||
+      receipt.tool!=="rfc3161-release-seal-timestamp-verifier"||
+      receipt.standard!=="RFC3161"||
+      receipt.hashAlgorithm!=="SHA-256"||
+      receipt.manifestSha256!==seal.manifestSha256||
+      receipt.publicKeyFingerprintSha256!==seal.publicKeyFingerprintSha256||
+      receipt.trust!=="configured-rfc3161-trust-anchor"
+    ){
+      throw new KernelIntegrityError(
+        "Release RFC3161 timestamp receipt does not match its verified release seal.",
+        event.seq
+      );
+    }
+    const expectedId="RTSA-"+seal.id+"-"+receipt.tokenSha256.slice(0,12);
+    if(
+      receipt.id!==expectedId||
+      !/^[a-f0-9]{64}$/.test(receipt.releaseSealSha256)||
+      !/^[a-f0-9]{64}$/.test(receipt.tokenSha256)||
+      !/^[a-f0-9]{64}$/.test(receipt.trustAnchorSha256)||
+      !receipt.tokenBase64.trim()||
+      !receipt.tsaPolicyOid.trim()||
+      !receipt.tsaSerialNumber.trim()||
+      !receipt.tsaSubject.trim()||
+      !receipt.authorityUrl.trim()||
+      Number.isNaN(Date.parse(receipt.genTime))||
+      Number.isNaN(Date.parse(receipt.verifiedAt))
+    ){
+      throw new KernelIntegrityError(
+        "Release RFC3161 timestamp receipt is incomplete or malformed.",
+        event.seq
+      );
+    }
+    try{
+      const url=new URL(receipt.authorityUrl);
+      if((url.protocol!=="https:"&&url.protocol!=="http:")||url.username||url.password){
+        throw new Error("bad");
+      }
+    }catch{
+      throw new KernelIntegrityError("Release RFC3161 authority URL is invalid.",event.seq);
+    }
+    if(state.dossierReleaseRfc3161Timestamps.some(existing=>existing.id===receipt.id)){
+      throw new KernelIntegrityError("Release RFC3161 timestamp id already exists.",event.seq);
+    }
+    if(state.dossierReleaseRfc3161Timestamps.some(existing=>
+      existing.sealId===seal.id&&
+      existing.authorityUrl===receipt.authorityUrl&&
+      existing.trustAnchorSha256===receipt.trustAnchorSha256
+    )){
+      throw new KernelIntegrityError(
+        "This release seal already has a timestamp from the configured authority/trust anchor.",
+        event.seq
+      );
+    }
+
+    const request=[...state.events].reverse().find(item=>
+      item.kind==="dossier.release.timestamp.requested"&&item.dossierReleaseSealId===seal.id
+    );
+    if(!request){
+      throw new KernelIntegrityError(
+        "Release timestamp completion has no matching operator request.",
+        event.seq
+      );
+    }
+    const terminal=[...state.events].reverse().find(item=>
+      (item.kind==="dossier.release.timestamp.completed"||item.kind==="dossier.release.timestamp.failed")&&
+      item.dossierReleaseSealId===seal.id
+    );
+    if(terminal&&terminal.seq>request.seq){
+      throw new KernelIntegrityError("Release timestamp request is already resolved.",event.seq);
+    }
+    return true;
+  }
+
+  if(event.kind==="dossier.release.timestamp.failed"){
+    if(event.source!=="tool"||!seal){
+      throw new KernelIntegrityError(
+        "Release timestamp failure must be tool-originated for an existing release seal.",
+        event.seq
+      );
+    }
+    const request=[...state.events].reverse().find(item=>
+      item.kind==="dossier.release.timestamp.requested"&&item.dossierReleaseSealId===seal.id
+    );
+    if(!request){
+      throw new KernelIntegrityError(
+        "Release timestamp failure has no matching operator request.",
+        event.seq
+      );
+    }
+    const terminal=[...state.events].reverse().find(item=>
+      (item.kind==="dossier.release.timestamp.completed"||item.kind==="dossier.release.timestamp.failed")&&
+      item.dossierReleaseSealId===seal.id
+    );
+    if(terminal&&terminal.seq>request.seq){
+      throw new KernelIntegrityError("Release timestamp request is already resolved.",event.seq);
+    }
+    return true;
+  }
+
+  return false;
+}
+
 function assertArgumentReviewEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
   const action=[
     "argument.review.requested",
@@ -2112,6 +2270,7 @@ function assertRoutingEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
 }
 
 function assertPolicyEvent(state:ThinkTankState,event:ThinkTankEvent):void{
+  if(assertDossierReleaseTimestampEvent(state,event))return;
   if(assertDossierReleaseSealEvent(state,event))return;
   if(assertDossierReleaseEvent(state,event))return;
   if(assertDossierAssuranceEvent(state,event))return;
@@ -2391,6 +2550,7 @@ export function buildEvent(state:ThinkTankState,input:ThinkTankEventInput):Think
     dossierReleaseSeal:input.dossierReleaseSeal,
     dossierReleaseSealId:input.dossierReleaseSealId,
     dossierReleaseVerification:input.dossierReleaseVerification,
+    dossierReleaseTimestamp:input.dossierReleaseTimestamp,
     message:input.message,
     gateScore:input.gateScore,
     override:input.override,
