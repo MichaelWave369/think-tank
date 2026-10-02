@@ -2411,6 +2411,22 @@ export const verifyPublisherOriginIdentityDescriptor=(descriptor,expectedOrigin)
   if(!descriptor||typeof descriptor!=="object"){
     throw bridgeError("Publisher identity endpoint returned no JSON descriptor.",502);
   }
+  const allowedKeys=[
+    "administrativeDomainClaim",
+    "claimedAt",
+    "origin",
+    "protocol",
+    "publicKeyFingerprintSha256",
+    "publicKeyPem",
+    "publisherId",
+    "publisherLabel",
+    "schemaVersion",
+    "signatureBase64"
+  ];
+  const actualKeys=Object.keys(descriptor).sort();
+  if(stableCanonicalJson(actualKeys)!==stableCanonicalJson(allowedKeys)){
+    throw bridgeError("Publisher identity descriptor contains unsupported or missing fields.",502);
+  }
   if(
     descriptor.schemaVersion!==1||
     descriptor.protocol!=="phi-publisher-identity-v1"||
@@ -2430,6 +2446,8 @@ export const verifyPublisherOriginIdentityDescriptor=(descriptor,expectedOrigin)
     !/^[a-f0-9]{64}$/.test(descriptor.publicKeyFingerprintSha256||"")||
     typeof descriptor.signatureBase64!=="string"||
     !descriptor.signatureBase64.trim()||
+    descriptor.signatureBase64.trim()!==descriptor.signatureBase64||
+    !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(descriptor.signatureBase64)||
     Number.isNaN(Date.parse(descriptor.claimedAt||""))||
     new Date(Date.parse(descriptor.claimedAt)).toISOString()!==descriptor.claimedAt
   ){
@@ -2506,8 +2524,9 @@ export const buildPublisherOriginIdentityReceipt=({
     throw bridgeError("Publisher identity verification time is invalid.",500);
   }
 
+  const canonicalDescriptor={...normalized};
   const descriptorSha256=createHash("sha256")
-    .update(stableCanonicalJson(descriptor),"utf8")
+    .update(stableCanonicalJson(canonicalDescriptor),"utf8")
     .digest("hex");
 
   const basis={
