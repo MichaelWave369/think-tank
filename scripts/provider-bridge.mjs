@@ -2808,7 +2808,7 @@ const remoteStatus=(seatId,provider,key,model)=>({
 
 const statusPayload=async()=>({
   ok:true,
-  bridgeVersion:"0.14.0",
+  bridgeVersion:"0.15.0",
   seats:[
     await ollamaStatus(),
     remoteStatus("openai","OpenAI",process.env.OPENAI_API_KEY,process.env.OPENAI_MODEL),
@@ -2828,6 +2828,105 @@ const extractOpenAIText=(body)=>{
   return chunks.join("\n").trim();
 };
 
+export const ollamaAssistantSummary=(body)=>{
+  const content=typeof body?.message?.content==="string"
+    ?body.message.content.trim()
+    :"";
+  const thinking=typeof body?.message?.thinking==="string"
+    ?body.message.thinking
+    :"";
+  return {
+    content,
+    contentChars:content.length,
+    thinkingChars:thinking.length,
+    doneReason:typeof body?.done_reason==="string"?body.done_reason:"",
+    done:body?.done===true
+  };
+};
+
+export const ollamaChatPayload=({
+  model,
+  messages,
+  maxOutputTokens=MAX_OUTPUT_TOKENS,
+  disableThinking=true
+})=>{
+  const payload={
+    model,
+    messages,
+    stream:false,
+    options:{num_predict:maxOutputTokens}
+  };
+  if(disableThinking)payload.think=false;
+  return payload;
+};
+
+const ollamaDiagnosticText=(summary)=>
+  "contentChars="+summary.contentChars+
+  "; thinkingChars="+summary.thinkingChars+
+  "; done="+String(summary.done)+
+  "; doneReason="+(summary.doneReason||"unknown");
+
+export const runOllamaChatWithFallback=async({
+  model,
+  messages,
+  maxOutputTokens=MAX_OUTPUT_TOKENS,
+  transport
+})=>{
+  const attempts=[];
+
+  try{
+    const primary=await transport(ollamaChatPayload({
+      model,
+      messages,
+      maxOutputTokens,
+      disableThinking:true
+    }));
+    const summary=ollamaAssistantSummary(primary.body);
+    attempts.push({mode:"think:false",summary});
+    if(summary.content){
+      return {...primary,text:summary.content,attempts};
+    }
+    throw bridgeError(
+      "Ollama returned no final assistant text with thinking disabled ("+
+      ollamaDiagnosticText(summary)+").",
+      502
+    );
+  }catch(error){
+    const status=Number(error?.status||0);
+    const message=error instanceof Error?error.message:String(error);
+    const unsupportedThink=
+      (status===400||status===422)&&
+      /(think|unknown field|unsupported)/i.test(message);
+
+    if(!unsupportedThink)throw error;
+    attempts.push({
+      mode:"think:false-rejected",
+      error:message
+    });
+  }
+
+  const legacy=await transport(ollamaChatPayload({
+    model,
+    messages,
+    maxOutputTokens,
+    disableThinking:false
+  }));
+  const summary=ollamaAssistantSummary(legacy.body);
+  attempts.push({mode:"legacy",summary});
+
+  if(summary.content){
+    return {...legacy,text:summary.content,attempts};
+  }
+
+  throw bridgeError(
+    "Ollama returned no final assistant text after compatibility fallback ("+
+    ollamaDiagnosticText(summary)+
+    "; attempts="+attempts.map(item=>item.mode).join("→")+
+    "). Reasoning text was not promoted to the governed utterance.",
+    502
+  );
+};
+
 const invokeOllama=async(request)=>{
   const status=await ollamaStatus();
   if(status.state!=="connected")throw new Error(status.detail);
@@ -2835,23 +2934,25 @@ const invokeOllama=async(request)=>{
   if(!model)throw new Error("No Ollama model is available.");
 
   const started=Date.now();
-  const {body,response}=await fetchJson(
-    OLLAMA_BASE_URL+"/api/chat",
-    {
-      method:"POST",
-      headers:{"content-type":"application/json"},
-      body:JSON.stringify({model,messages:request.messages,stream:false,options:{num_predict:MAX_OUTPUT_TOKENS}})
-    },
-    180_000
-  );
-
-  const text=body?.message?.content;
-  if(typeof text!=="string"||!text.trim())throw new Error("Ollama returned no assistant text.");
+  const result=await runOllamaChatWithFallback({
+    model,
+    messages:request.messages,
+    maxOutputTokens:MAX_OUTPUT_TOKENS,
+    transport:payload=>fetchJson(
+      OLLAMA_BASE_URL+"/api/chat",
+      {
+        method:"POST",
+        headers:{"content-type":"application/json"},
+        body:JSON.stringify(payload)
+      },
+      180_000
+    )
+  });
 
   return {
     ok:true,seatId:"local",provider:"Ollama",model,
-    text:text.trim(),latencyMs:Date.now()-started,
-    requestId:response.headers.get("x-request-id")||undefined
+    text:result.text,latencyMs:Date.now()-started,
+    requestId:result.response.headers.get("x-request-id")||undefined
   };
 };
 
@@ -2921,7 +3022,7 @@ const server=http.createServer(async(req,res)=>{
 
   try{
     if(req.method==="GET"&&req.url==="/health"){
-      send(res,200,{ok:true,service:"phi-think-tank-provider-bridge",version:"0.14.0"},origin);
+      send(res,200,{ok:true,service:"phi-think-tank-provider-bridge",version:"0.15.0"},origin);
       return;
     }
 

@@ -33,7 +33,12 @@ The local bridge:
 
 - status/model discovery: `GET http://127.0.0.1:11434/api/tags`
 - chat: `POST http://127.0.0.1:11434/api/chat`
-- streaming is disabled for the first governed adapter so each completed provider response becomes one canonical event
+- streaming is disabled so each completed provider response becomes one canonical event
+- normal governed role turns request `think:false`
+- only `message.content` may become a governed role utterance
+- `message.thinking` is diagnostic-only and is never promoted into canonical speech
+- if explicit think control is rejected, the bridge retries once with the legacy request shape
+- empty final content fails closed with content/thinking/done-reason diagnostics
 
 ### OpenAI
 
@@ -74,7 +79,7 @@ No remote keys are required.
 5. choose a detected Ollama model
 6. SYNC HEALTH → CRANE FLY
 7. pin roles to LOCAL BRAIN if desired
-8. RUN LIVE MODE
+8. RUN LIVE PROVIDERS
 
 ## Provider health vs routing authority
 
@@ -116,9 +121,35 @@ Provider transport failure emits:
 2. `governance.fault`
 3. `synthesis.withheld`
 
+The failed role is moved to terminal state `warning` so the UI cannot remain falsely lit as SPEAKING after the request is already over.
+
+For Ollama, an empty final assistant response includes diagnostics such as:
+- final content character count
+- thinking character count
+- `done_reason`
+- compatibility attempt path
+
+Reasoning text is never substituted for final provider text.
+
 The failed session does not pretend the scheduled queue completed.
 
 ABORT remains available during live requests.
+
+## Simulation vs LIVE provider execution
+
+The operator rail action is:
+
+`RUN SIMULATION`
+
+That path executes deterministic demo/scenario fixtures through the governed event kernel.
+
+The Provider Bridge action is:
+
+`RUN LIVE PROVIDERS`
+
+That path executes the currently configured model/provider adapters.
+
+The two paths intentionally share governance and replay machinery but are not the same execution source.
 
 ## Reality Gate behavior
 
@@ -281,3 +312,21 @@ The verify endpoint requires no private key and can validate an exported dossier
 Trust remains self-attested until a later external identity/attestation layer pins the public key.
 
 See [CRYPTOGRAPHIC_SEALING.md](CRYPTOGRAPHIC_SEALING.md).
+
+
+## PR 32 field hardening
+
+PR 32 was driven by the first installed local field run.
+
+A thinking-capable Ollama model completed the Dreamer turn, then returned no final assistant text on the Builder turn. The provider adapter correctly failed closed, but the bridge lacked enough response-shape handling to distinguish thinking output from a final answer, and the failed Builder terminal stayed visually SPEAKING.
+
+PR 32 hardens that boundary:
+- normal Ollama role requests prefer `think:false`
+- one compatibility fallback is allowed
+- final `message.content` remains mandatory
+- thinking-only responses fail closed
+- diagnostics preserve why the final answer was absent
+- provider-failed roles visibly enter WARNING
+- simulation and LIVE provider buttons are unmistakably labeled
+
+Bridge version: `0.15.0`.

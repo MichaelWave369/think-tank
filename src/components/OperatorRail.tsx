@@ -23,7 +23,7 @@ export function OperatorRail({sessionId,seed,prompt,canForce,canRun,busy,onPromp
       disabled={busy}
     />
     <div className="operator-actions">
-      <button onClick={onSend} disabled={busy||!canRun}>SEND / RUN MODE</button>
+      <button onClick={onSend} disabled={busy||!canRun}>RUN SIMULATION</button>
       <button className="abort" onClick={onAbort}>ABORT</button>
       <button onClick={onRouter} disabled={busy}>CRANE FLY / PIN</button>
       <button className="force" onClick={onForce} disabled={busy||!canForce}>FORCE SYNTHESIS</button>

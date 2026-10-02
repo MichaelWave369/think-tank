@@ -6,29 +6,28 @@ A governed, event-sourced multi-mind control room. Cognitive roles are staffed b
 
 ## Current rung
 
-**PR 30 — Publisher Origin Identity Attestation**
+**PR 32 — Live Ollama Hardening + Run-Path Clarity**
 
-The Think Tank can now derive each RPUB retrieval origin's fixed .well-known identity URL, retrieve a signed phi-publisher-identity-v1 descriptor, verify its Ed25519 key/signature, and ledger a POID receipt.
+The first installed field run exposed two real-world seams: a thinking-capable Ollama model could return no final assistant content for a governed role turn, and the deterministic simulation button was too easy to confuse with live provider execution.
 
-PR 30 adds:
-- fixed /.well-known/phi-publisher-identity.json discovery
-- RPUB/historical-package validation before identity retrieval
-- pinned public HTTPS identity fetch with no credentials or redirects
-- Ed25519 descriptor signature verification
-- SPKI public-key fingerprint verification
-- self-attested publisher/admin-domain claims
-- canonical POID receipts with explicit non-authority flags
-- key rotation with duplicate exact-descriptor rejection
-- publisher identity keygen + signing helpers
-- publisher-origin identity UI + dossier export
-- bridge version 0.14.0
-- crypto/origin/tamper/kernel/replay tests
+PR 32 adds:
+- final-answer-strict Ollama response handling
+- `think:false` on normal governed Ollama role turns
+- one compatibility fallback for older Ollama/model behavior
+- explicit thinking/content/done-reason failure diagnostics
+- reasoning text is never promoted to the governed utterance
+- provider-failed roles transition to WARNING instead of stale SPEAKING
+- operator action renamed to RUN SIMULATION
+- live provider action renamed to RUN LIVE PROVIDERS
+- provider UI explains the simulation/live split
+- bridge version 0.15.0
+- exact thinking-only / compatibility / reducer regression tests
 
 ### Important semantic rule
 
-**VERIFIED ORIGIN KEY ≠ VERIFIED REAL-WORLD OPERATOR ≠ OPERATOR INDEPENDENCE ≠ CONTENT TRUE.**
+**MODEL REASONING ≠ FINAL PROVIDER UTTERANCE.**
 
-A verified POID receipt proves that one exact RPUB origin served a descriptor signed by one Ed25519 key making specific publisher/administrative claims. It does not verify the legal identity behind those claims or prove that two keys represent independent operators.
+Think Tank only accepts an explicit final assistant `message.content` as a governed Ollama role utterance. Thinking/reasoning output may inform diagnostics but is never silently promoted into canonical provider speech.
 
 See:
 - [Architecture](docs/ARCHITECTURE.md)
@@ -117,6 +116,7 @@ Every normal synthesis carries a deterministic dossier; it can be sealed, journa
 28. ✅ Release publication durability audit
 29. ✅ Release availability assurance policy
 30. ✅ Publisher origin identity attestation
+32. **Live Ollama hardening + run-path clarity**
 
 **Φ THINK TANK is a control room, not eight chat cards.**
 
