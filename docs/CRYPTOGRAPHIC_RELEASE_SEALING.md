@@ -197,3 +197,17 @@ Those are separate states and separate receipts.
 ## Non-goals
 
 PR 25 does not change release eligibility, provenance assurance, synthesis governance, signer identity, signer reputation, or trusted time. It does not automatically seal releases, require a signature before package export, upload packages, or make a decision true.
+
+## PR 26 trusted-time extension
+
+PR 25 deliberately labels RSEAL signedAt as an untrusted local clock claim.
+
+PR 26 adds trusted-time evidence without changing that field:
+
+```
+REL → RSEAL → RVER → RFC3161 RTSA
+```
+
+The RFC 3161 message imprint is SHA-256 of the complete stable-canonical RSEAL receipt. Therefore the TSA attests the existence time of the exact release-signature receipt, not merely the underlying REL manifest.
+
+See [RFC 3161 Trusted Release Timestamp](RFC3161_RELEASE_TIMESTAMP.md).
