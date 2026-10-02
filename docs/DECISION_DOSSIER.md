@@ -377,3 +377,22 @@ Release authorization, release signing, and signature verification remain distin
 The release signature does not change the dossier outcome, assurance result, operator override, or release authority.
 
 See [CRYPTOGRAPHIC_RELEASE_SEALING.md](CRYPTOGRAPHIC_RELEASE_SEALING.md).
+
+## RFC 3161 release timestamp receipts
+
+PR 26 extends release-package and dossier exports with RFC 3161 receipts linked to verified RSEAL release signatures.
+
+Each DossierReleaseRfc3161TimestampReceipt preserves:
+- release id and RSEAL id
+- SHA-256 of the complete RSEAL receipt used as the message imprint
+- linked REL manifest SHA-256
+- linked release signer key fingerprint
+- raw RFC 3161 token + token SHA-256
+- TSA policy / serial / generation time / subject
+- authority URL
+- configured trust-anchor file SHA-256
+- local verification time
+
+The TSA generation time is trusted only within the configured RFC 3161 trust boundary. It does not identify the release signer or change release/synthesis authority.
+
+See [RFC3161_RELEASE_TIMESTAMP.md](RFC3161_RELEASE_TIMESTAMP.md).
