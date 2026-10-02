@@ -57,3 +57,8 @@
 .dossier-release-durability{margin-top:7px;border-top:1px solid #343945;padding-top:8px;display:grid;gap:7px}
 .dossier-release-durability.release-durability-verified{border-top-color:#4f7b68}
 .dossier-release-durability>p{margin:0;font-size:.53rem;line-height:1.42;opacity:.78}
+
+.dossier-release-availability{margin-top:7px;border-top:1px solid #343945;padding-top:8px;display:grid;gap:7px}
+.dossier-release-availability.release-availability-pass{border-top-color:#4f7b68}
+.dossier-release-availability.release-availability-block{border-top-color:#7b5f4f}
+.dossier-release-availability>p{margin:0;font-size:.53rem;line-height:1.42;opacity:.78}
