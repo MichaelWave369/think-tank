@@ -1,4 +1,4 @@
-import type { DossierRfc3161TimestampReceipt,DossierSealReceipt,DossierTransparencyCheckpoint,DossierTransparencyReceipt,DossierTransparencyWitnessReceipt,RoleId,SeatId,SynthesisDecisionDossier } from "../domain/types";
+import type { DossierCheckpointPublicationReceipt,DossierRfc3161TimestampReceipt,DossierSealReceipt,DossierTransparencyCheckpoint,DossierTransparencyReceipt,DossierTransparencyWitnessReceipt,RoleId,SeatId,SynthesisDecisionDossier } from "../domain/types";
 
 export type ProviderConnectionState="connected"|"configured"|"disconnected"|"error";
 
@@ -214,4 +214,19 @@ export interface DossierRfc3161StatusResponse{
 export interface DossierRfc3161TimestampResponse{
   ok:true;
   timestamp:DossierRfc3161TimestampReceipt;
+}
+
+export interface DossierPublicationStatusResponse{
+  ok:true;
+  state:"configured"|"disabled"|"error";
+  protocol:"phi-checkpoint-publication-v1";
+  publisherUrl:string|null;
+  retrievalOrigin:string|null;
+  authConfigured:boolean;
+  detail:string;
+}
+
+export interface DossierPublicationResponse{
+  ok:true;
+  publication:DossierCheckpointPublicationReceipt;
 }
