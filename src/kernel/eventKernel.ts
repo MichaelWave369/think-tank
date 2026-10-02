@@ -1927,6 +1927,194 @@ function assertDossierReleaseAvailabilityEvent(state:ThinkTankState,event:ThinkT
   return false;
 }
 
+function assertDossierPublisherIdentityEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
+  const action=[
+    "dossier.release.publisher.identity.requested",
+    "dossier.release.publisher.identity.completed",
+    "dossier.release.publisher.identity.failed"
+  ].includes(event.kind);
+
+  if(
+    action&&
+    state.phase!=="intake"&&
+    state.phase!=="synthesis"&&
+    state.phase!=="complete"&&
+    state.phase!=="aborted"
+  ){
+    throw new KernelIntegrityError(
+      "Publisher-origin identity verification cannot run during active governed execution.",
+      event.seq
+    );
+  }
+
+  const publication=event.dossierPublisherIdentityPublicationId
+    ?state.dossierReleasePublications.find(item=>
+      item.id===event.dossierPublisherIdentityPublicationId
+    )
+    :undefined;
+
+  if(event.kind==="dossier.release.publisher.identity.requested"){
+    if(event.source!=="operator"){
+      throw new KernelIntegrityError(
+        "Publisher-origin identity requests are operator-authorized.",
+        event.seq
+      );
+    }
+    if(!publication){
+      throw new KernelIntegrityError(
+        "Publisher-origin identity verification requires an existing RPUB receipt.",
+        event.seq
+      );
+    }
+    try{
+      buildDossierReleasePackageForPublication(state,publication);
+    }catch(error){
+      throw new KernelIntegrityError(
+        "Historical RPUB package cannot be reconstructed for publisher identity: "+
+        (error instanceof Error?error.message:String(error)),
+        event.seq
+      );
+    }
+    return true;
+  }
+
+  if(event.kind==="dossier.release.publisher.identity.completed"){
+    if(event.source!=="tool"){
+      throw new KernelIntegrityError(
+        "Publisher-origin identity completion must be tool-originated.",
+        event.seq
+      );
+    }
+    const receipt=event.dossierPublisherIdentity;
+    if(!publication||!receipt){
+      throw new KernelIntegrityError(
+        "Publisher-origin identity completion requires RPUB and POID receipts.",
+        event.seq
+      );
+    }
+
+    let retrievalOrigin="";
+    let expectedIdentityUrl="";
+    try{
+      retrievalOrigin=new URL(publication.retrievalUrl).origin;
+      expectedIdentityUrl=new URL(
+        "/.well-known/phi-publisher-identity.json",
+        retrievalOrigin
+      ).toString();
+    }catch{
+      throw new KernelIntegrityError(
+        "Publisher-origin identity RPUB retrieval URL is invalid.",
+        event.seq
+      );
+    }
+
+    if(
+      receipt.releaseId!==publication.releaseId||
+      receipt.publicationReceiptId!==publication.id||
+      receipt.publicationReceiptSha256!==publication.receiptSha256||
+      receipt.tool!=="publisher-origin-identity-verifier"||
+      receipt.protocol!=="phi-publisher-identity-v1"||
+      receipt.retrievalOrigin!==retrievalOrigin||
+      receipt.identityUrl!==expectedIdentityUrl||
+      !/^[a-f0-9]{64}$/.test(receipt.descriptorSha256)||
+      !receipt.publisherId.trim()||
+      !receipt.publisherLabel.trim()||
+      !receipt.administrativeDomainClaim.trim()||
+      !receipt.publicKeyPem.includes("BEGIN PUBLIC KEY")||
+      !/^[a-f0-9]{64}$/.test(receipt.publicKeyFingerprintSha256)||
+      !receipt.signatureBase64.trim()||
+      Number.isNaN(Date.parse(receipt.claimedAt))||
+      new Date(Date.parse(receipt.claimedAt)).toISOString()!==receipt.claimedAt||
+      receipt.verified!==true||
+      Number.isNaN(Date.parse(receipt.verifiedAt))||
+      receipt.clock!=="untrusted-local-clock"||
+      receipt.trust!=="self-attested-origin-signing-key"||
+      receipt.realWorldIdentityAuthority!==false||
+      receipt.operatorIndependenceAuthority!==false||
+      receipt.truthAuthority!==false||
+      !/^[a-f0-9]{64}$/.test(receipt.receiptSha256)
+    ){
+      throw new KernelIntegrityError(
+        "POID receipt does not match its RPUB origin identity contract.",
+        event.seq
+      );
+    }
+
+    const expectedId="POID-"+publication.id+"-"+receipt.receiptSha256.slice(0,12);
+    if(receipt.id!==expectedId){
+      throw new KernelIntegrityError("Publisher-origin identity receipt id is invalid.",event.seq);
+    }
+    if(state.dossierPublisherOriginIdentities.some(existing=>existing.id===receipt.id)){
+      throw new KernelIntegrityError("Publisher-origin identity receipt id already exists.",event.seq);
+    }
+    if(state.dossierPublisherOriginIdentities.some(existing=>
+      existing.publicationReceiptId===publication.id&&
+      existing.descriptorSha256===receipt.descriptorSha256
+    )){
+      throw new KernelIntegrityError(
+        "This exact publisher-origin identity descriptor was already accepted for the RPUB.",
+        event.seq
+      );
+    }
+
+    const request=[...state.events].reverse().find(item=>
+      item.kind==="dossier.release.publisher.identity.requested"&&
+      item.dossierPublisherIdentityPublicationId===publication.id
+    );
+    if(!request){
+      throw new KernelIntegrityError(
+        "Publisher-origin identity completion has no matching operator request.",
+        event.seq
+      );
+    }
+    const terminal=[...state.events].reverse().find(item=>
+      (item.kind==="dossier.release.publisher.identity.completed"||
+       item.kind==="dossier.release.publisher.identity.failed")&&
+      item.dossierPublisherIdentityPublicationId===publication.id
+    );
+    if(terminal&&terminal.seq>request.seq){
+      throw new KernelIntegrityError(
+        "Publisher-origin identity request is already resolved.",
+        event.seq
+      );
+    }
+    return true;
+  }
+
+  if(event.kind==="dossier.release.publisher.identity.failed"){
+    if(event.source!=="tool"||!publication){
+      throw new KernelIntegrityError(
+        "Publisher-origin identity failure must be tool-originated for an existing RPUB.",
+        event.seq
+      );
+    }
+    const request=[...state.events].reverse().find(item=>
+      item.kind==="dossier.release.publisher.identity.requested"&&
+      item.dossierPublisherIdentityPublicationId===publication.id
+    );
+    if(!request){
+      throw new KernelIntegrityError(
+        "Publisher-origin identity failure has no matching operator request.",
+        event.seq
+      );
+    }
+    const terminal=[...state.events].reverse().find(item=>
+      (item.kind==="dossier.release.publisher.identity.completed"||
+       item.kind==="dossier.release.publisher.identity.failed")&&
+      item.dossierPublisherIdentityPublicationId===publication.id
+    );
+    if(terminal&&terminal.seq>request.seq){
+      throw new KernelIntegrityError(
+        "Publisher-origin identity request is already resolved.",
+        event.seq
+      );
+    }
+    return true;
+  }
+
+  return false;
+}
+
 function assertArgumentReviewEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
   const action=[
     "argument.review.requested",
@@ -2807,6 +2995,7 @@ function assertRoutingEvent(state:ThinkTankState,event:ThinkTankEvent):boolean{
 }
 
 function assertPolicyEvent(state:ThinkTankState,event:ThinkTankEvent):void{
+  if(assertDossierPublisherIdentityEvent(state,event))return;
   if(assertDossierReleaseAvailabilityEvent(state,event))return;
   if(assertDossierReleasePublicationAuditEvent(state,event))return;
   if(assertDossierReleasePublicationEvent(state,event))return;
@@ -3098,6 +3287,8 @@ export function buildEvent(state:ThinkTankState,input:ThinkTankEventInput):Think
     releaseAvailabilityPolicy:input.releaseAvailabilityPolicy,
     releaseAvailabilityPackageSha256:input.releaseAvailabilityPackageSha256,
     releaseAvailabilityAssurance:input.releaseAvailabilityAssurance,
+    dossierPublisherIdentityPublicationId:input.dossierPublisherIdentityPublicationId,
+    dossierPublisherIdentity:input.dossierPublisherIdentity,
     message:input.message,
     gateScore:input.gateScore,
     override:input.override,
