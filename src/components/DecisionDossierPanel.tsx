@@ -1,5 +1,5 @@
 import {useRef,useState} from "react";
-import type { DossierReleaseManifest,DossierTransparencyCheckpoint,DossierTransparencyWitnessReceipt,ProvenanceAssurancePolicyKind,ThinkTankState } from "../domain/types";
+import type { DossierReleaseManifest,DossierTransparencyCheckpoint,DossierTransparencyWitnessReceipt,ProvenanceAssurancePolicyKind,ReleaseAvailabilityAssurancePolicyKind,ThinkTankState } from "../domain/types";
 import type { DossierPublicationStatusResponse,DossierReleasePublicationStatusResponse,DossierReleaseSealStatusResponse,DossierRfc3161StatusResponse,DossierSealStatusResponse,DossierTransparencyStatusResponse } from "../providers/types";
 import { latestDecisionDossier,overrideForDossier } from "../domain/decisionDossier";
 import {
@@ -9,6 +9,12 @@ import {
   provenanceAssuranceIsFresh
 } from "../domain/provenanceAssurance";
 import {releaseManifestIsCurrent} from "../domain/releaseManifest";
+import {
+  RELEASE_AVAILABILITY_ASSURANCE_POLICIES,
+  RELEASE_AVAILABILITY_ASSURANCE_POLICY_LABELS,
+  RELEASE_AVAILABILITY_ASSURANCE_REQUIREMENT_LABELS,
+  releaseAvailabilityAssuranceIsFresh
+} from "../domain/releaseAvailabilityAssurance";
 import {
   buildDossierReleasePackage,
   releasePackageBasisFingerprint,
@@ -68,6 +74,8 @@ const exportDossier=(state:ThinkTankState)=>{
   const releasePublicationIds=new Set(releasePublications.map(item=>item.id));
   const releasePublicationAudits=state.dossierReleasePublicationAudits
     .filter(item=>releasePublicationIds.has(item.publicationReceiptId));
+  const releaseAvailabilityAssurances=state.dossierReleaseAvailabilityAssurances
+    .filter(item=>releaseIds.has(item.releaseId));
   downloadJson(
     dossier.id.toLowerCase()+"-decision-dossier.json",
     {
@@ -87,7 +95,8 @@ const exportDossier=(state:ThinkTankState)=>{
       releaseSealVerifications,
       releaseRfc3161Timestamps,
       releasePublications,
-      releasePublicationAudits
+      releasePublicationAudits,
+      releaseAvailabilityAssurances
     }
   );
 };
@@ -134,7 +143,8 @@ export function DecisionDossierPanel({
   onReleaseVerify,
   onReleaseTimestamp,
   onReleasePublish,
-  onReleaseAudit
+  onReleaseAudit,
+  onReleaseAvailability
 }:{
   state:ThinkTankState;
   sealStatus:DossierSealStatusResponse|null;
@@ -178,10 +188,17 @@ export function DecisionDossierPanel({
   onReleaseTimestamp:(releaseId:string,sealId:string)=>void;
   onReleasePublish:(releaseId:string)=>void;
   onReleaseAudit:(publicationId:string)=>void;
+  onReleaseAvailability:(
+    releaseId:string,
+    packageSha256:string,
+    policy:ReleaseAvailabilityAssurancePolicyKind
+  )=>void;
 }){
   const witnessFileRef=useRef<HTMLInputElement>(null);
   const [witnessImportError,setWitnessImportError]=useState("");
   const [assurancePolicy,setAssurancePolicy]=useState<ProvenanceAssurancePolicyKind>("full-provenance");
+  const [releaseAvailabilityPolicy,setReleaseAvailabilityPolicy]=
+    useState<ReleaseAvailabilityAssurancePolicyKind>("rechecked");
   const dossier=latestDecisionDossier(state);
 
   if(!dossier){
@@ -387,6 +404,21 @@ export function DecisionDossierPanel({
     :latestDurabilityAudit
       ?"AVAILABLE AGAIN · EXACT"
       :"NOT RECHECKED";
+  const availabilityTargetPackageSha=durabilityTargetPublication?.packageSha256??null;
+  const availabilityReports=(
+    currentRelease&&
+    availabilityTargetPackageSha
+  )
+    ?state.dossierReleaseAvailabilityAssurances.filter(item=>
+      item.releaseId===currentRelease.id&&
+      item.packageSha256===availabilityTargetPackageSha&&
+      item.policy===releaseAvailabilityPolicy
+    )
+    :[];
+  const latestAvailabilityReport=availabilityReports[availabilityReports.length-1]??null;
+  const availabilityReportFresh=latestAvailabilityReport
+    ?releaseAvailabilityAssuranceIsFresh(state,latestAvailabilityReport)
+    :false;
 
   const importWitnessFile=async(file:File|null)=>{
     if(!file||!latestCheckpoint)return;
@@ -1104,6 +1136,98 @@ export function DecisionDossierPanel({
                         {releaseDurabilityBusy?"AUDITING PUBLICATION…":"AUDIT PUBLICATION NOW"}
                       </button>
                     </div>
+
+                    <div className={"dossier-release-availability "+(
+                      latestAvailabilityReport&&availabilityReportFresh
+                        ?latestAvailabilityReport.passed?"release-availability-pass":"release-availability-block"
+                        :""
+                    )}>
+                      <div className="dossier-transparency-head">
+                        <div>
+                          <small>RELEASE AVAILABILITY ASSURANCE</small>
+                          <strong>
+                            {latestAvailabilityReport
+                              ?availabilityReportFresh
+                                ?latestAvailabilityReport.passed?"POLICY SATISFIED":"POLICY NOT SATISFIED"
+                                :"REPORT STALE"
+                              :"NOT EVALUATED"}
+                          </strong>
+                        </div>
+                        <span>
+                          {RELEASE_AVAILABILITY_ASSURANCE_POLICY_LABELS[releaseAvailabilityPolicy].toUpperCase()}
+                        </span>
+                      </div>
+
+                      <div className="dossier-assurance-controls">
+                        <label>
+                          <span>POLICY</span>
+                          <select
+                            value={releaseAvailabilityPolicy}
+                            disabled={busy||!durabilityTargetPublication}
+                            onChange={event=>
+                              setReleaseAvailabilityPolicy(
+                                event.currentTarget.value as ReleaseAvailabilityAssurancePolicyKind
+                              )
+                            }
+                          >
+                            {(Object.keys(RELEASE_AVAILABILITY_ASSURANCE_POLICIES) as ReleaseAvailabilityAssurancePolicyKind[])
+                              .map(policy=><option key={policy} value={policy}>
+                                {RELEASE_AVAILABILITY_ASSURANCE_POLICY_LABELS[policy]}
+                              </option>)}
+                          </select>
+                        </label>
+                        <button
+                          type="button"
+                          disabled={
+                            busy||
+                            !currentRelease||
+                            !availabilityTargetPackageSha||
+                            Boolean(latestAvailabilityReport&&availabilityReportFresh)
+                          }
+                          onClick={()=>
+                            currentRelease&&
+                            availabilityTargetPackageSha&&
+                            onReleaseAvailability(
+                              currentRelease.id,
+                              availabilityTargetPackageSha,
+                              releaseAvailabilityPolicy
+                            )
+                          }
+                        >
+                          {latestAvailabilityReport&&availabilityReportFresh
+                            ?"CURRENT REPORT FRESH"
+                            :"EVALUATE AVAILABILITY"}
+                        </button>
+                      </div>
+
+                      {latestAvailabilityReport
+                        ?<div className="dossier-assurance-report">
+                          <p><b>Report</b> {latestAvailabilityReport.id}</p>
+                          <p><b>Basis</b> {latestAvailabilityReport.basisFingerprint}</p>
+                          <p><b>Package SHA-256</b> {latestAvailabilityReport.packageSha256}</p>
+                          <p><b>Package status</b> {latestAvailabilityReport.packageStatus.toUpperCase()}</p>
+                          <p><b>Origins</b> {latestAvailabilityReport.retrievalOrigins.length}</p>
+                          <p><b>RPUB receipts</b> {latestAvailabilityReport.publicationIds.length}</p>
+                          <p><b>RAUD receipts</b> {latestAvailabilityReport.auditIds.length}</p>
+                          <p><b>Freshness</b> {availabilityReportFresh?"FRESH":"STALE · RE-EVALUATE"}</p>
+                          <div className="dossier-assurance-requirements">
+                            {latestAvailabilityReport.requirements.map(item=><div key={item.requirement}>
+                              <span>{item.satisfied?"MET":"MISSING"}</span>
+                              <b>{RELEASE_AVAILABILITY_ASSURANCE_REQUIREMENT_LABELS[item.requirement]}</b>
+                              <small>{item.evidenceIds.length?item.evidenceIds.join(" · "):"NO LINKED RECEIPT"}</small>
+                            </div>)}
+                          </div>
+                          <p><b>Result</b> {latestAvailabilityReport.reason}</p>
+                          <p><b>Continuous availability</b> NOT CLAIMED</p>
+                          <p><b>Immutability authority</b> NONE</p>
+                          <p><b>Origin independence authority</b> NONE · distinct origins are topology evidence only.</p>
+                          <p><b>Truth authority</b> NONE</p>
+                        </div>
+                        :<p>
+                          Evaluate recorded RPUB/RAUD evidence for this exact package.
+                          The policy creates no new network evidence and no numeric trust score.
+                        </p>}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1114,7 +1238,7 @@ export function DecisionDossierPanel({
     </div>
 
     <footer>
-      <span>Integrity chain: dossier → provenance → assurance → REL → RSEAL → RVER → optional RTSA → RPUB → repeat RAUD availability checks. Repeated retrieval is evidence over time, never a promise of permanence or truth.</span>
+      <span>Integrity chain: dossier → provenance → assurance → REL → RSEAL → RVER → optional RTSA → RPUB → RAUD → deterministic RAVA policy. Availability assurance summarizes observations; it never creates uptime, immutability, independence, or truth.</span>
       <button type="button" onClick={()=>exportDossier(state)}>TEAR / EXPORT DOSSIER</button>
     </footer>
   </section>;
