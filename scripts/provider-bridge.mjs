@@ -255,6 +255,9 @@ const dossierSignerStatus=()=>{
 export const releaseManifestDigestSha256=(manifest)=>
   createHash("sha256").update(stableCanonicalJson(manifest),"utf8").digest("hex");
 
+export const releaseSealDigestSha256=(seal)=>
+  createHash("sha256").update(stableCanonicalJson(seal),"utf8").digest("hex");
+
 export const releaseSealEnvelopeFor=(seal)=>({
   schemaVersion:1,
   releaseId:seal.releaseId,
@@ -939,6 +942,64 @@ export const buildRfc3161TimestampReceipt=({
   };
 };
 
+export const buildRfc3161ReleaseSealTimestampReceipt=({
+  seal,
+  tokenBytes,
+  metadata,
+  authorityUrl,
+  trustAnchorSha256,
+  verifiedAt=new Date().toISOString()
+})=>{
+  if(
+    !seal||
+    typeof seal!=="object"||
+    typeof seal.id!=="string"||
+    !seal.id.trim()||
+    typeof seal.releaseId!=="string"||
+    !seal.releaseId.trim()||
+    !/^[a-f0-9]{64}$/.test(seal.manifestSha256||"")||
+    !/^[a-f0-9]{64}$/.test(seal.publicKeyFingerprintSha256||"")
+  ){
+    throw bridgeError("Release RFC3161 timestamp requires a complete release seal.",400);
+  }
+  const token=Buffer.isBuffer(tokenBytes)?tokenBytes:Buffer.from(tokenBytes||[]);
+  if(token.length<1)throw bridgeError("Release RFC3161 timestamp token is empty.",500);
+  if(!metadata?.tsaPolicyOid||!metadata?.tsaSerialNumber||!metadata?.tsaSubject){
+    throw bridgeError("Release RFC3161 timestamp metadata is incomplete.",500);
+  }
+  if(Number.isNaN(Date.parse(metadata.genTime||""))||Number.isNaN(Date.parse(verifiedAt))){
+    throw bridgeError("Release RFC3161 timestamp dates are invalid.",500);
+  }
+  if(!/^[a-f0-9]{64}$/.test(trustAnchorSha256||"")){
+    throw bridgeError("Release RFC3161 trust-anchor digest is invalid.",500);
+  }
+  const normalizedAuthority=assertRfc3161AuthorityUrl(authorityUrl);
+  const tokenSha256=createHash("sha256").update(token).digest("hex");
+  const releaseSealSha256=releaseSealDigestSha256(seal);
+
+  return {
+    id:"RTSA-"+seal.id+"-"+tokenSha256.slice(0,12),
+    releaseId:seal.releaseId,
+    sealId:seal.id,
+    tool:"rfc3161-release-seal-timestamp-verifier",
+    standard:"RFC3161",
+    hashAlgorithm:"SHA-256",
+    releaseSealSha256,
+    manifestSha256:seal.manifestSha256,
+    publicKeyFingerprintSha256:seal.publicKeyFingerprintSha256,
+    tokenSha256,
+    tokenBase64:token.toString("base64"),
+    tsaPolicyOid:metadata.tsaPolicyOid,
+    tsaSerialNumber:metadata.tsaSerialNumber,
+    genTime:metadata.genTime,
+    tsaSubject:metadata.tsaSubject,
+    authorityUrl:normalizedAuthority,
+    trustAnchorSha256,
+    verifiedAt,
+    trust:"configured-rfc3161-trust-anchor"
+  };
+};
+
 const rfc3161Status=()=>{
   if(!RFC3161_TSA_URL||!RFC3161_TSA_CA_FILE){
     return {
@@ -999,8 +1060,11 @@ const rfc3161Status=()=>{
   };
 };
 
-const requestRfc3161Timestamp=async(checkpoint)=>{
-  assertTransparencyCheckpoint(checkpoint);
+const requestRfc3161Digest=async(digestSha256)=>{
+  if(!/^[a-f0-9]{64}$/.test(digestSha256||"")){
+    throw bridgeError("RFC3161 message imprint must be a lowercase SHA-256 digest.",400);
+  }
+
   const status=rfc3161Status();
   if(status.state!=="configured"){
     throw bridgeError("RFC3161 timestamp adapter is not configured: "+status.detail,503);
@@ -1016,7 +1080,7 @@ const requestRfc3161Timestamp=async(checkpoint)=>{
         RFC3161_OPENSSL_BIN,
         [
           "ts","-query",
-          "-digest",checkpoint.checkpointSha256,
+          "-digest",digestSha256,
           "-sha256",
           "-cert",
           "-out",queryPath
@@ -1093,17 +1157,39 @@ const requestRfc3161Timestamp=async(checkpoint)=>{
       );
     }
 
-    const metadata=parseRfc3161ReplyText(replyText);
-    return buildRfc3161TimestampReceipt({
-      checkpoint,
+    return {
       tokenBytes,
-      metadata,
+      metadata:parseRfc3161ReplyText(replyText),
       authorityUrl:status.authorityUrl,
       trustAnchorSha256:status.trustAnchorSha256
-    });
+    };
   }finally{
     rmSync(work,{recursive:true,force:true});
   }
+};
+
+const requestRfc3161Timestamp=async(checkpoint)=>{
+  assertTransparencyCheckpoint(checkpoint);
+  const result=await requestRfc3161Digest(checkpoint.checkpointSha256);
+  return buildRfc3161TimestampReceipt({
+    checkpoint,
+    ...result
+  });
+};
+
+const requestRfc3161ReleaseSealTimestamp=async(manifest,seal)=>{
+  const verification=verifyReleaseSealReceipt(manifest,seal);
+  if(!verification.verified){
+    throw bridgeError(
+      "Release seal must verify before RFC3161 timestamping: "+verification.reason,
+      409
+    );
+  }
+  const result=await requestRfc3161Digest(releaseSealDigestSha256(seal));
+  return buildRfc3161ReleaseSealTimestampReceipt({
+    seal,
+    ...result
+  });
 };
 
 export const normalizeMessages=(raw)=>{
@@ -1915,7 +2001,7 @@ const remoteStatus=(seatId,provider,key,model)=>({
 
 const statusPayload=async()=>({
   ok:true,
-  bridgeVersion:"0.10.0",
+  bridgeVersion:"0.11.0",
   seats:[
     await ollamaStatus(),
     remoteStatus("openai","OpenAI",process.env.OPENAI_API_KEY,process.env.OPENAI_MODEL),
@@ -2028,7 +2114,7 @@ const server=http.createServer(async(req,res)=>{
 
   try{
     if(req.method==="GET"&&req.url==="/health"){
-      send(res,200,{ok:true,service:"phi-think-tank-provider-bridge",version:"0.10.0"},origin);
+      send(res,200,{ok:true,service:"phi-think-tank-provider-bridge",version:"0.11.0"},origin);
       return;
     }
 
@@ -2106,6 +2192,13 @@ const server=http.createServer(async(req,res)=>{
         publicKeyFingerprintSha256:raw.seal?.publicKeyFingerprintSha256??"",
         verifiedAt:new Date().toISOString()
       },origin);
+      return;
+    }
+
+    if(req.method==="POST"&&req.url==="/dossier/release/timestamp"){
+      const raw=await readJson(req);
+      const timestamp=await requestRfc3161ReleaseSealTimestamp(raw.manifest,raw.seal);
+      send(res,200,{ok:true,timestamp},origin);
       return;
     }
 

@@ -6,28 +6,28 @@ A governed, event-sourced multi-mind control room. Cognitive roles are staffed b
 
 ## Current rung
 
-**PR 25 — Cryptographic Release Sealing**
+**PR 26 — RFC 3161 Trusted Release Timestamp**
 
-The Think Tank can now Ed25519-sign an authorized REL manifest with a dedicated optional release key, independently verify that signature, and carry the seal chain inside release-package and dossier exports.
+The Think Tank can now request and locally verify an RFC 3161 timestamp over the SHA-256 of an already verified cryptographic release-seal receipt.
 
-PR 25 adds:
-- dedicated release signing key + key generator
-- stable-canonical REL manifest SHA-256
-- release-specific Ed25519 signed envelope
-- explicit untrusted-local-clock signing label
-- release seal + verification receipts
-- operator-authorized sealing and verification events
-- one seal per release + signer key
-- release-package export with linked seals/verifications
-- Decision Dossier release-seal UI
-- bridge version 0.10.0
-- crypto tamper tests + kernel/replay tests
+PR 26 adds:
+- RVER prerequisite before release timestamping
+- bridge-side REL + RSEAL re-verification before TSA contact
+- stable-canonical complete RSEAL SHA-256 message imprint
+- shared checkpoint/release RFC 3161 verifier path
+- raw release timestamp-token retention
+- TSA time/policy/serial/subject + trust-anchor digest receipts
+- governed release timestamp request/completion/failure events
+- one accepted receipt per RSEAL + TSA URL + trust-anchor digest
+- trusted release-time UI + package/dossier export
+- bridge version 0.11.0
+- receipt + kernel/replay failure tests
 
 ### Important semantic rule
 
-**SIGNED RELEASE ≠ TRUSTED SIGNER ≠ TRUSTED TIME ≠ CONTENT TRUE.**
+**RFC3161 RELEASE TIME VERIFIED ≠ TRUSTED SIGNER IDENTITY ≠ CONTENT TRUE.**
 
-A valid release signature proves one key signed one exact REL manifest. It does not establish real-world signer identity, authoritative time, release truth, or synthesis correctness.
+A verified RTSA receipt proves the configured RFC 3161 trust chain attested that one exact verified RSEAL receipt existed at the TSA generation time. It does not identify the signer, make the release correct, or make the underlying dossier true.
 
 See:
 - [Architecture](docs/ARCHITECTURE.md)
@@ -55,6 +55,7 @@ See:
 - [Provenance Assurance Policy](docs/PROVENANCE_ASSURANCE.md)
 - [Assurance-Gated Release Manifest](docs/ASSURANCE_GATED_RELEASE.md)
 - [Cryptographic Release Sealing](docs/CRYPTOGRAPHIC_RELEASE_SEALING.md)
+- [RFC 3161 Trusted Release Timestamp](docs/RFC3161_RELEASE_TIMESTAMP.md)
 
 ## Local-first setup
 
@@ -77,7 +78,7 @@ Verification:
 
 > **If a light changes, a sequenced event explains why.**
 
-Every normal synthesis carries a deterministic dossier; it can be sealed, journaled, checkpointed, witnessed, time-attested, externally published, evaluated against an explicit provenance policy, authorized for governed release/export, and optionally Ed25519-sealed at the REL manifest layer.
+Every normal synthesis carries a deterministic dossier; it can be sealed, journaled, checkpointed, witnessed, time-attested, externally published, evaluated against an explicit provenance policy, authorized for governed release/export, Ed25519-sealed at the REL layer, and optionally RFC 3161 time-attested at the verified RSEAL layer.
 
 ## Build ladder
 
@@ -105,6 +106,7 @@ Every normal synthesis carries a deterministic dossier; it can be sealed, journa
 22. ✅ Verified external checkpoint publication
 23. ✅ Provenance assurance policy
 24. ✅ Assurance-gated release manifest
-25. **Cryptographic release sealing**
+25. ✅ Cryptographic release sealing
+26. **RFC 3161 trusted release timestamp**
 
 **Φ THINK TANK is a control room, not eight chat cards.**

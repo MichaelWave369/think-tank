@@ -289,3 +289,23 @@ A release signature does not modify release eligibility or the original REL mani
 EXPORT RELEASE PACKAGE now carries any linked release seals and release-seal verification receipts beside the immutable artifact list.
 
 See [Cryptographic Release Sealing](CRYPTOGRAPHIC_RELEASE_SEALING.md).
+
+## PR 26 trusted release-time extension
+
+PR 26 adds optional RFC 3161 time attestation above an independently verified PR 25 release seal.
+
+Release authorization itself remains unchanged.
+
+The extended path is:
+
+```
+fresh passing assurance
+  → REL authorization
+  → optional RSEAL
+  → optional RVER
+  → optional RTSA trusted time
+```
+
+RTSA is additive provenance for the signed release package. It is not a prerequisite for release authorization.
+
+See [RFC 3161 Trusted Release Timestamp](RFC3161_RELEASE_TIMESTAMP.md).
