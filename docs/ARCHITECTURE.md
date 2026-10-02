@@ -446,6 +446,33 @@ Release-package export carries release seals and verification receipts beside, r
 
 See [CRYPTOGRAPHIC_RELEASE_SEALING.md](CRYPTOGRAPHIC_RELEASE_SEALING.md).
 
+## RFC 3161 trusted release timestamps
+
+PR 26 extends the existing RFC 3161/OpenSSL trust boundary to verified release-seal receipts.
+
+The required chain is:
+
+```
+REL → RSEAL → RVER → RTSA
+```
+
+Before contacting the TSA, the bridge independently re-verifies the REL manifest against the RSEAL. It then uses SHA-256 of the complete stable-canonical RSEAL receipt as the RFC 3161 message imprint.
+
+The accepted RTSA receipt preserves:
+- release and RSEAL linkage
+- exact RSEAL SHA-256
+- REL manifest SHA-256
+- release signer key fingerprint
+- raw RFC 3161 token
+- TSA generation time / policy / serial / subject
+- TSA URL
+- configured trust-anchor file SHA-256
+- local verification time
+
+Checkpoint timestamps and release timestamps share one RFC 3161 request/verification path but remain separate receipt types with separate semantic claims.
+
+See [RFC3161_RELEASE_TIMESTAMP.md](RFC3161_RELEASE_TIMESTAMP.md).
+
 ## PR ladder
 
 1. ✅ Room shell + operator authority
@@ -472,6 +499,7 @@ See [CRYPTOGRAPHIC_RELEASE_SEALING.md](CRYPTOGRAPHIC_RELEASE_SEALING.md).
 22. ✅ Verified external checkpoint publication
 23. ✅ Provenance assurance policy
 24. ✅ Assurance-gated release manifest
-25. Cryptographic release sealing
+25. ✅ Cryptographic release sealing
+26. RFC 3161 trusted release timestamp
 
-Future work can add proper PDF extraction, authenticated remote deployment, richer provider discovery, streaming, tool execution, voice, trusted release timestamps, witness trust registries, publication durability checks, multi-publisher policy, TSA trust-store management, and external signer identity attestation without changing the core event contract.
+Future work can add proper PDF extraction, authenticated remote deployment, richer provider discovery, streaming, tool execution, voice, witness trust registries, publication durability checks, multi-publisher policy, TSA trust-store management, external signer identity attestation, and release publication without changing the core event contract.
