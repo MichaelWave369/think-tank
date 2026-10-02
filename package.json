@@ -14,7 +14,9 @@
     "dossier:keygen": "node scripts/generate-dossier-key.mjs",
     "release:keygen": "node scripts/generate-release-key.mjs",
     "witness:keygen": "node scripts/generate-witness-key.mjs",
-    "witness:sign": "node scripts/sign-transparency-checkpoint.mjs"
+    "witness:sign": "node scripts/sign-transparency-checkpoint.mjs",
+    "publisher:identity:keygen": "node scripts/generate-publisher-identity-key.mjs",
+    "publisher:identity:sign": "node scripts/sign-publisher-identity.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",
