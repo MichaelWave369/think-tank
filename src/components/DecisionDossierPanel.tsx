@@ -65,6 +65,9 @@ const exportDossier=(state:ThinkTankState)=>{
     .filter(item=>releaseSealIds.has(item.sealId));
   const releasePublications=state.dossierReleasePublications
     .filter(item=>releaseIds.has(item.releaseId));
+  const releasePublicationIds=new Set(releasePublications.map(item=>item.id));
+  const releasePublicationAudits=state.dossierReleasePublicationAudits
+    .filter(item=>releasePublicationIds.has(item.publicationReceiptId));
   downloadJson(
     dossier.id.toLowerCase()+"-decision-dossier.json",
     {
@@ -83,7 +86,8 @@ const exportDossier=(state:ThinkTankState)=>{
       releaseSeals,
       releaseSealVerifications,
       releaseRfc3161Timestamps,
-      releasePublications
+      releasePublications,
+      releasePublicationAudits
     }
   );
 };
@@ -107,6 +111,7 @@ export function DecisionDossierPanel({
   releaseVerifyBusy,
   releaseTimestampBusy,
   releasePublicationBusy,
+  releaseDurabilityBusy,
   error,
   transparencyError,
   witnessError,
@@ -115,6 +120,7 @@ export function DecisionDossierPanel({
   releaseSealError,
   releaseTimestampError,
   releasePublicationError,
+  releaseDurabilityError,
   onSeal,
   onVerify,
   onTransparencyAppend,
@@ -127,7 +133,8 @@ export function DecisionDossierPanel({
   onReleaseSeal,
   onReleaseVerify,
   onReleaseTimestamp,
-  onReleasePublish
+  onReleasePublish,
+  onReleaseAudit
 }:{
   state:ThinkTankState;
   sealStatus:DossierSealStatusResponse|null;
@@ -147,6 +154,7 @@ export function DecisionDossierPanel({
   releaseVerifyBusy:boolean;
   releaseTimestampBusy:boolean;
   releasePublicationBusy:boolean;
+  releaseDurabilityBusy:boolean;
   error:string;
   transparencyError:string;
   witnessError:string;
@@ -155,6 +163,7 @@ export function DecisionDossierPanel({
   releaseSealError:string;
   releaseTimestampError:string;
   releasePublicationError:string;
+  releaseDurabilityError:string;
   onSeal:(dossierId:string)=>void;
   onVerify:(dossierId:string,sealId:string)=>void;
   onTransparencyAppend:(dossierId:string,sealId:string)=>void;
@@ -168,6 +177,7 @@ export function DecisionDossierPanel({
   onReleaseVerify:(releaseId:string,sealId:string)=>void;
   onReleaseTimestamp:(releaseId:string,sealId:string)=>void;
   onReleasePublish:(releaseId:string)=>void;
+  onReleaseAudit:(publicationId:string)=>void;
 }){
   const witnessFileRef=useRef<HTMLInputElement>(null);
   const [witnessImportError,setWitnessImportError]=useState("");
@@ -366,6 +376,17 @@ export function DecisionDossierPanel({
         :releasePublicationStatus?.state==="error"
           ?"PUBLISHER ERROR"
           :"PUBLISHER DISABLED";
+  const durabilityTargetPublication=currentReleasePublication??latestReleasePublication;
+  const durabilityAudits=durabilityTargetPublication
+    ?state.dossierReleasePublicationAudits
+      .filter(item=>item.publicationReceiptId===durabilityTargetPublication.id)
+    :[];
+  const latestDurabilityAudit=durabilityAudits[durabilityAudits.length-1]??null;
+  const durabilityState=!durabilityTargetPublication
+    ?"RPUB REQUIRED"
+    :latestDurabilityAudit
+      ?"AVAILABLE AGAIN · EXACT"
+      :"NOT RECHECKED";
 
   const importWitnessFile=async(file:File|null)=>{
     if(!file||!latestCheckpoint)return;
@@ -1046,7 +1067,43 @@ export function DecisionDossierPanel({
                           ?"RELEASE PUBLICATION VERIFIED"
                           :"PUBLISH + VERIFY RELEASE"}
                     </button>
+                    <div className={"dossier-release-durability "+(latestDurabilityAudit?"release-durability-verified":"")}>
+                    <div className="dossier-transparency-head">
+                      <div>
+                        <small>PUBLICATION DURABILITY</small>
+                        <strong>{durabilityState}</strong>
+                      </div>
+                      <span>{durabilityAudits.length} SUCCESSFUL RECHECK{durabilityAudits.length===1?"":"S"}</span>
+                    </div>
+
+                    {latestDurabilityAudit
+                      ?<div className="dossier-seal-details">
+                        <p><b>Audit</b> {latestDurabilityAudit.id}</p>
+                        <p><b>RPUB</b> {latestDurabilityAudit.publicationReceiptId}</p>
+                        <p><b>Package SHA-256</b> {latestDurabilityAudit.packageSha256}</p>
+                        <p><b>Read-back SHA-256</b> {latestDurabilityAudit.readbackSha256}</p>
+                        <p><b>Retrieval</b> {latestDurabilityAudit.retrievalUrl}</p>
+                        <p><b>Checked</b> {latestDurabilityAudit.checkedAt} · UNTRUSTED LOCAL CLOCK</p>
+                        <p><b>Receipt SHA-256</b> {latestDurabilityAudit.receiptSha256}</p>
+                      </div>
+                      :<p>
+                        Re-fetch the frozen public RPUB URL and require the exact historical package
+                        again. A successful recheck is evidence of availability at this check, not permanence.
+                      </p>}
+
+                    {releaseDurabilityError&&<div className="dossier-seal-error">{releaseDurabilityError}</div>}
+
+                    <div className="dossier-seal-actions">
+                      <button
+                        type="button"
+                        disabled={busy||!durabilityTargetPublication}
+                        onClick={()=>durabilityTargetPublication&&onReleaseAudit(durabilityTargetPublication.id)}
+                      >
+                        {releaseDurabilityBusy?"AUDITING PUBLICATION…":"AUDIT PUBLICATION NOW"}
+                      </button>
+                    </div>
                   </div>
+                </div>
                 </div>
               </div>
             </div>
@@ -1056,7 +1113,7 @@ export function DecisionDossierPanel({
     </div>
 
     <footer>
-      <span>Integrity chain: dossier → provenance → assurance → REL → RSEAL → RVER → optional RTSA → optional verified external RPUB. Publication proves retrievability of one exact package, not permanence or truth.</span>
+      <span>Integrity chain: dossier → provenance → assurance → REL → RSEAL → RVER → optional RTSA → RPUB → repeat RAUD availability checks. Repeated retrieval is evidence over time, never a promise of permanence or truth.</span>
       <button type="button" onClick={()=>exportDossier(state)}>TEAR / EXPORT DOSSIER</button>
     </footer>
   </section>;
