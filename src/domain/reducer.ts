@@ -287,6 +287,16 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
     ];
   }
 
+  if(
+    event.kind==="dossier.release.publisher.identity.completed"&&
+    event.dossierPublisherIdentity
+  ){
+    next.dossierPublisherOriginIdentities=[
+      ...state.dossierPublisherOriginIdentities,
+      event.dossierPublisherIdentity
+    ];
+  }
+
   if(event.kind==="seat.status"&&event.seatId&&event.seatStatus){
     next.seatStatus={...state.seatStatus,[event.seatId]:event.seatStatus};
   }

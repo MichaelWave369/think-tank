@@ -363,3 +363,19 @@ The RAVA layer is deterministic and offline. It does not change RPUB and does no
 Multiple distinct retrieval origins may satisfy multi-origin requirements, but distinct URL origins do not establish independent operator control.
 
 See [Release Availability Assurance Policy](RELEASE_AVAILABILITY_ASSURANCE.md).
+
+## PR 30 publisher-origin identity relationship
+
+PR 30 can derive the retrieval origin from any historical RPUB and fetch:
+
+```
+<retrieval-origin>/.well-known/phi-publisher-identity.json
+```
+
+The descriptor is self-signed with an Ed25519 origin identity key and becomes a separate POID receipt after verification.
+
+POID does not enter the release package and does not change RPUB semantics.
+
+A valid origin signature proves a key-backed claim served by that origin, not legal identity or independent administration.
+
+See [Publisher Origin Identity Attestation](PUBLISHER_ORIGIN_IDENTITY.md).

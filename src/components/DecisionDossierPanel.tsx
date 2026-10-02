@@ -76,6 +76,8 @@ const exportDossier=(state:ThinkTankState)=>{
     .filter(item=>releasePublicationIds.has(item.publicationReceiptId));
   const releaseAvailabilityAssurances=state.dossierReleaseAvailabilityAssurances
     .filter(item=>releaseIds.has(item.releaseId));
+  const publisherOriginIdentities=state.dossierPublisherOriginIdentities
+    .filter(item=>releasePublicationIds.has(item.publicationReceiptId));
   downloadJson(
     dossier.id.toLowerCase()+"-decision-dossier.json",
     {
@@ -96,7 +98,8 @@ const exportDossier=(state:ThinkTankState)=>{
       releaseRfc3161Timestamps,
       releasePublications,
       releasePublicationAudits,
-      releaseAvailabilityAssurances
+      releaseAvailabilityAssurances,
+      publisherOriginIdentities
     }
   );
 };
@@ -121,6 +124,7 @@ export function DecisionDossierPanel({
   releaseTimestampBusy,
   releasePublicationBusy,
   releaseDurabilityBusy,
+  publisherIdentityBusy,
   error,
   transparencyError,
   witnessError,
@@ -130,6 +134,7 @@ export function DecisionDossierPanel({
   releaseTimestampError,
   releasePublicationError,
   releaseDurabilityError,
+  publisherIdentityError,
   onSeal,
   onVerify,
   onTransparencyAppend,
@@ -144,7 +149,8 @@ export function DecisionDossierPanel({
   onReleaseTimestamp,
   onReleasePublish,
   onReleaseAudit,
-  onReleaseAvailability
+  onReleaseAvailability,
+  onPublisherIdentity
 }:{
   state:ThinkTankState;
   sealStatus:DossierSealStatusResponse|null;
@@ -165,6 +171,7 @@ export function DecisionDossierPanel({
   releaseTimestampBusy:boolean;
   releasePublicationBusy:boolean;
   releaseDurabilityBusy:boolean;
+  publisherIdentityBusy:boolean;
   error:string;
   transparencyError:string;
   witnessError:string;
@@ -174,6 +181,7 @@ export function DecisionDossierPanel({
   releaseTimestampError:string;
   releasePublicationError:string;
   releaseDurabilityError:string;
+  publisherIdentityError:string;
   onSeal:(dossierId:string)=>void;
   onVerify:(dossierId:string,sealId:string)=>void;
   onTransparencyAppend:(dossierId:string,sealId:string)=>void;
@@ -193,6 +201,7 @@ export function DecisionDossierPanel({
     packageSha256:string,
     policy:ReleaseAvailabilityAssurancePolicyKind
   )=>void;
+  onPublisherIdentity:(publicationId:string)=>void;
 }){
   const witnessFileRef=useRef<HTMLInputElement>(null);
   const [witnessImportError,setWitnessImportError]=useState("");
@@ -419,6 +428,17 @@ export function DecisionDossierPanel({
   const availabilityReportFresh=latestAvailabilityReport
     ?releaseAvailabilityAssuranceIsFresh(state,latestAvailabilityReport)
     :false;
+  const publisherIdentities=durabilityTargetPublication
+    ?state.dossierPublisherOriginIdentities.filter(item=>
+      item.publicationReceiptId===durabilityTargetPublication.id
+    )
+    :[];
+  const latestPublisherIdentity=publisherIdentities[publisherIdentities.length-1]??null;
+  const publisherIdentityState=!durabilityTargetPublication
+    ?"RPUB REQUIRED"
+    :latestPublisherIdentity
+      ?"SIGNED ORIGIN CLAIM VERIFIED"
+      :"NOT VERIFIED";
 
   const importWitnessFile=async(file:File|null)=>{
     if(!file||!latestCheckpoint)return;
@@ -1229,6 +1249,55 @@ export function DecisionDossierPanel({
                         </p>}
                     </div>
                   </div>
+
+                  <div className={"dossier-publisher-identity "+(latestPublisherIdentity?"publisher-identity-verified":"")}>
+                    <div className="dossier-transparency-head">
+                      <div>
+                        <small>PUBLISHER ORIGIN IDENTITY</small>
+                        <strong>{publisherIdentityState}</strong>
+                      </div>
+                      <span>{publisherIdentities.length} VERIFIED CLAIM{publisherIdentities.length===1?"":"S"}</span>
+                    </div>
+
+                    {latestPublisherIdentity
+                      ?<div className="dossier-seal-details">
+                        <p><b>Receipt</b> {latestPublisherIdentity.id}</p>
+                        <p><b>RPUB</b> {latestPublisherIdentity.publicationReceiptId}</p>
+                        <p><b>Origin</b> {latestPublisherIdentity.retrievalOrigin}</p>
+                        <p><b>Identity URL</b> {latestPublisherIdentity.identityUrl}</p>
+                        <p><b>Publisher id</b> {latestPublisherIdentity.publisherId}</p>
+                        <p><b>Publisher label</b> {latestPublisherIdentity.publisherLabel}</p>
+                        <p><b>Administrative-domain claim</b> {latestPublisherIdentity.administrativeDomainClaim}</p>
+                        <p><b>Origin key</b> {latestPublisherIdentity.publicKeyFingerprintSha256}</p>
+                        <p><b>Descriptor SHA-256</b> {latestPublisherIdentity.descriptorSha256}</p>
+                        <p><b>Claimed time</b> {latestPublisherIdentity.claimedAt} · SELF-ATTESTED</p>
+                        <p><b>Verified</b> {latestPublisherIdentity.verifiedAt} · UNTRUSTED LOCAL CLOCK</p>
+                        <p><b>Receipt SHA-256</b> {latestPublisherIdentity.receiptSha256}</p>
+                      </div>
+                      :<p>
+                        Fetch the RPUB origin's fixed .well-known identity descriptor and verify its
+                        Ed25519 self-signature. This proves an origin-key claim, not real-world identity.
+                      </p>}
+
+                    {publisherIdentityError&&<div className="dossier-seal-error">{publisherIdentityError}</div>}
+
+                    <div className="dossier-seal-actions">
+                      <button
+                        type="button"
+                        disabled={busy||!durabilityTargetPublication}
+                        onClick={()=>
+                          durabilityTargetPublication&&
+                          onPublisherIdentity(durabilityTargetPublication.id)
+                        }
+                      >
+                        {publisherIdentityBusy?"VERIFYING ORIGIN IDENTITY…":"VERIFY ORIGIN IDENTITY"}
+                      </button>
+                    </div>
+
+                    <p>
+                      <b>Authority</b> REAL-WORLD IDENTITY: NONE · OPERATOR INDEPENDENCE: NONE · TRUTH: NONE
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1238,7 +1307,7 @@ export function DecisionDossierPanel({
     </div>
 
     <footer>
-      <span>Integrity chain: dossier → provenance → assurance → REL → RSEAL → RVER → optional RTSA → RPUB → RAUD → deterministic RAVA policy. Availability assurance summarizes observations; it never creates uptime, immutability, independence, or truth.</span>
+      <span>Integrity chain: dossier → provenance → assurance → REL → RSEAL → RVER → optional RTSA → RPUB → RAUD → RAVA → optional POID signed origin claim. POID proves a key-backed claim served by an origin, not real-world identity, operator independence, or truth.</span>
       <button type="button" onClick={()=>exportDossier(state)}>TEAR / EXPORT DOSSIER</button>
     </footer>
   </section>;

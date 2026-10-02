@@ -358,3 +358,21 @@ PR 29 does not:
 - change release authorization
 - change synthesis governance
 - make content true
+
+## PR 30 identity-evidence relationship
+
+PR 30 adds POID signed origin-identity claims above RPUB.
+
+PR 30 intentionally does not modify RAVA requirements.
+
+Existing Published / Rechecked / Repeated / Multi-origin / Resilient reports continue to mean exactly what PR 29 defined. In particular:
+
+```
+originIndependenceAuthority: false
+```
+
+remains unchanged.
+
+POID evidence can support a later explicit identity-aware policy, but it does not retroactively upgrade URL-origin diversity into operator independence.
+
+See [Publisher Origin Identity Attestation](PUBLISHER_ORIGIN_IDENTITY.md).

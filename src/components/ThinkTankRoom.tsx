@@ -36,7 +36,7 @@ import { buildEvent,buildEventBatch,replayEvents,verifyReplay } from "../kernel/
 import { deriveMotionCue } from "../motion/motion";
 import { useEventPlayback } from "../motion/useEventPlayback";
 import { useMotionPolicy } from "../motion/useMotionPolicy";
-import { appendDossierTransparency,auditDossierReleasePublication,fetchDossierPublicationStatus,fetchDossierRfc3161Status,fetchDossierSealStatus,fetchDossierTransparencyCheckpoint,fetchDossierTransparencyStatus,fetchMachineEvidence,fetchProviderStatus,fetchReleasePublicationStatus,fetchReleaseSealStatus,fetchResearchStatus,invokeProvider,pinMachineEvidenceExcerpt,projectMachineEvidence,publishDossierCheckpoint,publishDossierReleasePackage,requestDossierReleaseRfc3161Timestamp,requestDossierRfc3161Timestamp,sealDecisionDossier,sealDossierRelease,searchResearch,verifyDecisionDossierSeal,verifyDossierReleaseSeal,verifyDossierTransparencyWitness } from "../providers/client";
+import { appendDossierTransparency,auditDossierReleasePublication,fetchDossierPublicationStatus,fetchDossierRfc3161Status,fetchDossierSealStatus,fetchDossierTransparencyCheckpoint,fetchDossierTransparencyStatus,fetchMachineEvidence,fetchProviderStatus,fetchReleasePublicationStatus,fetchReleaseSealStatus,fetchResearchStatus,invokeProvider,pinMachineEvidenceExcerpt,projectMachineEvidence,publishDossierCheckpoint,publishDossierReleasePackage,requestDossierReleaseRfc3161Timestamp,requestDossierRfc3161Timestamp,sealDecisionDossier,sealDossierRelease,searchResearch,verifyDecisionDossierSeal,verifyDossierPublisherOriginIdentity,verifyDossierReleaseSeal,verifyDossierTransparencyWitness } from "../providers/client";
 import { runLiveProviderSession } from "../providers/liveRunner";
 import { buildArgumentReviewMessages,parseArgumentReviewResponse } from "../providers/argumentReview";
 import type { DossierPublicationStatusResponse,DossierReleasePublicationStatusResponse,DossierReleaseSealStatusResponse,DossierRfc3161StatusResponse,DossierSealStatusResponse,DossierTransparencyStatusResponse,EvidenceProjectionResponse,ProviderStatusResponse,ResearchBackendStatusResponse } from "../providers/types";
@@ -102,10 +102,12 @@ export function ThinkTankRoom(){
   const [releasePublicationStatus,setReleasePublicationStatus]=useState<DossierReleasePublicationStatusResponse|null>(null);
   const [releasePublicationBusy,setReleasePublicationBusy]=useState(false);
   const [releaseDurabilityBusy,setReleaseDurabilityBusy]=useState(false);
+  const [publisherIdentityBusy,setPublisherIdentityBusy]=useState(false);
   const [releaseSealError,setReleaseSealError]=useState("");
   const [releaseTimestampError,setReleaseTimestampError]=useState("");
   const [releasePublicationError,setReleasePublicationError]=useState("");
   const [releaseDurabilityError,setReleaseDurabilityError]=useState("");
+  const [publisherIdentityError,setPublisherIdentityError]=useState("");
   const liveAbortRef=useRef<AbortController|null>(null);
   const evidenceAbortRef=useRef<AbortController|null>(null);
   const researchAbortRef=useRef<AbortController|null>(null);
@@ -122,6 +124,7 @@ export function ThinkTankRoom(){
   const releaseTimestampAbortRef=useRef<AbortController|null>(null);
   const releasePublicationAbortRef=useRef<AbortController|null>(null);
   const releaseDurabilityAbortRef=useRef<AbortController|null>(null);
+  const publisherIdentityAbortRef=useRef<AbortController|null>(null);
   const motionMode=useMotionPolicy();
 
   const applyEvent=useCallback((event:ThinkTankEvent)=>{
@@ -130,7 +133,7 @@ export function ThinkTankRoom(){
   },[]);
 
   const playback=useEventPlayback(applyEvent,motionMode);
-  const busy=playback.playing||liveRunning||evidenceFetching||researchSearching||excerptBusy||argumentReviewBusy||dossierSealBusy||dossierTransparencyBusy||dossierCheckpointBusy||dossierWitnessBusy||dossierTimestampBusy||dossierPublicationBusy||releaseSealBusy||releaseVerifyBusy||releaseTimestampBusy||releasePublicationBusy||releaseDurabilityBusy;
+  const busy=playback.playing||liveRunning||evidenceFetching||researchSearching||excerptBusy||argumentReviewBusy||dossierSealBusy||dossierTransparencyBusy||dossierCheckpointBusy||dossierWitnessBusy||dossierTimestampBusy||dossierPublicationBusy||releaseSealBusy||releaseVerifyBusy||releaseTimestampBusy||releasePublicationBusy||releaseDurabilityBusy||publisherIdentityBusy;
 
   const refreshProviders=useCallback(async()=>{
     try{
@@ -1658,6 +1661,71 @@ export function ThinkTankRoom(){
     }
   };
 
+  const verifyPublisherIdentity=async(publicationId:string)=>{
+    if(busy)return;
+    const publication=stateRef.current.dossierReleasePublications.find(item=>item.id===publicationId);
+    if(!publication)return;
+
+    let releasePackage;
+    try{
+      releasePackage=buildDossierReleasePackageForPublication(stateRef.current,publication);
+    }catch(error){
+      setPublisherIdentityError(error instanceof Error?error.message:String(error));
+      return;
+    }
+
+    const controller=new AbortController();
+    publisherIdentityAbortRef.current=controller;
+    setPublisherIdentityBusy(true);
+    setPublisherIdentityError("");
+
+    emitInput({
+      source:"operator",
+      kind:"dossier.release.publisher.identity.requested",
+      phase:stateRef.current.phase,
+      dossierReleaseId:publication.releaseId,
+      dossierPublisherIdentityPublicationId:publication.id,
+      message:
+        "Operator requested signed publisher-origin identity verification for "+
+        publication.id+"."
+    });
+
+    try{
+      const response=await verifyDossierPublisherOriginIdentity(
+        releasePackage,
+        publication,
+        controller.signal
+      );
+      emitInput({
+        source:"tool",
+        kind:"dossier.release.publisher.identity.completed",
+        phase:stateRef.current.phase,
+        dossierReleaseId:publication.releaseId,
+        dossierPublisherIdentityPublicationId:publication.id,
+        dossierPublisherIdentity:response.identity,
+        message:
+          "Publisher origin "+response.identity.retrievalOrigin+
+          " served a valid signed identity descriptor as "+response.identity.id+"."
+      });
+    }catch(error){
+      const message=error instanceof Error?error.message:String(error);
+      setPublisherIdentityError(message);
+      try{
+        emitInput({
+          source:"tool",
+          kind:"dossier.release.publisher.identity.failed",
+          phase:stateRef.current.phase,
+          dossierReleaseId:publication.releaseId,
+          dossierPublisherIdentityPublicationId:publication.id,
+          message:"Publisher-origin identity verification failed: "+message
+        });
+      }catch{}
+    }finally{
+      publisherIdentityAbortRef.current=null;
+      setPublisherIdentityBusy(false);
+    }
+  };
+
   const runAutoRoute=()=>playInputs(routingEventInputs(routingPreview));
 
   const pinRole=(roleId:RoleId,seatId:SeatId)=>{
@@ -1790,6 +1858,7 @@ export function ThinkTankRoom(){
     releaseTimestampAbortRef.current?.abort();
     releasePublicationAbortRef.current?.abort();
     releaseDurabilityAbortRef.current?.abort();
+    publisherIdentityAbortRef.current?.abort();
     liveAbortRef.current?.abort();
     playback.cancel();
     setLiveRunning(false);
@@ -1989,6 +2058,7 @@ export function ThinkTankRoom(){
           releaseTimestampBusy={releaseTimestampBusy}
           releasePublicationBusy={releasePublicationBusy}
           releaseDurabilityBusy={releaseDurabilityBusy}
+          publisherIdentityBusy={publisherIdentityBusy}
           error={dossierSealError}
           transparencyError={dossierTransparencyError}
           witnessError={dossierWitnessError}
@@ -1998,6 +2068,7 @@ export function ThinkTankRoom(){
           releaseTimestampError={releaseTimestampError}
           releasePublicationError={releasePublicationError}
           releaseDurabilityError={releaseDurabilityError}
+          publisherIdentityError={publisherIdentityError}
           onSeal={dossierId=>void sealDossier(dossierId)}
           onVerify={(dossierId,sealId)=>void verifyDossierSeal(dossierId,sealId)}
           onTransparencyAppend={(dossierId,sealId)=>void appendTransparencyJournal(dossierId,sealId)}
@@ -2017,6 +2088,7 @@ export function ThinkTankRoom(){
           onReleaseAvailability={(releaseId,packageSha256,policy)=>
             evaluateReleaseAvailability(releaseId,packageSha256,policy)
           }
+          onPublisherIdentity={publicationId=>void verifyPublisherIdentity(publicationId)}
         />
 
         {state.synthesisWithheld&&<div className="gate-block">

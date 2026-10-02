@@ -524,6 +524,31 @@ A matching new RPUB or RAUD changes the deterministic basis and makes an older r
 
 See [RELEASE_AVAILABILITY_ASSURANCE.md](RELEASE_AVAILABILITY_ASSURANCE.md).
 
+## Publisher origin identity attestation
+
+PR 30 adds a signed identity-claim evidence layer for RPUB retrieval origins.
+
+For a selected historical RPUB, Think Tank:
+1. reconstructs and revalidates the exact historical release package
+2. derives the RPUB retrieval origin
+3. derives /.well-known/phi-publisher-identity.json on that exact origin
+4. fetches it over the pinned public HTTPS boundary with no credentials or redirects
+5. verifies its Ed25519 public key, SPKI SHA-256 fingerprint, and descriptor signature
+6. records a canonical POID receipt
+
+The descriptor contains self-attested publisher id, label, and administrative-domain claim fields.
+
+POID explicitly carries:
+- realWorldIdentityAuthority: false
+- operatorIndependenceAuthority: false
+- truthAuthority: false
+
+Multiple POID receipts may record key/claim rotation over time. The exact same descriptor SHA-256 may only be accepted once per RPUB.
+
+PR 30 deliberately does not alter RAVA policy semantics. A future explicit policy can decide whether and how to use POID evidence.
+
+See [PUBLISHER_ORIGIN_IDENTITY.md](PUBLISHER_ORIGIN_IDENTITY.md).
+
 ## PR ladder
 
 1. ✅ Room shell + operator authority
@@ -554,6 +579,7 @@ See [RELEASE_AVAILABILITY_ASSURANCE.md](RELEASE_AVAILABILITY_ASSURANCE.md).
 26. ✅ RFC 3161 trusted release timestamp
 27. ✅ Verified external release publication
 28. ✅ Release publication durability audit
-29. Release availability assurance policy
+29. ✅ Release availability assurance policy
+30. Publisher origin identity attestation
 
-Future work can add proper PDF extraction, authenticated remote deployment, richer provider discovery, streaming, tool execution, voice, witness trust registries, scheduled durability monitoring, publisher identity/administrative-domain evidence, TSA trust-store management, external signer identity attestation, and optional post-release policy automation without changing the core event contract.
+Future work can add proper PDF extraction, authenticated remote deployment, richer provider discovery, streaming, tool execution, voice, witness trust registries, scheduled durability monitoring, explicit identity-aware availability policy, stronger external operator identity attestation, TSA trust-store management, release-signer identity attestation, and optional post-release policy automation without changing the core event contract.
