@@ -70,11 +70,12 @@ export function ProviderPanel({
       <button type="button" onClick={onRefresh} disabled={liveBusy}>REFRESH PROVIDERS</button>
       <button type="button" onClick={onSync} disabled={liveBusy||!status}>SYNC HEALTH → CRANE FLY</button>
       <button type="button" className="live-run" onClick={onRunLive} disabled={liveBusy||!liveReady}>
-        {liveBusy?"LIVE RUN ACTIVE":"RUN LIVE MODE"}
+        {liveBusy?"LIVE PROVIDERS ACTIVE":"RUN LIVE PROVIDERS"}
       </button>
     </div>
 
     <footer>
+      RUN LIVE PROVIDERS executes configured model backends. RUN SIMULATION in the operator rail uses deterministic fixtures.
       Remote providers remain disabled until both their server-side API key and model are configured.
       LIVE threshold modes fail closed at Reality Gate until a production evidence scorer exists.
     </footer>
