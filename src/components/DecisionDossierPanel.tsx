@@ -1,8 +1,23 @@
-import type { ThinkTankState } from "../domain/types";
+import {useRef,useState} from "react";
+import type { DossierTransparencyCheckpoint,DossierTransparencyWitnessReceipt,ThinkTankState } from "../domain/types";
 import type { DossierSealStatusResponse,DossierTransparencyStatusResponse } from "../providers/types";
 import { latestDecisionDossier,overrideForDossier } from "../domain/decisionDossier";
 
 const short=(value:string)=>value.replace("fnv1a32:","").slice(0,10)+"…";
+
+const downloadJson=(filename:string,value:unknown)=>{
+  const blob=new Blob([JSON.stringify(value,null,2)],{type:"application/json;charset=utf-8"});
+  const url=URL.createObjectURL(blob);
+  const link=document.createElement("a");
+  link.href=url;
+  link.download=filename;
+  link.click();
+  URL.revokeObjectURL(url);
+};
+
+const exportCheckpoint=(checkpoint:DossierTransparencyCheckpoint)=>{
+  downloadJson(checkpoint.id.toLowerCase()+"-transparency-checkpoint.json",checkpoint);
+};
 
 const exportDossier=(state:ThinkTankState)=>{
   const dossier=latestDecisionDossier(state);
@@ -12,16 +27,25 @@ const exportDossier=(state:ThinkTankState)=>{
   const sealIds=new Set(seals.map(item=>item.id));
   const verifications=state.dossierSealVerifications.filter(item=>sealIds.has(item.sealId));
   const transparencyEntries=state.dossierTransparencyEntries.filter(item=>sealIds.has(item.sealId));
-  const blob=new Blob(
-    [JSON.stringify({dossier,override,seals,verifications,transparencyEntries},null,2)],
-    {type:"application/json;charset=utf-8"}
+  const transparencyEntryIds=new Set(transparencyEntries.map(item=>item.id));
+  const transparencyCheckpoints=state.dossierTransparencyCheckpoints.filter(item=>transparencyEntryIds.has(item.headEntryId));
+  const checkpointIds=new Set(transparencyCheckpoints.map(item=>item.id));
+  const witnesses=state.dossierTransparencyWitnesses.filter(item=>checkpointIds.has(item.checkpointId));
+  const witnessIds=new Set(witnesses.map(item=>item.id));
+  const witnessVerifications=state.dossierTransparencyWitnessVerifications.filter(item=>witnessIds.has(item.witnessId));
+  downloadJson(
+    dossier.id.toLowerCase()+"-decision-dossier.json",
+    {
+      dossier,
+      override,
+      seals,
+      verifications,
+      transparencyEntries,
+      transparencyCheckpoints,
+      witnesses,
+      witnessVerifications
+    }
   );
-  const url=URL.createObjectURL(blob);
-  const link=document.createElement("a");
-  link.href=url;
-  link.download=dossier.id.toLowerCase()+"-decision-dossier.json";
-  link.click();
-  URL.revokeObjectURL(url);
 };
 
 export function DecisionDossierPanel({
@@ -31,11 +55,16 @@ export function DecisionDossierPanel({
   busy,
   sealBusy,
   transparencyBusy,
+  checkpointBusy,
+  witnessBusy,
   error,
   transparencyError,
+  witnessError,
   onSeal,
   onVerify,
-  onTransparencyAppend
+  onTransparencyAppend,
+  onCheckpoint,
+  onWitnessImport
 }:{
   state:ThinkTankState;
   sealStatus:DossierSealStatusResponse|null;
@@ -43,12 +72,19 @@ export function DecisionDossierPanel({
   busy:boolean;
   sealBusy:boolean;
   transparencyBusy:boolean;
+  checkpointBusy:boolean;
+  witnessBusy:boolean;
   error:string;
   transparencyError:string;
+  witnessError:string;
   onSeal:(dossierId:string)=>void;
   onVerify:(dossierId:string,sealId:string)=>void;
   onTransparencyAppend:(dossierId:string,sealId:string)=>void;
+  onCheckpoint:()=>void;
+  onWitnessImport:(checkpointId:string,witness:DossierTransparencyWitnessReceipt)=>void;
 }){
+  const witnessFileRef=useRef<HTMLInputElement>(null);
+  const [witnessImportError,setWitnessImportError]=useState("");
   const dossier=latestDecisionDossier(state);
 
   if(!dossier){
@@ -100,6 +136,39 @@ export function DecisionDossierPanel({
         :transparencyStatus?.state==="ready"
           ?"READY"
           :"DISABLED";
+  const acceptedJournalHead=state.dossierTransparencyEntries[
+    state.dossierTransparencyEntries.length-1
+  ]??null;
+  const isAcceptedJournalHead=Boolean(
+    latestTransparency&&acceptedJournalHead?.id===latestTransparency.id
+  );
+  const latestCheckpoint=latestTransparency
+    ?[...state.dossierTransparencyCheckpoints]
+      .reverse()
+      .find(item=>item.headEntryId===latestTransparency.id)??null
+    :null;
+  const latestWitness=latestCheckpoint
+    ?[...state.dossierTransparencyWitnesses]
+      .reverse()
+      .find(item=>item.checkpointId===latestCheckpoint.id)??null
+    :null;
+  const latestWitnessVerification=latestWitness
+    ?[...state.dossierTransparencyWitnessVerifications]
+      .reverse()
+      .find(item=>item.witnessId===latestWitness.id)??null
+    :null;
+
+  const importWitnessFile=async(file:File|null)=>{
+    if(!file||!latestCheckpoint)return;
+    try{
+      const parsed=JSON.parse(await file.text()) as DossierTransparencyWitnessReceipt;
+      if(!parsed||typeof parsed!=="object")throw new Error("Witness file does not contain a JSON object.");
+      setWitnessImportError("");
+      onWitnessImport(latestCheckpoint.id,parsed);
+    }catch(error){
+      setWitnessImportError(error instanceof Error?error.message:String(error));
+    }
+  };
 
   return <section className="decision-dossier-panel">
     <header>
@@ -262,11 +331,103 @@ export function DecisionDossierPanel({
                 :"APPEND SEAL TO JOURNAL"}
           </button>
         </div>
+
+        <div className="dossier-checkpoint">
+          <div className="dossier-transparency-head">
+            <div>
+              <small>PORTABLE HEAD CHECKPOINT</small>
+              <strong>{latestCheckpoint?"FROZEN":"NOT FROZEN"}</strong>
+            </div>
+            <span>{latestCheckpoint?"#"+latestCheckpoint.entryCount:isAcceptedJournalHead?"HEAD READY":"LATEST DOSSIER IS NOT JOURNAL HEAD"}</span>
+          </div>
+
+          {latestCheckpoint
+            ?<div className="dossier-seal-details">
+              <p><b>Checkpoint</b> {latestCheckpoint.id}</p>
+              <p><b>Checkpoint SHA-256</b> {latestCheckpoint.checkpointSha256}</p>
+              <p><b>Journal head</b> {latestCheckpoint.headEntryId}</p>
+              <p><b>Head SHA-256</b> {latestCheckpoint.headSha256}</p>
+              <p><b>Clock</b> UNTRUSTED LOCAL CLOCK · {latestCheckpoint.createdAt}</p>
+            </div>
+            :<p>
+              Freeze the current accepted journal head into a portable checkpoint before sending it to an independent witness.
+            </p>}
+
+          <div className="dossier-seal-actions">
+            <button
+              type="button"
+              onClick={onCheckpoint}
+              disabled={
+                busy||
+                checkpointBusy||
+                !latestTransparency||
+                !isAcceptedJournalHead||
+                Boolean(latestCheckpoint)||
+                transparencyStatus?.state!=="ready"
+              }
+            >
+              {checkpointBusy?"FREEZING…":latestCheckpoint?"HEAD CHECKPOINTED":"FREEZE JOURNAL CHECKPOINT"}
+            </button>
+            <button
+              type="button"
+              onClick={()=>latestCheckpoint&&exportCheckpoint(latestCheckpoint)}
+              disabled={!latestCheckpoint}
+            >
+              EXPORT CHECKPOINT
+            </button>
+          </div>
+
+          <div className="dossier-witness">
+            <div className="dossier-transparency-head">
+              <div>
+                <small>DETACHED EXTERNAL WITNESS</small>
+                <strong>{latestWitnessVerification?.verified?"WITNESSED · VERIFIED":latestCheckpoint?"AWAITING WITNESS":"NO CHECKPOINT"}</strong>
+              </div>
+              <span>{latestWitness?.witnessLabel??"INDEPENDENT KEY REQUIRED"}</span>
+            </div>
+
+            {latestWitness
+              ?<div className="dossier-seal-details">
+                <p><b>Witness</b> {latestWitness.id}</p>
+                <p><b>Key fingerprint</b> {latestWitness.publicKeyFingerprintSha256}</p>
+                <p><b>Checkpoint SHA-256</b> {latestWitness.checkpointSha256}</p>
+                <p><b>Claimed witness time</b> {latestWitness.witnessedAt}</p>
+                <p><b>Trust</b> SELF-ATTESTED EXTERNAL WITNESS KEY</p>
+                {latestWitnessVerification&&<p><b>Verified locally</b> {latestWitnessVerification.verifiedAt}</p>}
+              </div>
+              :<p>
+                Export the checkpoint, sign it on an independent machine/key, then import only the detached witness JSON.
+              </p>}
+
+            {(witnessError||witnessImportError)&&<div className="dossier-seal-error">{witnessError||witnessImportError}</div>}
+
+            <input
+              ref={witnessFileRef}
+              type="file"
+              accept=".json,application/json"
+              className="dossier-witness-file"
+              onChange={event=>{
+                const file=event.currentTarget.files?.[0]??null;
+                void importWitnessFile(file);
+                event.currentTarget.value="";
+              }}
+            />
+            <div className="dossier-seal-actions">
+              <button
+                type="button"
+                onClick={()=>witnessFileRef.current?.click()}
+                disabled={busy||witnessBusy||!latestCheckpoint}
+              >
+                {witnessBusy?"VERIFYING WITNESS…":"IMPORT WITNESS RECEIPT"}
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
     <footer>
-      <span>Normal dossier is immutable. Seal and transparency receipts add integrity evidence without adding truth authority.</span>
+      <span>Integrity chain: dossier → seal → local journal → portable checkpoint → detached witness. None of these layers grants factual truth authority.</span>
       <button type="button" onClick={()=>exportDossier(state)}>TEAR / EXPORT DOSSIER</button>
     </footer>
   </section>;
