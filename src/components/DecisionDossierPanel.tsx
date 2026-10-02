@@ -1067,7 +1067,9 @@ export function DecisionDossierPanel({
                           ?"RELEASE PUBLICATION VERIFIED"
                           :"PUBLISH + VERIFY RELEASE"}
                     </button>
-                    <div className={"dossier-release-durability "+(latestDurabilityAudit?"release-durability-verified":"")}>
+                  </div>
+
+                  <div className={"dossier-release-durability "+(latestDurabilityAudit?"release-durability-verified":"")}>
                     <div className="dossier-transparency-head">
                       <div>
                         <small>PUBLICATION DURABILITY</small>
@@ -1103,7 +1105,6 @@ export function DecisionDossierPanel({
                       </button>
                     </div>
                   </div>
-                </div>
                 </div>
               </div>
             </div>
