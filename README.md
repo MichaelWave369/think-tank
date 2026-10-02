@@ -6,29 +6,29 @@ A governed, event-sourced multi-mind control room. Cognitive roles are staffed b
 
 ## Current rung
 
-**PR 29 — Release Availability Assurance Policy**
+**PR 30 — Publisher Origin Identity Attestation**
 
-The Think Tank can now deterministically evaluate explicit post-publication availability policies over canonical RPUB + RAUD evidence for one exact release-package SHA-256.
+The Think Tank can now derive each RPUB retrieval origin's fixed .well-known identity URL, retrieve a signed phi-publisher-identity-v1 descriptor, verify its Ed25519 key/signature, and ledger a POID receipt.
 
-PR 29 adds:
-- deterministic RAVA assurance reports
-- Published / Rechecked / Repeated / Multi-origin / Resilient policies
-- exact RPUB/RAUD evidence-id explanations
-- distinct HTTPS origin evaluation
-- two-qualifying-origin logic without penalizing extra copies
-- current vs historical package status
-- package-specific assurance freshness
-- explicit continuous-availability / immutability / origin-independence / truth non-authority
-- governed operator request + system recomputation events
-- release availability assurance UI + dossier export
-- no bridge/network changes; bridge remains 0.13.0
-- policy/freshness/kernel/replay tests
+PR 30 adds:
+- fixed /.well-known/phi-publisher-identity.json discovery
+- RPUB/historical-package validation before identity retrieval
+- pinned public HTTPS identity fetch with no credentials or redirects
+- Ed25519 descriptor signature verification
+- SPKI public-key fingerprint verification
+- self-attested publisher/admin-domain claims
+- canonical POID receipts with explicit non-authority flags
+- key rotation with duplicate exact-descriptor rejection
+- publisher identity keygen + signing helpers
+- publisher-origin identity UI + dossier export
+- bridge version 0.14.0
+- crypto/origin/tamper/kernel/replay tests
 
 ### Important semantic rule
 
-**ASSURANCE MET ≠ CONTINUOUS UPTIME ≠ IMMUTABILITY ≠ ORIGIN INDEPENDENCE ≠ CONTENT TRUE.**
+**VERIFIED ORIGIN KEY ≠ VERIFIED REAL-WORLD OPERATOR ≠ OPERATOR INDEPENDENCE ≠ CONTENT TRUE.**
 
-A passing RAVA report proves only that the selected structural policy is satisfied by recorded RPUB/RAUD observations for one exact package SHA-256. It does not manufacture availability in the gaps or turn distinct origins into independent authorities.
+A verified POID receipt proves that one exact RPUB origin served a descriptor signed by one Ed25519 key making specific publisher/administrative claims. It does not verify the legal identity behind those claims or prove that two keys represent independent operators.
 
 See:
 - [Architecture](docs/ARCHITECTURE.md)
@@ -60,6 +60,7 @@ See:
 - [Verified External Release Publication](docs/RELEASE_PUBLICATION.md)
 - [Release Publication Durability Audit](docs/RELEASE_DURABILITY.md)
 - [Release Availability Assurance Policy](docs/RELEASE_AVAILABILITY_ASSURANCE.md)
+- [Publisher Origin Identity Attestation](docs/PUBLISHER_ORIGIN_IDENTITY.md)
 
 ## Local-first setup
 
@@ -82,7 +83,7 @@ Verification:
 
 > **If a light changes, a sequenced event explains why.**
 
-Every normal synthesis carries a deterministic dossier; it can be sealed, journaled, checkpointed, witnessed, time-attested, externally published, evaluated against an explicit provenance policy, authorized for governed release/export, Ed25519-sealed, RFC 3161 time-attested, externally published as an exact verified release package, re-audited for later public availability, and evaluated against explicit release-availability policies.
+Every normal synthesis carries a deterministic dossier; it can be sealed, journaled, checkpointed, witnessed, time-attested, externally published, evaluated against explicit provenance and availability policies, authorized for governed release/export, Ed25519-sealed, RFC 3161 time-attested, externally published as an exact verified release package, re-audited for later public availability, and linked to signed self-attested identity claims served by publication origins.
 
 ## Build ladder
 
@@ -114,6 +115,7 @@ Every normal synthesis carries a deterministic dossier; it can be sealed, journa
 26. ✅ RFC 3161 trusted release timestamp
 27. ✅ Verified external release publication
 28. ✅ Release publication durability audit
-29. **Release availability assurance policy**
+29. ✅ Release availability assurance policy
+30. **Publisher origin identity attestation**
 
 **Φ THINK TANK is a control room, not eight chat cards.**
