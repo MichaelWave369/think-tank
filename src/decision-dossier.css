@@ -37,3 +37,7 @@
 .dossier-assurance-requirements{display:grid;gap:4px;margin:4px 0}
 .dossier-assurance-requirements>div{display:grid;grid-template-columns:58px minmax(130px,1fr);gap:4px 8px;border-top:1px solid #272b34;padding-top:4px;font-size:.5rem}
 .dossier-assurance-requirements small{grid-column:2;opacity:.68;overflow-wrap:anywhere}
+
+.dossier-release{margin-top:8px;border:1px solid #444b59;background:#07090d;padding:8px;display:grid;gap:7px}
+.dossier-release.release-authorized{border-color:#4f7b68}.dossier-release.release-ready{border-color:#6b6b45}.dossier-release.release-blocked{border-color:#704848}
+.dossier-release>p{margin:0;font-size:.53rem;line-height:1.42;opacity:.78}

@@ -23,6 +23,7 @@ import type {
   ThinkTankState
 } from "../domain/types";
 import { evaluateProvenanceAssurance } from "../domain/provenanceAssurance";
+import { buildDossierReleaseManifest } from "../domain/releaseManifest";
 import { buildEvent,buildEventBatch,replayEvents,verifyReplay } from "../kernel/eventKernel";
 import { deriveMotionCue } from "../motion/motion";
 import { useEventPlayback } from "../motion/useEventPlayback";
@@ -1215,6 +1216,53 @@ export function ThinkTankRoom(){
     });
   };
 
+  const authorizeDossierRelease=(
+    dossierId:string,
+    policy:ProvenanceAssurancePolicyKind,
+    assuranceReportId:string
+  )=>{
+    if(busy)return;
+
+    const manifest=buildDossierReleaseManifest(
+      stateRef.current,
+      dossierId,
+      policy,
+      assuranceReportId
+    );
+    if(stateRef.current.dossierReleaseManifests.some(item=>item.id===manifest.id))return;
+
+    emitInput({
+      source:"operator",
+      kind:"dossier.release.requested",
+      phase:stateRef.current.phase,
+      decisionDossierId:dossierId,
+      provenancePolicy:policy,
+      provenanceAssuranceId:assuranceReportId,
+      message:
+        "Operator requested governed release for "+dossierId+
+        " under "+policy+" assurance."
+    });
+
+    const authorized=buildDossierReleaseManifest(
+      stateRef.current,
+      dossierId,
+      policy,
+      assuranceReportId
+    );
+    emitInput({
+      source:"system",
+      kind:"dossier.release.authorized",
+      phase:stateRef.current.phase,
+      decisionDossierId:dossierId,
+      provenancePolicy:policy,
+      provenanceAssuranceId:assuranceReportId,
+      dossierRelease:authorized,
+      message:
+        "Release "+authorized.id+" authorized by fresh passing "+
+        policy+" provenance assurance."
+    });
+  };
+
   const runAutoRoute=()=>playInputs(routingEventInputs(routingPreview));
 
   const pinRole=(roleId:RoleId,seatId:SeatId)=>{
@@ -1547,6 +1595,9 @@ export function ThinkTankRoom(){
           onTimestamp={checkpointId=>void requestCheckpointTimestamp(checkpointId)}
           onPublish={checkpointId=>void publishCheckpoint(checkpointId)}
           onAssurance={(dossierId,policy)=>evaluateDossierAssurance(dossierId,policy)}
+          onRelease={(dossierId,policy,assuranceReportId)=>
+            authorizeDossierRelease(dossierId,policy,assuranceReportId)
+          }
         />
 
         {state.synthesisWithheld&&<div className="gate-block">

@@ -390,6 +390,21 @@ export interface DossierProvenanceAssuranceReport{
   truthAuthority:false;
 }
 
+export interface DossierReleaseManifest{
+  schemaVersion:1;
+  id:string;
+  dossierId:string;
+  policy:ProvenanceAssurancePolicyKind;
+  assuranceReportId:string;
+  assuranceBasisFingerprint:string;
+  checkpointId:string;
+  operatorOverrideId:string;
+  artifactIds:string[];
+  manifestFingerprint:string;
+  releaseAuthority:"fresh-passing-provenance-policy";
+  truthAuthority:false;
+}
+
 export interface DecisionOverrideReceipt{
   id:string;
   dossierId:string;
@@ -528,6 +543,8 @@ export type ThinkTankEventKind=
   |"dossier.publication.failed"
   |"dossier.assurance.requested"
   |"dossier.assurance.completed"
+  |"dossier.release.requested"
+  |"dossier.release.authorized"
   |"session.aborted";
 
 export interface ThinkTankEvent{
@@ -584,6 +601,8 @@ export interface ThinkTankEvent{
   dossierPublication?:DossierCheckpointPublicationReceipt;
   provenancePolicy?:ProvenanceAssurancePolicyKind;
   provenanceAssurance?:DossierProvenanceAssuranceReport;
+  provenanceAssuranceId?:string;
+  dossierRelease?:DossierReleaseManifest;
   message?:string;
   gateScore?:number;
   override?:boolean;
@@ -647,6 +666,8 @@ export interface ThinkTankEventInput{
   dossierPublication?:DossierCheckpointPublicationReceipt;
   provenancePolicy?:ProvenanceAssurancePolicyKind;
   provenanceAssurance?:DossierProvenanceAssuranceReport;
+  provenanceAssuranceId?:string;
+  dossierRelease?:DossierReleaseManifest;
   message?:string;
   gateScore?:number;
   override?:boolean;
@@ -682,6 +703,7 @@ export interface ThinkTankState{
   dossierRfc3161Timestamps:DossierRfc3161TimestampReceipt[];
   dossierCheckpointPublications:DossierCheckpointPublicationReceipt[];
   dossierProvenanceAssurances:DossierProvenanceAssuranceReport[];
+  dossierReleaseManifests:DossierReleaseManifest[];
   evidenceRefs:EvidenceRef[];
   evidenceExcerpts:EvidenceExcerpt[];
   claims:Claim[];
