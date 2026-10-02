@@ -247,3 +247,18 @@ The exported dossier package includes linked transparency entries.
 The journal does not mutate the decision dossier or the seal. It adds a later integrity receipt.
 
 See [TRANSPARENCY_JOURNAL.md](TRANSPARENCY_JOURNAL.md).
+
+## Portable checkpoint and witness receipts
+
+PR 20 extends exported dossier packages with any transparency checkpoints whose journal head is linked to the dossier's transparency entries, plus matching detached witness receipts and local verification receipts.
+
+The checkpoint/witness layer remains additive historical integrity evidence.
+
+It does not rewrite:
+- the synthesis decision
+- the dossier
+- the dossier seal
+- the journal entry
+- any human override
+
+See [DETACHED_WITNESS.md](DETACHED_WITNESS.md).
