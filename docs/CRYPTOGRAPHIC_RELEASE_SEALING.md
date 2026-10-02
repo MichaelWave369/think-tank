@@ -211,3 +211,13 @@ REL → RSEAL → RVER → RFC3161 RTSA
 The RFC 3161 message imprint is SHA-256 of the complete stable-canonical RSEAL receipt. Therefore the TSA attests the existence time of the exact release-signature receipt, not merely the underlying REL manifest.
 
 See [RFC 3161 Trusted Release Timestamp](RFC3161_RELEASE_TIMESTAMP.md).
+
+## PR 27 external publication extension
+
+PR 27 requires at least one successfully verified RSEAL before an external release package can be published.
+
+The bridge re-verifies every included RSEAL against the REL manifest before sending the package to the configured publisher.
+
+The release signature remains an integrity layer. RPUB adds externally retrievable package evidence without upgrading signer identity or factual truth.
+
+See [Verified External Release Publication](RELEASE_PUBLICATION.md).
