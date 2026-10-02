@@ -242,6 +242,17 @@ export function projectEvent(state:ThinkTankState,event:ThinkTankEvent):ThinkTan
     ];
   }
 
+  if(event.kind==="dossier.release.seal.completed"&&event.dossierReleaseSeal){
+    next.dossierReleaseSeals=[...state.dossierReleaseSeals,event.dossierReleaseSeal];
+  }
+
+  if(event.kind==="dossier.release.verify.completed"&&event.dossierReleaseVerification){
+    next.dossierReleaseSealVerifications=[
+      ...state.dossierReleaseSealVerifications,
+      event.dossierReleaseVerification
+    ];
+  }
+
   if(event.kind==="seat.status"&&event.seatId&&event.seatStatus){
     next.seatStatus={...state.seatStatus,[event.seatId]:event.seatStatus};
   }
