@@ -24,7 +24,7 @@ export function inspectSpvDraft(input:unknown):SpvDraft{
     input.kind!=="operator-directive-draft"||input.source!=="vessie-human-composed")
   return ERR("SCHEMA");
  if(typeof input.directive!=="string"||input.directive.trim().length<3||
-    input.directive.length>1200||/[\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f\\u007f]/.test(input.directive))
+    input.directive.length>1200||/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(input.directive))
   return ERR("DIRECTIVE");
  if(!["council","debate","audit","trio","build"].includes(String(input.suggestedMode)))return ERR("MODE");
  if(input.runRequested!==false||input.executionAuthorityGranted!==false||
