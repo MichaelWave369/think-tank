@@ -19,3 +19,5 @@ jobs:
       - run: node .generated-local-council/local-council-entry.js inspect tests/fixtures/local-council.sample.json
       - run: node --test scripts/local-council-cli.node.mjs
       - run: npm run build
+      - run: npm run pages:build
+      - run: npm run pages:check
