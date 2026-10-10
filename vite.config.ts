@@ -1,10 +1,9 @@
 import {defineConfig} from "vite";
 import react from "@vitejs/plugin-react";
 
-// The public Pages build is a static app served at /think-tank/.
-// Local dev and the existing two-app Vessie acceptance remain at /.
-const publicPages=process.env.VITE_PUBLIC_PAGES==="true";
-export default defineConfig({
+// Vite's explicit 'pages' mode is the only static /think-tank/ build.
+// Ordinary local dev and Vessie's two-app runner still use the root base.
+export default defineConfig(({mode})=>({
   plugins:[react()],
-  base:publicPages?"/think-tank/":"/"
-});
+  base:mode==="pages"?"/think-tank/":"/"
+}));
