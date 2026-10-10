@@ -1,0 +1,41 @@
+name: thinktank-pages-preview-browser
+
+on:
+  pull_request:
+    paths:
+      - "src/**"
+      - "index.html"
+      - "vite.config.ts"
+      - "scripts/build-pages.mjs"
+      - "scripts/check-pages-build.mjs"
+      - "scripts/check-pages-preview.mjs"
+      - ".github/workflows/thinktank-pages-preview-browser.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  public-react-preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout actual PR source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install React dependencies
+        run: npm install --no-audit --no-fund
+      - name: Build published React /think-tank/ profile
+        run: npm run pages:build
+      - name: Verify exact compiled CSS and JavaScript
+        run: npm run pages:check
+      - name: Install pinned Chromium runner (no model keys)
+        run: npm install --no-save --no-package-lock --no-audit --no-fund playwright@1.56.1
+      - name: Install real headless Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Verify actual hosted-path React render, browser simulation and zero local AI traffic
+        run: node scripts/check-pages-preview.mjs

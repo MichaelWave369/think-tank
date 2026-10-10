@@ -2,6 +2,16 @@
 
 **Multi-Mind Terminal for Super Φ.Vessel**
 
+## Live React control room
+
+**GitHub Pages deployment target:** https://michaelwave369.github.io/think-tank/
+
+Public GitHub Pages hosts ThinkTank's real static React UI, browser-governed simulations, ledger replay and dossier review. It does **not** host a live AI provider, auto-connect to your local computer, or execute the #35 local Ollama council CLI. Live model work still requires your separately installed, explicitly operated local ThinkTank bridge and human approval.
+
+**Pages setup + CI:** [GitHub Pages instructions](docs/GITHUB_PAGES.md). A successful local build or merged PR alone is not proof of a working public site; check the actual **thinktank-pages** deploy and **thinktank-pages-deployed-smoke** browser runs.
+
+
+
 A governed, event-sourced multi-mind control room. Cognitive roles are staffed by model/provider seats, coordinated through Commonline, routed by Crane Fly, evaluated through the Reality Gate, and kept under explicit human operator authority.
 
 ## Current rung

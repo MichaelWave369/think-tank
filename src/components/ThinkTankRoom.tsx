@@ -244,6 +244,8 @@ export function ThinkTankRoom(){
   },[]);
 
   useEffect(()=>{
+    // Public GitHub Pages must not probe localhost without explicit action.
+    if(import.meta.env.VITE_PUBLIC_PAGES==="true")return;
     void refreshProviders();
     void refreshResearch();
     void refreshDossierSeal();
@@ -1926,6 +1928,15 @@ export function ThinkTankRoom(){
       <p>MULTI-MIND COLLABORATION<br/>A BRIGHTER REALITY TOGETHER.</p>
     </header>
 
+    {import.meta.env.VITE_PUBLIC_PAGES==="true"&&
+     <section className="public-pages-notice" aria-label="Public ThinkTank static site" role="status">
+      <strong>PUBLIC REACT CONTROL ROOM · STATIC GITHUB PAGES</strong>
+      <span>Governed simulations, decision review and dossier export run in this browser. LIVE models, research, evidence retrieval and signing require a separately installed local bridge and explicit operator action. No local bridge is contacted automatically and no API keys are hosted here.</span>
+      <nav aria-label="ThinkTank project links">
+       <a href="https://github.com/MichaelWave369/think-tank" target="_blank" rel="noopener noreferrer">SOURCE / LOCAL SETUP ↗</a>
+       <a href="https://michaelwave369.github.io/SuperPhiVessel/vessie/" target="_blank" rel="noopener noreferrer">SUPER Φ.VESSEL ↗</a>
+      </nav>
+     </section>}
     {(spvIncoming||spvHandoffError)&&
      <section aria-label="Vessie incoming ThinkTank directive" className="room-map-chip" style={{display:"block",width:"100%",textAlign:"left",padding:"1rem"}}>
       <strong>VESSIE → THINKTANK · REVIEW-ONLY INCOMING DRAFT</strong>

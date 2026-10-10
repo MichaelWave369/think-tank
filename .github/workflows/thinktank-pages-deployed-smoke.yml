@@ -1,0 +1,34 @@
+name: thinktank-pages-deployed-smoke
+
+on:
+  workflow_run:
+    workflows: ["thinktank-pages"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  public-chromium-smoke:
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.event == 'push' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Read exact published source test
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+      - name: Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install temporary pinned browser runner (no provider secrets)
+        run: npm install --no-save --no-package-lock --no-audit --no-fund playwright@1.56.1
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Verify public HTML, assets, exact deployed commit and no automatic AI calls
+        env:
+          EXPECTED_SHA: ${{ github.event.workflow_run.head_sha }}
+          EXPECTED_RUN_ID: ${{ github.event.workflow_run.id }}
+        run: node scripts/check-pages-deployed.mjs
