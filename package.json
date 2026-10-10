@@ -19,7 +19,9 @@
     "publisher:identity:sign": "node scripts/sign-publisher-identity.mjs",
     "council:build": "vite build --ssr scripts/local-council-entry.ts --outDir .generated-local-council",
     "council:inspect": "node .generated-local-council/local-council-entry.js inspect",
-    "council:run": "node .generated-local-council/local-council-entry.js run"
+    "council:run": "node .generated-local-council/local-council-entry.js run",
+    "pages:build": "node scripts/build-pages.mjs",
+    "pages:check": "node scripts/check-pages-build.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",
