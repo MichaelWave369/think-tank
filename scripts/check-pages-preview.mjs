@@ -10,7 +10,7 @@ import {chromium} from "playwright";
 const site="http://127.0.0.1:4177/think-tank/";
 // Spawn Vite directly: killing npm alone can leave an orphaned preview server.
 const vite=resolve("node_modules/vite/bin/vite.js");
-const child=spawn(process.execPath,[vite,"preview","--host","127.0.0.1",
+const child=spawn(process.execPath,[vite,"preview","--mode","pages","--host","127.0.0.1",
  "--port","4177","--strictPort"],{stdio:["ignore","ignore","pipe"]});
 let childErrors="";
 child.stderr.on("data",c=>{childErrors+=c.toString().slice(0,3000)});
@@ -43,7 +43,18 @@ try{
   route=>route.abort("blockedbyclient"));
  const response=await page.goto(site,{waitUntil:"networkidle"});
  assert.equal(response?.status(),200);
- await page.locator(".room-header strong").waitFor({state:"visible"});
+ try{
+  await page.locator(".room-header strong").waitFor({state:"visible"});
+ }catch(error){
+  console.error("PAGES_PREVIEW_RENDER_DIAGNOSTICS",JSON.stringify({
+   url:page.url(),
+   title:await page.title().catch(()=>null),
+   body:(await page.locator("body").innerText().catch(()=>'' )).slice(0,1400),
+   pageErrors:exceptions,failedAssets:missing,
+   scripts:await page.evaluate(()=>[...document.querySelectorAll("script[src]")].map(x=>x.src)).catch(()=>[])
+  }));
+  throw error
+ }
  assert.equal((await page.locator(".room-header strong").innerText()).trim(),"Φ THINK TANK");
  await page.locator('[aria-label="Public ThinkTank static site"]').waitFor({state:"visible"});
  assert.match(await page.locator('[aria-label="Public ThinkTank static site"]').innerText(),
