@@ -47,8 +47,8 @@ export function inspectLocalCouncilContract(x:unknown):LocalCouncilContract{
  const roles=modeDefinition(x.mode as CollaborationMode).speakerQueue;
  if(!Number.isInteger(x.maxRoleTurns)||x.maxRoleTurns!==roles.length||roles.length>5)
   return refused("ROLE_BUDGET");
- if(!Number.isInteger(x.maxSessionSeconds)||x.maxSessionSeconds<30||
-    x.maxSessionSeconds>600)return refused("TIME_BUDGET");
+ if(typeof x.maxSessionSeconds!=="number"||!Number.isInteger(x.maxSessionSeconds)||
+    x.maxSessionSeconds<30||x.maxSessionSeconds>600)return refused("TIME_BUDGET");
  if(x.allowRemoteProviders!==false||x.browserAutoRun!==false||
     x.executionAuthorityGranted!==false||x.externalDoneAttested!==false)
   return refused("AUTHORITY");
