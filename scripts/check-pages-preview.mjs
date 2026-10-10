@@ -4,12 +4,14 @@
 import assert from "node:assert/strict";
 import {spawn} from "node:child_process";
 import {readFile} from "node:fs/promises";
+import {resolve} from "node:path";
 import {chromium} from "playwright";
 
 const site="http://127.0.0.1:4177/think-tank/";
-const npm=process.platform==="win32"?"npm.cmd":"npm";
-const child=spawn(npm,["run","preview","--","--host","127.0.0.1",
- "--port","4177","--strictPort"],{stdio:["ignore","pipe","pipe"]});
+// Spawn Vite directly: killing npm alone can leave an orphaned preview server.
+const vite=resolve("node_modules/vite/bin/vite.js");
+const child=spawn(process.execPath,[vite,"preview","--host","127.0.0.1",
+ "--port","4177","--strictPort"],{stdio:["ignore","ignore","pipe"]});
 let childErrors="";
 child.stderr.on("data",c=>{childErrors+=c.toString().slice(0,3000)});
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
