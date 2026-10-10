@@ -1,0 +1,13 @@
+{
+  "schema": "phi-thinktank-local-council.v0.1",
+  "mode": "council",
+  "directive": "Investigate release evidence and identify unsupported completion claims without approving external action.",
+  "provider": "ollama-local-only",
+  "model": "gemma3:12b",
+  "maxRoleTurns": 5,
+  "maxSessionSeconds": 180,
+  "allowRemoteProviders": false,
+  "browserAutoRun": false,
+  "executionAuthorityGranted": false,
+  "externalDoneAttested": false
+}
