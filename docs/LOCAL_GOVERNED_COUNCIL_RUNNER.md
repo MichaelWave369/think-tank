@@ -58,7 +58,7 @@ The CLI will return a nonzero exit status on incomplete or aborted sessions. It 
 
 ## Verification
 
-CI executes `npm test`, `npm run bridge:check`, `npm run bridge:test`, `npm run council:build`, and an **inspection** of a sample JSON contract with no live inference. Additional unit tests exercise local-only Crane Fly role selection, provider-scope refusal, source:provider Challenger turns, replay exactness, WITHHELD governance and cancellation.
+CI executes `npm test`, `npm run bridge:check`, `npm run bridge:test`, `npm run council:build`, a **read-only contract inspection**, and a real invocation of the bundled terminal `run` command against a **synthetic localhost mock bridge**. The mock accepts five role turns, and the test verifies generated ledger replay and WITHHELD dossier. An invalid SHA approval must refuse without a single provider request. Unit tests additionally exercise local-only Crane Fly role selection, provider-scope refusal, source:provider Challenger turns, replay exactness, withheld governance and cancellation.
 
 **No real installed user Ollama model was run by CI**. An operator-run live session must be verified separately from its actual receipts.
 
