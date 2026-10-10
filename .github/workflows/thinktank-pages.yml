@@ -1,0 +1,53 @@
+name: thinktank-pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: thinktank-pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Checkout exact public source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install dependencies without provider credentials
+        run: npm install --no-audit --no-fund
+      - name: Verify React / governed TypeScript and tests
+        run: npm test
+      - name: Build static GitHub Pages React at /think-tank/
+        run: npm run pages:build
+      - name: Check published asset base and actual build output
+        run: npm run pages:check
+      - name: Write self-reported deployment source manifest
+        run: node scripts/write-pages-provenance.mjs "$GITHUB_SHA" "$GITHUB_RUN_ID"
+      - name: Configure GitHub Pages with Actions source
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - name: Upload static compiled frontend
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+      - name: Deploy public Pages site
+        id: deploy
+        uses: actions/deploy-pages@v4
