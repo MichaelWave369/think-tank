@@ -16,7 +16,10 @@
     "witness:keygen": "node scripts/generate-witness-key.mjs",
     "witness:sign": "node scripts/sign-transparency-checkpoint.mjs",
     "publisher:identity:keygen": "node scripts/generate-publisher-identity-key.mjs",
-    "publisher:identity:sign": "node scripts/sign-publisher-identity.mjs"
+    "publisher:identity:sign": "node scripts/sign-publisher-identity.mjs",
+    "council:build": "vite build --ssr scripts/local-council-entry.ts --outDir .generated-local-council",
+    "council:inspect": "node .generated-local-council/local-council-entry.js inspect",
+    "council:run": "node .generated-local-council/local-council-entry.js run"
   },
   "dependencies": {
     "react": "^18.3.1",
