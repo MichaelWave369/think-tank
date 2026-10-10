@@ -1,4 +1,5 @@
 import { useCallback,useEffect,useMemo,useReducer,useRef,useState } from "react";
+import {readSpvFragment,type SpvDraft} from "../spvHandoff";
 import { roles,seats } from "../data/terminals";
 import { planAssignments,routingEventInputs,scoreSeatForRole } from "../domain/craneFly";
 import { evaluateClaimCoverage } from "../domain/claimCoverage";
@@ -67,6 +68,19 @@ export function ThinkTankRoom(){
   stateRef.current=state;
 
   const [prompt,setPrompt]=useState("");
+  // A fragment is an untrusted proposal, not a ThinkTank event.
+  const [spvIncoming,setSpvIncoming]=useState<SpvDraft|null>(null);
+  const [spvHandoffError,setSpvHandoffError]=useState("");
+  useEffect(()=>{
+    const original=window.location.hash;
+    if(!original.startsWith("#spv-draft="))return;
+    // Clear before processing. Prompt stays out of fetch URLs and address bar
+    // after navigation; browser history may retain previously entered URLs.
+    window.history.replaceState(window.history.state,"",window.location.pathname+window.location.search);
+    try{setSpvIncoming(readSpvFragment(original))}
+    catch(e){setSpvHandoffError(e instanceof Error?e.message:"SPV_DRAFT_INVALID")}
+  },[]);
+
   const [providerStatus,setProviderStatus]=useState<ProviderStatusResponse|null>(null);
   const [providerError,setProviderError]=useState("");
   const [localModel,setLocalModel]=useState("");
@@ -1912,6 +1926,20 @@ export function ThinkTankRoom(){
       <p>MULTI-MIND COLLABORATION<br/>A BRIGHTER REALITY TOGETHER.</p>
     </header>
 
+    {(spvIncoming||spvHandoffError)&&
+     <section aria-label="Vessie incoming ThinkTank directive" className="room-map-chip" style={{display:"block",width:"100%",textAlign:"left",padding:"1rem"}}>
+      <strong>VESSIE → THINKTANK · REVIEW-ONLY INCOMING DRAFT</strong>
+      {spvIncoming&&<>
+       <p>Untrusted operator-composed text from another browser tab. Suggested mode: {spvIncoming.suggestedMode.toUpperCase()}. Mode will NOT change automatically.</p>
+       <pre style={{whiteSpace:"pre-wrap",overflowWrap:"anywhere",maxHeight:"10rem",overflowY:"auto"}}>{spvIncoming.directive}</pre>
+       <p>Not executed. No provider called. No approval, evidence, budget or completion imported. Review before using the directive.</p>
+       <button type="button" disabled={busy} onClick={()=>{
+         setPrompt(spvIncoming.directive);setSpvIncoming(null);
+       }}>USE REVIEWED DRAFT IN OPERATOR INPUT (NO RUN)</button>
+       <button type="button" onClick={()=>setSpvIncoming(null)}>DISMISS UNTRUSTED DRAFT</button>
+      </>}
+      {spvHandoffError&&<p role="alert">Incoming Vessie draft refused: {spvHandoffError}</p>}
+     </section>}
     <button className="room-map-chip" aria-label="Room map">ROOM MAP · ROLES / COMMONLINE / OPERATOR / LEDGER</button>
 
     <section className="role-wall" aria-label="Cognitive role terminals">
