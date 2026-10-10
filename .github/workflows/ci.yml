@@ -17,4 +17,5 @@ jobs:
       - run: npm run bridge:test
       - run: npm run council:build
       - run: node .generated-local-council/local-council-entry.js inspect tests/fixtures/local-council.sample.json
+      - run: node --test scripts/local-council-cli.node.mjs
       - run: npm run build
