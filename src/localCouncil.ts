@@ -98,7 +98,7 @@ export async function runLocalGovernedCouncil(
  const replay=verifyReplay(createInitialState(),result.state.events,result.state);
  if(!replay.valid||!replay.exact)return refused("LEDGER_REPLAY");
  if(requests.length>contract.maxRoleTurns)return refused("ROLE_BUDGET");
- const dossier=result.state.decisionDossiers.at(-1)??null;
+ const dossier=result.state.decisionDossiers.slice(-1)[0]??null;
  return {
   result:{completed:result.completed,aborted:result.aborted,error:result.error??null,
    turnsInvoked:requests.length,mode:contract.mode,model:contract.model},
