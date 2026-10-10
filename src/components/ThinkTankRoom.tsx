@@ -55,6 +55,7 @@ import { ModeBar } from "./ModeBar";
 import { MotionLayer } from "./MotionLayer";
 import { ProviderPanel } from "./ProviderPanel";
 import { ResearchPanel } from "./ResearchPanel";
+import { InspirationLedgerPanel } from "./InspirationLedgerPanel";
 import { SourceExcerptPanel } from "./SourceExcerptPanel";
 import { SystemStatus } from "./SystemStatus";
 import { LedgerRoll } from "./LedgerRoll";
@@ -2079,6 +2080,8 @@ export function ThinkTankRoom(){
           onSearch={(claimId,query)=>void runResearch(claimId,query)}
           onVerify={verifyResearchCandidate}
         />
+
+        <InspirationLedgerPanel />
 
         <GovernancePanel
           state={state}

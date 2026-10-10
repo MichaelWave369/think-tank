@@ -1,0 +1,21 @@
+.inspiration-panel{border:1px solid #356659;background:linear-gradient(180deg,#091b16,#050b09);padding:12px;color:#d4ffec;display:grid;gap:10px}
+.inspiration-panel header{display:flex;justify-content:space-between;gap:12px;align-items:center;border-bottom:1px solid #356659;padding-bottom:8px}
+.inspiration-panel header>div{display:grid;gap:3px}.inspiration-panel header strong{font-size:.78rem}
+.inspiration-panel header span{font-size:.57rem;color:#8dcab0}.inspiration-panel header b{font-size:.58rem;border:1px solid #84dab4;padding:5px 8px}
+.inspiration-warning{margin:0;font-size:.65rem;line-height:1.5;color:#a8d0c1}
+.inspiration-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.inspiration-fields label{display:grid;gap:4px;font-size:.59rem;letter-spacing:.03em;color:#9bdec1}
+.inspiration-fields input,.inspiration-fields textarea{width:100%;min-width:0;background:#020907;border:1px solid #396456;color:#e7fff4;padding:9px;font:inherit;font-size:.76rem}
+.inspiration-fields label:nth-child(n+3){grid-column:1/-1}
+.inspiration-actions{display:flex;flex-wrap:wrap;gap:8px}
+.inspiration-actions button,.inspiration-entry-title button{background:#10241d;color:#c3ffdf;border:1px solid #497b63;padding:8px;font:inherit;font-size:.66rem}
+.inspiration-actions button:disabled{opacity:.4;cursor:not-allowed}
+.inspiration-error{color:#ffbcb5}.inspiration-panel [role=status]{color:#a6ffd3}.inspiration-error,.inspiration-panel [role=status]{font-size:.65rem;margin:0}
+.inspiration-entries{display:grid;gap:10px}.inspiration-entries>p{font-size:.67rem;opacity:.7;margin:0}
+.inspiration-entries article{display:grid;gap:7px;padding:11px;background:#030c09;border:1px solid #315746;overflow-wrap:anywhere}
+.inspiration-entry-title{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.inspiration-entry-title strong{font-size:.82rem}.inspiration-entries article small{color:#96c0aa;font-size:.56rem}
+.inspiration-entries article a{color:#7cebc3;font-size:.65rem}
+.inspiration-entries article p{display:grid;gap:3px;margin:0;font-size:.66rem;line-height:1.4}
+.inspiration-entries article p b{color:#8fd4ac;font-size:.58rem}.inspiration-entries article p span{white-space:pre-wrap}
+@media(max-width:700px){.inspiration-panel header{align-items:start;flex-direction:column}.inspiration-fields{grid-template-columns:1fr}.inspiration-fields label:nth-child(n){grid-column:1}.inspiration-entry-title{align-items:start;flex-direction:column}}
