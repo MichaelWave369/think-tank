@@ -54,6 +54,7 @@ See:
 - [Claim Registry + Bindings](docs/CLAIM_BINDINGS.md)
 - [Governed Research / Search](docs/GOVERNED_RESEARCH.md)
 - [Original Inspiration Ledger](docs/INSPIRATION_LEDGER.md)
+- [Software Behavior Lab](docs/SOFTWARE_BEHAVIOR_LAB.md)
 - [Challenger Claim Coverage](docs/CHALLENGER_COVERAGE.md)
 - [Claim-Aware Governance](docs/CLAIM_GOVERNANCE.md)
 - [Hash-Locked Source Excerpts](docs/SOURCE_EXCERPTS.md)
@@ -132,7 +133,8 @@ Every normal synthesis carries a deterministic dossier; it can be sealed, journa
 32. ✅ Live Ollama hardening + run-path clarity
 33. ✅ Live prompt contract + simulation provenance clarity
 34–36. ✅ Vessie handoff, local governed council CLI, GitHub Pages control room
-37. **Original Inspiration Ledger (review-only browser workspace; pending CI)**
+37. ✅ Original Inspiration Ledger (review-only browser workspace)
+38. **Software Behavior Lab (operator-only studies, original designs and candidate tests; pending CI)**
 
 **Φ THINK TANK is a control room, not eight chat cards.**
 
