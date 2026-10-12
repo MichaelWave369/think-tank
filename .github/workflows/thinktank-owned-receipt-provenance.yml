@@ -22,6 +22,7 @@ on:
       - "scripts/tt48-isolation-policy.mjs"
       - "scripts/tt48-isolation-policy.node.mjs"
       - "scripts/verify-tt48-network-isolated.mjs"
+      - "scripts/tt48-docker-preflight.mjs"
       - ".github/workflows/thinktank-independent-provenance-consumer.yml"
       - "tests/fixtures/observatory-owned-counter.html"
       - "tests/fixtures/observatory-owned-counter.contract.json"
