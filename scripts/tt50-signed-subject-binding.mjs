@@ -9,7 +9,7 @@
 import {createHash} from "node:crypto";
 import {basename} from "node:path";
 import {
- TT44_RECEIPT_PATH,TT44_SCREENSHOT_PATH
+ TT44_RECEIPT_PATH,TT44_SCREENSHOT_PATH,TT44_REPOSITORY,TT44_WORKFLOW
 } from "./tt44-provenance-policy.mjs";
 
 export const TT50_EXPECTED_STATEMENT="https://in-toto.io/Statement/v1";
@@ -21,7 +21,9 @@ const exactlyBase64=x=>typeof x==="string"&&x.length>0&&x.length<=5242880&&
  x.length%4===0&&/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(x);
 const record=x=>x!==null&&typeof x==="object"&&!Array.isArray(x);
 
-export function subjectScopedAttestationBundle(rawBundle,subject,originalBytes){
+export function subjectScopedAttestationBundle(rawBundle,subject,originalBytes,expectedCommit){
+ if(typeof expectedCommit!=="string"||!/^[a-f0-9]{40}$/.test(expectedCommit))
+  fail("EXPECTED_SOURCE_COMMIT_REQUIRED");
  if(![TT44_RECEIPT_PATH,TT44_SCREENSHOT_PATH].includes(subject))
   fail("UNKNOWN_SUBJECT");
  if(!(originalBytes instanceof Uint8Array)||originalBytes.length===0)
@@ -37,6 +39,7 @@ export function subjectScopedAttestationBundle(rawBundle,subject,originalBytes){
  const expectedName=basename(subject);
  const matching=[];
  let sawSubjectName=false;
+ let sawSubjectDigest=false;
  for(const line of lines){
   let bundle;
   try{bundle=JSON.parse(line)}catch{fail("BUNDLE_INVALID_JSON")}
@@ -56,16 +59,33 @@ export function subjectScopedAttestationBundle(rawBundle,subject,originalBytes){
   if(named.length===0)continue;
   sawSubjectName=true;
   if(named.some(x=>record(x.digest)&&x.digest.sha256===expectedDigest)){
-   matching.push(line);
+   sawSubjectDigest=true;
+   const build=statement.predicate?.buildDefinition;
+   const workflow=build?.externalParameters?.workflow;
+   const sources=build?.resolvedDependencies;
+   const expectedRepository="https://github.com/"+TT44_REPOSITORY;
+   const commitMatches=Array.isArray(sources)&&sources.some(x=>
+    x?.uri==="git+"+expectedRepository+"@refs/heads/main"&&
+    x?.digest?.gitCommit===expectedCommit);
+   if(workflow?.repository===expectedRepository&&workflow?.ref==="refs/heads/main"&&
+    workflow?.path===".github/workflows/thinktank-owned-receipt-provenance.yml"&&
+    statement.predicate?.runDetails?.builder?.id===
+     "https://github.com/"+TT44_WORKFLOW+"@refs/heads/main"&&
+    build?.internalParameters?.github?.runner_environment==="github-hosted"&&
+    commitMatches){
+    matching.push(line);
+   }
   }
  }
  if(matching.length===0){
-  fail(sawSubjectName?"SIGNED_SUBJECT_DIGEST_MISMATCH":"SIGNED_SUBJECT_NAME_MISSING");
+  fail(!sawSubjectName?"SIGNED_SUBJECT_NAME_MISSING":
+   !sawSubjectDigest?"SIGNED_SUBJECT_DIGEST_MISMATCH":"SIGNED_SOURCE_IDENTITY_MISMATCH");
  }
  // We intentionally retain original signed bytes. Rebuilding a DSSE
  // statement would invalidate its signature, and isn't authorization.
  return {
   signedSubjectSha256:expectedDigest,
+  signedSourceCommit:expectedCommit,
   signedSubjectName:expectedName,
   totalCandidateAttestations:lines.length,
   exactSubjectAttestations:matching.length,
