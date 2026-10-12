@@ -15,6 +15,7 @@ import {
  requireGitHubVerifiedOutput,consumerSummary
 } from "./tt45-consumer-policy.mjs";
 import {challengeLiveAttestations} from "./tt46-adversarial-attestations.mjs";
+import {createPortableProof} from "./tt47-portable-proof.mjs";
 
 const output="artifacts/observatory/tt45-independent-consumer-review.json";
 const cli=(args,{maxBuffer=4*1024*1024}={})=>execFileSync("gh",args,{
@@ -70,6 +71,16 @@ async function main(){
    receiptPath:resolve(folder,basename(TT44_RECEIPT_PATH)),
    imagePath:resolve(folder,basename(TT44_SCREENSHOT_PATH))
   });
+  // TT-47: package exact original subjects with downloaded Sigstore bundles
+  // and a fresh trusted root, then verify using only those local materials.
+  const portable=await createPortableProof({
+   producerRunId:id,expectedCommit:producer.commit,
+   receiptBytes:receipt,imageBytes:png,
+   receiptPath:resolve(folder,basename(TT44_RECEIPT_PATH)),
+   imagePath:resolve(folder,basename(TT44_SCREENSHOT_PATH))
+  });
+  if(portable.verifiedSubjects!==2)
+   throw Error("TT47_INCOMPLETE_LOCAL_PROOF_VERIFICATION");
   const report={
    ...consumerSummary(producer,contents,2),
    verifiedAt:new Date().toISOString(),
