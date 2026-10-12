@@ -44,7 +44,7 @@ describe("TT-43 imported machine receipt review",()=>{
    ["canonicalEvidence",true],["thirdPartyAppTested",true],
    ["testExecutedOnOwnedFixture",false],["status","VERIFIED"],
    ["actualAppExercised","external-app"]
-  ]){
+  ] as const){
    const x={...sample(),[field]:value};
    expect(()=>validateOwnedProbeReceipt(x)).toThrow(/RECEIPT_INVALID_FIXED/);
   }
