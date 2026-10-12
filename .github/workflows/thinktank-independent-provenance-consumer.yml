@@ -35,6 +35,7 @@ jobs:
           node --test scripts/tt46-adversarial-attestations.node.mjs
           node --test scripts/tt47-portable-proof.node.mjs
           node --test scripts/tt48-isolation-policy.node.mjs
+          node --test scripts/tt49-offline-adversarial.node.mjs
       - name: Fetch exact producer run and verify both attested files
         env:
           GH_TOKEN: ${{ github.token }}
@@ -105,5 +106,36 @@ jobs:
         with:
           name: tt48-isolated-pinned-root-verification
           path: artifacts/observatory/tt48-network-isolated-verification.log
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Adversarially challenge actual signed proof inside network-disabled Docker
+        shell: bash
+        env:
+          TT49_EXPECTED_COMMIT: ${{ github.event.workflow_run.head_sha }}
+          TT49_TRUST_ROOT_SHA256: ${{ steps.root-pin.outputs.trusted_root_sha256 }}
+        run: |
+          set -euo pipefail
+          test "${#TT49_EXPECTED_COMMIT}" -eq 40
+          test "${#TT49_TRUST_ROOT_SHA256}" -eq 64
+          gh_binary="$(command -v gh)"
+          test -f "$gh_binary"
+          docker run --rm --network none --read-only \
+            --cap-drop=ALL --security-opt=no-new-privileges \
+            --pids-limit=128 --tmpfs /tmp:rw,noexec,nosuid,size=32m \
+            --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/work,readonly" \
+            --mount "type=bind,src=$gh_binary,dst=/usr/local/bin/gh,readonly" \
+            --workdir /work --env HOME=/tmp \
+            --env XDG_CONFIG_HOME=/tmp --env XDG_CACHE_HOME=/tmp \
+            node:24-bookworm-slim \
+            node scripts/verify-tt49-offline-adversarial.mjs \
+              artifacts/observatory/tt47-portable \
+              "$TT49_EXPECTED_COMMIT" "$TT49_TRUST_ROOT_SHA256" \
+              | tee artifacts/observatory/tt49-isolated-adversarial-verification.log
+      - name: Upload TT-49 isolated adversarial challenge log
+        uses: actions/upload-artifact@v4
+        with:
+          name: tt49-offline-adversarial-signature-checks
+          path: artifacts/observatory/tt49-isolated-adversarial-verification.log
           if-no-files-found: error
           retention-days: 14
