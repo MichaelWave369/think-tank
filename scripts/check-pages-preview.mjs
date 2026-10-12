@@ -6,6 +6,7 @@ import {spawn} from "node:child_process";
 import {readFile} from "node:fs/promises";
 import {resolve} from "node:path";
 import {chromium} from "playwright";
+import {assertOwnedObservatoryWorkflow,writeOwnedObservatoryReceipt} from "./check-observatory-live.mjs";
 
 const site="http://127.0.0.1:4177/think-tank/";
 // Spawn Vite directly: killing npm alone can leave an orphaned preview server.
@@ -82,10 +83,12 @@ try{
  assert.equal(data.dossier.operatorPrompt,
   "Test deterministic browser simulation; verify no provider is contacted.");
  assert.match(data.dossier.basisFingerprint,/^fnv1a32:[0-9a-f]{8}$/);
+ const observatoryRun=await assertOwnedObservatoryWorkflow(page);
  assert.deepEqual(bridge,[],"Simulation attempted a local AI bridge call");
  assert.deepEqual(writes,[],"Simulation issued external write traffic");
  assert.deepEqual(exceptions,[],"Public Vite preview produced a runtime exception");
  assert.deepEqual(missing,[],"Public Vite preview loaded a broken asset");
+ await writeOwnedObservatoryReceipt(page,observatoryRun);
  console.log("THINKTANK_PUBLIC_REACT_PREVIEW_PASS",JSON.stringify({
   path:"/think-tank/",assets:assets.length,simulationSource:data.dossier.executionSource,
   downloadedDossier:data.dossier.id,automaticBridgeCalls:0,mutationRequests:0,
