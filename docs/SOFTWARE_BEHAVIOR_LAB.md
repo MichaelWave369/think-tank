@@ -75,3 +75,24 @@ The `TEST_ASSERTIONS_PASSED` outcome is accurate *only for the listed first-part
 Run locally only inside the owned repository with an installed Playwright Chromium runner (the existing preview workflow pins `playwright@1.56.1`): `npm run pages:build`, `npm run pages:check`, and `node scripts/check-pages-preview.mjs`. The script starts and stops a loopback Vite preview and does not start a model bridge. Never include secrets, customer records, or private operational data in browser fixtures or downloadable CI artifacts.
 
 Merging a PR does not prove public deployment. Verify `thinktank-pages` and the separate deployed-browser smoke before claiming the public site is updated.
+
+## TT-42: First separate owned app, real DOM measurement
+
+TT-41 ran Chromium against ThinkTank's own React interface while its comparison inputs were synthesized. TT-42 goes one rung further: it exercises **a separate application owned by this repository**, a deliberately small HTML counter at `tests/fixtures/observatory-owned-counter.html`.
+
+The new `scripts/run-owned-browser-probe.mjs`:
+
+- Serves **only** that checked-in HTML file, with strict CSP, on an operating-system-assigned `127.0.0.1` port. It accepts no target URL arguments, directories, executable file names, user filesystem paths, or externally hosted targets.
+- Validates an exact, versioned and bounded `observatory-owned-counter.contract.json` with only one allowed target, one allowed fixture path and one permitted action: click the owned `advance` button. DOM selectors are restricted to data-testid values, not arbitrary CSS or script evaluation.
+- Launches the same pinned Playwright Chromium installed for the existing browser preview check. All requests except GET for the exact loopback fixture URL are blocked. The test fails on attempted out-of-scope requests, unexpected mutation methods, or browser exceptions.
+- **Measures actual DOM text** for `ui.mode` and `ui.count` before and after clicking, asserts day/0 then night/1, then reloads and repeats to verify deterministic behavior. These observations are **not typed into a pretend capture file**.
+- Only on successful assertions, produces `tt42-owned-target-receipt.json` and `tt42-owned-target.png` under ignored `artifacts/observatory/`. The receipt records measured DOM values in both rounds, the checked-out commit SHA, fixture and contract file SHA-256 hashes, Chromium version, screenshot digest, and constrained pass scope. GitHub Actions uploads `tt42-owned-app-dom-probe` for 14 days.
+- Adds pure Node negative-control tests rejecting different targets, remote URLs, traversal paths, arbitrary actions, invalid selectors, duplicate keys, and malformed observations.
+
+This is real browser test execution, **but only of that small owned fixture**. It is not yet an arbitrary owned-app adapter, a program/binary reverse engineer, a signed provenance attestation or end-to-end validation of SPV/PhiOS/PhiOffice. TT-39 remains explicitly **operator-supplied**; TT-42 does not mislabel machine-observed DOM readings as human-authored notes or automatically promote them to canonical ThinkTank evidence.
+
+Run locally from the repository with dependencies, Playwright and Chromium installed:
+`node --test scripts/owned-browser-contract.test.mjs`
+`node scripts/run-owned-browser-probe.mjs`
+
+The actual execution is covered by the PR preview workflow, and its artifact is available only after a green browser run. Existing TT-41 and earlier trust/approval boundaries remain intact. A merged PR does not establish production Pages deployment or Anti-M DONE.
