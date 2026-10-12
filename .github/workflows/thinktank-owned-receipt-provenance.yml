@@ -11,6 +11,10 @@ on:
       - "scripts/tt44-provenance-policy.mjs"
       - "scripts/verify-tt44-main-provenance.mjs"
       - "scripts/tt44-provenance-policy.node.mjs"
+      - "scripts/tt45-consumer-policy.mjs"
+      - "scripts/tt45-consumer-policy.node.mjs"
+      - "scripts/verify-tt45-independent-consumer.mjs"
+      - ".github/workflows/thinktank-independent-provenance-consumer.yml"
       - "tests/fixtures/observatory-owned-counter.html"
       - "tests/fixtures/observatory-owned-counter.contract.json"
   workflow_dispatch:
