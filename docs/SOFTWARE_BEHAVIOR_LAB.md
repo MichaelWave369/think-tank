@@ -92,7 +92,7 @@ The new `scripts/run-owned-browser-probe.mjs`:
 This is real browser test execution, **but only of that small owned fixture**. It is not yet an arbitrary owned-app adapter, a program/binary reverse engineer, a signed provenance attestation or end-to-end validation of SPV/PhiOS/PhiOffice. TT-39 remains explicitly **operator-supplied**; TT-42 does not mislabel machine-observed DOM readings as human-authored notes or automatically promote them to canonical ThinkTank evidence.
 
 Run locally from the repository with dependencies, Playwright and Chromium installed:
-`node --test scripts/owned-browser-contract.test.mjs`
+`node --test scripts/owned-browser-contract.node.mjs`
 `node scripts/run-owned-browser-probe.mjs`
 
 The actual execution is covered by the PR preview workflow, and its artifact is available only after a green browser run. Existing TT-41 and earlier trust/approval boundaries remain intact. A merged PR does not establish production Pages deployment or Anti-M DONE.
