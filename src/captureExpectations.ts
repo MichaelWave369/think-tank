@@ -120,16 +120,12 @@ export function evaluateCaptureExpectations(
  };
 }
 export function exportCaptureEvaluation(
- plan:ExpectationPlan,evaluation:ExpectationEvaluation,candidateSha256:string
+ plan:ExpectationPlan,candidate:BehaviorCapture,candidateSha256:string
 ):string{
  const safe=validateExpectationPlan(plan);
  if(!/^[a-f0-9]{64}$/.test(candidateSha256))throw Error("EXPECTATION_INVALID_DIGEST");
- // Recompute shape-sensitive fields to avoid accepting forged summary authority.
- if(evaluation.status!=="CAPTURE_ONLY_NOT_AN_APPLICATION_TEST"||
-  evaluation.evidenceVerified!==false||evaluation.targetExecuted!==false||
-  evaluation.executionAuthority!==false||evaluation.studyId!==safe.studyId||
-  evaluation.traceId!==safe.traceId||evaluation.target!==safe.target)
-  throw Error("EXPECTATION_AUTHORITY_REFUSED");
+ // Re-evaluate from validated capture, not a caller-supplied result object.
+ const evaluation=evaluateCaptureExpectations(safe,candidate);
  return JSON.stringify({
   schema:"thinktank.capture-expectations-report.v1",
   kind:"operator-supplied-capture-rule-review",
