@@ -139,7 +139,8 @@ Every normal synthesis carries a deterministic dossier; it can be sealed, journa
 40. ✅ Capture-only expectation checks (operator-authored rules, not app tests)
 41. ✅ First-party Chromium Observatory assertions + scoped machine receipt
 42. ✅ Read-only loopback probe for a separate owned app with real measured DOM behavior
-43. **Read-only machine receipt importer and consistency reviewer (pending CI, never source authentication)**
+43. ✅ Read-only machine receipt importer and consistency reviewer (no source authentication)
+44. **GitHub Actions OIDC artifact provenance on reviewed main (pending merge + main-branch verification)**
 
 **Φ THINK TANK is a control room, not eight chat cards.**
 

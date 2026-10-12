@@ -114,3 +114,31 @@ CI now runs the TT-42 owned-app Chromium probe **before** the ThinkTank preview 
 No new dependencies, external network permissions, code reuse, or provider execution. Running `node scripts/check-pages-preview.mjs` locally without `TT43_REQUIRE_RECEIPT=1` keeps the historical preview behavior; CI sets that environment gate explicitly and fails if the real TT-42 files are missing.
 
 Next development should consider cryptographically authenticated producer-to-reviewer transfer before treating an imported receipt as machine-verified evidence. Even that would not grant release or Anti-M DONE without explicit human authority.
+
+## TT-44: GitHub OIDC-issued producer authenticity on reviewed main
+
+TT-43 deliberately reports imported TT-42 receipt JSON as **structurally consistent, unauthenticated**. TT-44 adds a separate **producer-side, GitHub-hosted cryptographic attestation** instead of pretending a JSON file or locally calculated hash authenticates itself.
+
+The new `.github/workflows/thinktank-owned-receipt-provenance.yml` is **restricted to pushes and manual dispatch on `refs/heads/main`**. Pull requests cannot mint a trusted-main credential under this workflow. After checking out the merged commit it:
+
+1. Re-runs the fixed first-party counter fixture in headless Chromium with no remote target or model bridge. It emits the real `tt42-owned-target-receipt.json` and `tt42-owned-target.png` files.
+2. Uses `actions/attest@v4` with GitHub Actions OIDC (`id-token:write`) to generate a Sigstore/SLSA provenance attestation for the **exact bytes of both files**. No static signing key or GitHub repository secret is needed.
+3. Runs `node scripts/verify-tt44-main-provenance.mjs`, which invokes `gh attestation verify` on **both original files**. Verification is pinned to the repository `MichaelWave369/think-tank`, signer workflow `MichaelWave369/think-tank/.github/workflows/thinktank-owned-receipt-provenance.yml`, source ref `refs/heads/main`, and actual GitHub commit SHA. It requires runner-hosted provenance and CLI success, and refuses wrong image digests or a receipt referring to a different commit. An absent or invalid signature makes the trusted-main run fail closed.
+4. Only following successful verification writes `tt44-verification-summary.json` and uploads the PNG, JSON receipt, and summary under `tt44-main-oidc-attested-owned-fixture` (14-day Actions artifact retention).
+
+Verify a downloaded original file yourself from a trusted shell with the current GitHub CLI:
+
+```bash
+gh attestation verify artifacts/observatory/tt42-owned-target-receipt.json \
+  --repo MichaelWave369/think-tank \
+  --signer-workflow MichaelWave369/think-tank/.github/workflows/thinktank-owned-receipt-provenance.yml \
+  --source-ref refs/heads/main \
+  --source-digest YOUR_VERIFIED_MAIN_COMMIT_SHA \
+  --deny-self-hosted-runners
+```
+
+Repeat for the PNG file. Validate its byte SHA-256 against the JSON receipt, too. Never use the receipt's untrusted `checkedOutCommit` **alone** as the expected source SHA. Pin it to an independently obtained merged commit or trusted workflow run.
+
+**Important boundaries:** A successful GitHub CLI verification authenticates the provenance claim for these exact file bytes and GitHub workflow identity; it does **not** prove the browser fixture is bug-free or that a different application was tested. The machine-readable TT-44 verification summary is **not itself cryptographically signed** and is not a substitute for independent verification. The TT-43 browser receipt viewer continues to say **UNAUTHENTICATED**, because an arbitrary browser file-picker JSON input cannot validate Sigstore signatures on its own. This rung adds no generic web browsing, binary reverse engineering, AI execution, canonical ledger authority, release permission or Anti-M DONE.
+
+PR verification tests only the hardcoded identity/digest policy. An actual GitHub OIDC attestation **cannot be considered tested until this is merged and the separate main-branch workflow succeeds**. If GitHub Actions attestation permissions or services are unavailable, the workflow must fail and no authenticated result should be claimed.

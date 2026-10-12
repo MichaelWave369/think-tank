@@ -1,0 +1,71 @@
+name: thinktank-owned-receipt-oidc-provenance
+
+# Trusted provenance exists only after review and merge onto main.
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/thinktank-owned-receipt-provenance.yml"
+      - "scripts/run-owned-browser-probe.mjs"
+      - "scripts/owned-browser-contract.mjs"
+      - "scripts/tt44-provenance-policy.mjs"
+      - "scripts/verify-tt44-main-provenance.mjs"
+      - "scripts/tt44-provenance-policy.node.mjs"
+      - "tests/fixtures/observatory-owned-counter.html"
+      - "tests/fixtures/observatory-owned-counter.contract.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  trusted-owned-counter-provenance:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    steps:
+      - name: Checkout exact reviewed main commit
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install project dependencies
+        run: npm install --no-audit --no-fund
+      - name: Validate producer contract and trust policy
+        run: |
+          node --test scripts/owned-browser-contract.node.mjs
+          node --test scripts/tt44-provenance-policy.node.mjs
+      - name: Install pinned browser runner
+        run: npm install --no-save --no-package-lock --no-audit --no-fund playwright@1.56.1
+      - name: Install headless Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run owned fixture and write runner output
+        run: node scripts/run-owned-browser-probe.mjs
+      - name: Sign SLSA provenance with GitHub Actions OIDC
+        uses: actions/attest@v4
+        with:
+          subject-path: |
+            artifacts/observatory/tt42-owned-target-receipt.json
+            artifacts/observatory/tt42-owned-target.png
+      - name: Cryptographically verify exact files and signer with GitHub CLI
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/verify-tt44-main-provenance.mjs
+      - name: Save verified files and review summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: tt44-main-oidc-attested-owned-fixture
+          path: |
+            artifacts/observatory/tt42-owned-target-receipt.json
+            artifacts/observatory/tt42-owned-target.png
+            artifacts/observatory/tt44-verification-summary.json
+          if-no-files-found: error
+          retention-days: 14
