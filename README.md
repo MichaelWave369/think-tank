@@ -143,7 +143,8 @@ Every normal synthesis carries a deterministic dossier; it can be sealed, journa
 44. ✅ GitHub Actions OIDC attestation and verification of main-branch owned fixture receipts
 45. ✅ Independent read-only consumer verifies downloaded producer artifacts in a second workflow
 46. ✅ Adversarial live attestation challenges: 4 rejected + 2 positive re-verifications
-47. **Portable local verification proof with original subjects, Sigstore bundles and trusted root (pending CI/main gate)**
+47. ✅ Portable local verification proof with original subjects, Sigstore bundles and trusted root
+48. **Network-disabled Docker verification + independently pinned Sigstore trusted root (pending CI/main gate)**
 
 **Φ THINK TANK is a control room, not eight chat cards.**
 
