@@ -36,6 +36,7 @@ jobs:
           node --test scripts/tt47-portable-proof.node.mjs
           node --test scripts/tt48-isolation-policy.node.mjs
           node --test scripts/tt49-offline-adversarial.node.mjs
+          node --test scripts/tt50-signed-subject-binding.node.mjs
       - name: Fetch exact producer run and verify both attested files
         env:
           GH_TOKEN: ${{ github.token }}

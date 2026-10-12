@@ -19,7 +19,7 @@ import {networkInterfaces} from "node:os";
 
 export const TT49_CASE_IDS=Object.freeze([
  "MUTATED_RECEIPT_WITH_REWRITTEN_MANIFEST",
- "SWAPPED_ATTESTATION_BUNDLE_WITH_REWRITTEN_MANIFEST",
+ "CORRUPTED_DSSE_SIGNATURE_WITH_REWRITTEN_MANIFEST",
  "SUBSTITUTED_ROOT_WITH_REWRITTEN_MANIFEST",
  "WRONG_OUT_OF_BAND_COMMIT",
  "FORGED_UNSIGNED_MANIFEST_AUTHORITY"
@@ -44,6 +44,7 @@ export function strictExpectedRefusal(error,expectedClass){
   return "GH_CLI_REJECTED_ALTERED_SIGNATURE_SUBJECT";
  }
  const markers={
+  binding:"TT50_SIGNED_SUBJECT_DIGEST_MISMATCH",
   pin:"TT48_INDEPENDENT_TRUST_ROOT_MISMATCH",
   commit:"TT44_POLICY_COMMIT_MISMATCH",
   manifest:"TT47_MANIFEST_releaseAuthorized"
@@ -88,12 +89,25 @@ export async function runOfflineAdversarialMatrix(proofFolder,expectedSha,expect
   await rewriteUnsignedManifest(c1,"receiptSha256",hexSha(receipt));
   let thrown;
   try{await verify(c1,expectedSha)}catch(e){thrown=e}
-  negatives.push({caseId:TT49_CASE_IDS[0],outcome:strictExpectedRefusal(thrown,"signature")});
+  negatives.push({caseId:TT49_CASE_IDS[0],outcome:strictExpectedRefusal(thrown,"binding")});
 
   const c2=await alteredCopy(proofFolder,work,"swapped-bundle");
-  const wrongBundle=await readFile(local(c2,"screenshotBundle"));
-  await writeFile(local(c2,"receiptBundle"),wrongBundle);
-  await rewriteUnsignedManifest(c2,"receiptBundleSha256",hexSha(wrongBundle));
+  // Replacing the receipt bundle with the screenshot bundle is NOT always
+  // invalid: an SLSA statement can attest to BOTH artifacts and GitHub
+  // downloads can contain multiple legitimate historical attestations.
+  // Instead corrupt the actual DSSE signature of the receipt statement.
+  const originalBundle=await readFile(local(c2,"receiptBundle"),"utf8");
+  const bundleLines=originalBundle.trim().split(/\r?\n/);
+  if(bundleLines.length!==1)throw Error("TT49_RECEIPT_BUNDLE_NOT_SINGLE");
+  const alteredStatement=JSON.parse(bundleLines[0]);
+  const dsseSignature=alteredStatement?.dsseEnvelope?.signatures?.[0]?.sig;
+  if(typeof dsseSignature!=="string"||dsseSignature.length<4)
+   throw Error("TT49_MISSING_DSSE_SIGNATURE");
+  alteredStatement.dsseEnvelope.signatures[0].sig=
+   (dsseSignature[0]==="A"?"B":"A")+dsseSignature.slice(1);
+  const alteredBundle=Buffer.from(JSON.stringify(alteredStatement)+"\n");
+  await writeFile(local(c2,"receiptBundle"),alteredBundle);
+  await rewriteUnsignedManifest(c2,"receiptBundleSha256",hexSha(alteredBundle));
   thrown=undefined;
   try{await verify(c2,expectedSha)}catch(e){thrown=e}
   negatives.push({caseId:TT49_CASE_IDS[1],outcome:strictExpectedRefusal(thrown,"signature")});

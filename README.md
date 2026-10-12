@@ -145,7 +145,8 @@ Every normal synthesis carries a deterministic dossier; it can be sealed, journa
 46. ✅ Adversarial live attestation challenges: 4 rejected + 2 positive re-verifications
 47. ✅ Portable local verification proof with original subjects, Sigstore bundles and trusted root
 48. ✅ Network-disabled Docker verification + independently pinned Sigstore trusted root
-49. **Network-isolated adversarial verification (tampered receipt/bundle/root/commit/authority; pending post-merge proof)**
+49. **FAILED / HELD:** isolated adversarial gate exposed ambiguous multi-attestation matching in TT-47; no TT-49 green or DONE claim
+50. **Exact DSSE signed-subject SHA-256 + source-commit binding and real corrupt-signature regression (pending post-merge verification)**
 
 **Φ THINK TANK is a control room, not eight chat cards.**
 

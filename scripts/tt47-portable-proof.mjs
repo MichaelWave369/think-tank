@@ -11,6 +11,7 @@ import {TT44_REPOSITORY,TT44_WORKFLOW,TT44_RECEIPT_PATH,TT44_SCREENSHOT_PATH}
  from "./tt44-provenance-policy.mjs";
 import {validateConsumerArtifactFiles,consumerVerificationArgs,requireGitHubVerifiedOutput}
  from "./tt45-consumer-policy.mjs";
+import {subjectScopedAttestationBundle} from "./tt50-signed-subject-binding.mjs";
 
 export const TT47_DIR="artifacts/observatory/tt47-portable";
 export const TT47_FILES=Object.freeze({
@@ -97,13 +98,28 @@ export async function verifyPortableProof(folder,expectedCommit,{offline=true}={
   {subject:TT44_RECEIPT_PATH,file:TT47_FILES.receipt,bundle:TT47_FILES.receiptBundle},
   {subject:TT44_SCREENSHOT_PATH,file:TT47_FILES.screenshot,bundle:TT47_FILES.screenshotBundle}
  ];
- for(const item of scopes){
-  const args=offlineVerifyArgs(item.subject,join(root,item.file),expectedCommit,
-   join(root,item.bundle),join(root,TT47_FILES.trustedRoot));
-  // Bundle and trusted-root make GitHub API requests unnecessary.
-  // No GH_TOKEN is forwarded to this subprocess.
-  const raw=gh(args,{env:offline?{GH_TOKEN:"",GITHUB_TOKEN:""}:{}});
-  requireGitHubVerifiedOutput(raw);
+ // TT-50: each downloaded JSONL can contain several unrelated/older
+ // attestations. Check the actual byte digest in its signed DSSE subject
+ // before invoking GitHub CLI, and pass only matching original signed
+ // statements to the cryptographic verifier.
+ const scopeDir=await mkdtemp(join(tmpdir(),"tt50-exact-subject-"));
+ try{
+  for(const [idx,item] of scopes.entries()){
+   const kind=idx===0?"receipt":"screenshot";
+   const bundleKind=idx===0?"receiptBundle":"screenshotBundle";
+   const selected=subjectScopedAttestationBundle(
+    files[bundleKind],item.subject,files[kind],expectedCommit);
+   const scoped=join(scopeDir,"signed-subject-"+idx+".jsonl");
+   await writeFile(scoped,selected.scopedJsonlBytes);
+   const args=offlineVerifyArgs(item.subject,join(root,item.file),expectedCommit,
+    scoped,join(root,TT47_FILES.trustedRoot));
+   // Even after digest matching, only gh CLI validates the certificate,
+   // signing workflow, source commit, signature and trusted roots.
+   const raw=gh(args,{env:offline?{GH_TOKEN:"",GITHUB_TOKEN:""}:{}});
+   requireGitHubVerifiedOutput(raw);
+  }
+ }finally{
+  await rm(scopeDir,{recursive:true,force:true});
  }
  return {
   schema:"thinktank.tt47-portable-verification-result.v1",
