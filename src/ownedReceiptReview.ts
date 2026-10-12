@@ -152,6 +152,7 @@ export function buildOwnedReceiptReview(
 ):OwnedReceiptReview{
  const valid=validateOwnedProbeReceipt(receipt);
  const receiptSha256=sha(receiptDigest,"RECEIPT_DIGEST");
+ if(screenshotMatched===false)throw Error("RECEIPT_SCREENSHOT_MISMATCH");
  return {
   schema:"thinktank.owned-receipt-review.v1",
   status:"STRUCTURALLY_CONSISTENT_UNAUTHENTICATED",
