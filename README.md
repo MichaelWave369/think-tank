@@ -137,7 +137,8 @@ Every normal synthesis carries a deterministic dossier; it can be sealed, journa
 38. ✅ Software Behavior Lab (operator-only studies, original designs and candidate tests)
 39. ✅ Read-only local capture comparator (operator-selected files)
 40. ✅ Capture-only expectation checks (operator-authored rules, not app tests)
-41. **First-party Chromium Observatory assertions + scoped machine receipt (pending CI)**
+41. ✅ First-party Chromium Observatory assertions + scoped machine receipt
+42. **Read-only loopback probe for a separate owned app with real measured DOM behavior (pending CI)**
 
 **Φ THINK TANK is a control room, not eight chat cards.**
 
