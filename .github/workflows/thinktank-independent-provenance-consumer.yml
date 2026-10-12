@@ -34,6 +34,7 @@ jobs:
           node --check scripts/verify-tt45-independent-consumer.mjs
           node --test scripts/tt46-adversarial-attestations.node.mjs
           node --test scripts/tt47-portable-proof.node.mjs
+          node --test scripts/tt48-isolation-policy.node.mjs
       - name: Fetch exact producer run and verify both attested files
         env:
           GH_TOKEN: ${{ github.token }}
@@ -58,5 +59,51 @@ jobs:
         with:
           name: tt47-portable-offline-verification-proof
           path: artifacts/observatory/tt47-portable/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Obtain external Sigstore root fingerprint (not from proof manifest)
+        id: root-pin
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          trusted_root="$(mktemp)"
+          trap 'rm -f "$trusted_root"' EXIT
+          gh attestation trusted-root > "$trusted_root"
+          test -s "$trusted_root"
+          root_sha="$(sha256sum "$trusted_root" | cut -d' ' -f1)"
+          echo "trusted_root_sha256=$root_sha" >> "$GITHUB_OUTPUT"
+          echo "TT48_INDEPENDENT_TRUST_ROOT_PIN $root_sha"
+      - name: Verify portable proof with container networking disabled
+        shell: bash
+        env:
+          TT48_EXPECTED_COMMIT: ${{ github.event.workflow_run.head_sha }}
+          TT48_TRUST_ROOT_SHA256: ${{ steps.root-pin.outputs.trusted_root_sha256 }}
+        run: |
+          set -euo pipefail
+          test "${#TT48_EXPECTED_COMMIT}" -eq 40
+          test "${#TT48_TRUST_ROOT_SHA256}" -eq 64
+          docker pull node:24-bookworm-slim
+          gh_binary="$(command -v gh)"
+          test -f "$gh_binary"
+          mkdir -p artifacts/observatory
+          docker run --rm --network none --read-only \
+            --cap-drop=ALL --security-opt=no-new-privileges \
+            --pids-limit=128 --tmpfs /tmp:rw,noexec,nosuid,size=32m \
+            --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/work,readonly" \
+            --mount "type=bind,src=$gh_binary,dst=/usr/local/bin/gh,readonly" \
+            --workdir /work --env HOME=/tmp \
+            --env XDG_CONFIG_HOME=/tmp --env XDG_CACHE_HOME=/tmp \
+            node:24-bookworm-slim \
+            node scripts/verify-tt48-network-isolated.mjs \
+              artifacts/observatory/tt47-portable \
+              "$TT48_EXPECTED_COMMIT" "$TT48_TRUST_ROOT_SHA256" \
+              | tee artifacts/observatory/tt48-network-isolated-verification.log
+      - name: Upload TT-48 isolated verification log
+        uses: actions/upload-artifact@v4
+        with:
+          name: tt48-isolated-pinned-root-verification
+          path: artifacts/observatory/tt48-network-isolated-verification.log
           if-no-files-found: error
           retention-days: 14
