@@ -55,8 +55,12 @@ export function validateConsumerArtifactFiles(receiptBytes,screenshotBytes,sourc
  const text=new TextDecoder("utf-8",{fatal:true}).decode(receiptBytes);
  return verifyLocalReceiptBinding(text,screenshotBytes,sourceCommit);
 }
-export function consumerVerificationArgs(file,commit){
- return ghAttestationVerifyArgs(file,commit);
+export function consumerVerificationArgs(subject,downloadedPath,commit){
+ // Verify a fixed known subject, but pass its *actual downloaded bytes* to gh.
+ const args=ghAttestationVerifyArgs(subject,commit);
+ required(typeof downloadedPath==="string"&&downloadedPath.length>0,"INVALID_LOCAL_PATH");
+ args[2]=downloadedPath;
+ return args;
 }
 export function requireGitHubVerifiedOutput(raw){
  return parseVerifiedCLIResponse(raw);
