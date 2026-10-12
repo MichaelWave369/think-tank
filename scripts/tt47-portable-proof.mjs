@@ -108,7 +108,7 @@ export async function verifyPortableProof(folder,expectedCommit,{offline=true}={
    const kind=idx===0?"receipt":"screenshot";
    const bundleKind=idx===0?"receiptBundle":"screenshotBundle";
    const selected=subjectScopedAttestationBundle(
-    files[bundleKind],item.subject,files[kind]);
+    files[bundleKind],item.subject,files[kind],expectedCommit);
    const scoped=join(scopeDir,"signed-subject-"+idx+".jsonl");
    await writeFile(scoped,selected.scopedJsonlBytes);
    const args=offlineVerifyArgs(item.subject,join(root,item.file),expectedCommit,
