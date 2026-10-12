@@ -65,7 +65,8 @@ describe("TT-40 capture-only expectations",()=>{
   expect(()=>appendCaptureExpectation(plan(),rule("RULE-45678901","ui.status","present","yes"))).toThrow(/NULL/);
   expect(()=>appendCaptureExpectation(plan(),rule("RULE-45678901","__proto__","equals","a"))).toThrow(/KEY/);
   expect(()=>evaluateCaptureExpectations({...good,traceId:"STEP-87654321"},candidate([{key:"ui.mode",value:"night"}]))).toThrow(/MISMATCH/);
-  expect(()=>exportCaptureEvaluation({...good,executionAuthority:true},candidate([{key:"ui.mode",value:"night"}]),"f".repeat(64))).toThrow(/AUTHORITY/);
+  const forged=JSON.parse(JSON.stringify(good)); forged.executionAuthority=true;
+  expect(()=>exportCaptureEvaluation(forged,candidate([{key:"ui.mode",value:"night"}]),"f".repeat(64))).toThrow(/AUTHORITY/);
   expect(()=>exportCaptureEvaluation(good,candidate([{key:"ui.mode",value:"night"}]),"not-a-hash")).toThrow(/DIGEST/);
  });
  it("limits rule count and unique rule IDs",()=>{
