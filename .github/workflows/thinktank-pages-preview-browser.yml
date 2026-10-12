@@ -11,6 +11,7 @@ on:
       - "scripts/check-pages-preview.mjs"
       - "scripts/check-observatory-live.mjs"
       - "scripts/check-owned-receipt-review.mjs"
+      - "scripts/check-operator-proof-guide.mjs"
       - "scripts/owned-browser-contract.mjs"
       - "scripts/owned-browser-contract.node.mjs"
       - "scripts/run-owned-browser-probe.mjs"
@@ -49,6 +50,7 @@ jobs:
       - name: Verify preview and import real TT-42 receipt in Chromium
         env:
           TT43_REQUIRE_RECEIPT: "1"
+          TT51_REQUIRE_GUIDE: "1"
         run: node scripts/check-pages-preview.mjs
       - name: Upload TT-42 separate owned app machine observations
         if: success()

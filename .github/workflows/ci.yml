@@ -31,6 +31,8 @@ jobs:
       - run: node --test scripts/tt50-signed-subject-binding.node.mjs
       - run: node --check scripts/tt50-signed-subject-binding.mjs
       - run: node --check scripts/verify-tt48-network-isolated.mjs
+      - run: node --test scripts/tt51-operator-proof.node.mjs
+      - run: node --check scripts/verify-tt51-operator-proof.mjs
       - name: Verify actual network-disabled Docker namespace and mounted GitHub CLI
         shell: bash
         run: |

@@ -261,3 +261,32 @@ TT-50 corrects both assumptions:
 5. Deterministic CI tests reproduce multi-attestation cases with different commits, shared screenshot digests, altered JSON, incorrect signer, corrupted DSSE signatures and false release claims. The producer's reviewed-main path triggers include TT-50 fixes so a **new post-merge OIDC run and independent consumer run are mandatory**.
 
 **Validation policy:** Until TT-50 is merged and the new independent consumer completes with two authentic subject verifications plus all five corrected negative controls, TT-49/TT-50 are **HELD**. Earlier successful TT-44 to TT-48 results remain true for their original exact files and workflows, but are not proof that TT-49 passed. No release authorization, canonical ledger evidence promotion, or Anti-M DONE is granted. 
+
+## TT-50 post-merge resolution and TT-51 operator proof verification
+
+TT-50 repair was merged at `ade3d4013fc83aa817003ecaaa1a8d3d01716bb3`. The independent GitHub Actions consumer completed successfully on [run 38204692731](https://github.com/MichaelWave369/think-tank/actions/runs/38204692731), with TT-49's five actual offline adversarial cases refused and two full original-proof positive rounds verified. This resolves the TT-49-held issue; it does not authorize a release or canonical evidence promotion.
+
+TT-51 makes local verification practical for operators on Windows, Linux, and macOS without requiring them to run the CI Docker workflow. This does **not** weaken the root/commit trust policy or claim the operator's machine is physically isolated.
+
+### Procedure
+
+1. Obtain a TT-47 portable proof artifact ZIP from the **trusted independent consumer Actions workflow** of the first-party ThinkTank repository. Unzip the six files together into a folder `unpacked-proof` in your trusted ThinkTank checkout.
+2. Independently confirm the **reviewed `main` source commit** from GitHub's producer run metadata and obtain the **Sigstore trusted root hash** from independently retrieved root bytes, not merely the editable archive manifest. For example, on a trusted online host run `gh attestation trusted-root > independent-trusted-root.jsonl`, and hash that file with your OS SHA-256 tool. Root rotation can make previously captured hashes obsolete.
+3. Install Node.js and GitHub CLI with its `attestation verify` subcommand. On Windows PowerShell:
+
+```powershell
+node scripts/verify-tt51-operator-proof.mjs .\unpacked-proof INDEPENDENT_40_CHAR_MAIN_SHA INDEPENDENT_64_CHAR_ROOT_SHA256
+```
+
+On Linux/macOS bash:
+
+```bash
+node scripts/verify-tt51-operator-proof.mjs ./unpacked-proof INDEPENDENT_40_CHAR_MAIN_SHA INDEPENDENT_64_CHAR_ROOT_SHA256
+```
+
+4. The checker refuses malformed source/root pins, missing or symlinked root material, or a packaged trusted-root byte digest inconsistent with the **independent SHA**. It then invokes TT-47/TT-50 verification on both original subject bytes using locally supplied Sigstore bundles, the pinned workflow identity, `main` source commit and trusted root. The GitHub CLI's cryptographic signature verification is required to complete.
+5. The exported JSON is a strictly scoped, **unsigned** explanation. It never modifies ledger events, releases or Anti-M DONE. A successful local CLI establishes signer/subject provenance under the selected trust assumptions; it does not test an unrelated app or establish that the operator's machine was physically network-isolated.
+
+The Software Behavior Lab includes the **TT-51 portable proof operator guide**. It accepts only exact lower-case hexadecimal commit/root values and optionally a decimal GitHub Actions run ID for **navigation**, then prepares Windows PowerShell or bash command text. It does not upload files, call GitHub APIs, execute a local command, check signature status inside the browser, or import its outcome as canonical evidence.
+
+The PR acceptance requires normal full CI, Node tests of the local CLI's independent trust-pin policy, and a **real Chromium run** that exercises the React command guide and rejects forged/invalid input. This is distinct from executing a copy of the portable proof on a physical Windows computer; that separate operator acceptance remains a future real-device test.

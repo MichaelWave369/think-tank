@@ -8,6 +8,7 @@ import {resolve} from "node:path";
 import {chromium} from "playwright";
 import {assertOwnedObservatoryWorkflow,writeOwnedObservatoryReceipt} from "./check-observatory-live.mjs";
 import {assertOwnedReceiptReviewInChromium} from "./check-owned-receipt-review.mjs";
+import {assertOperatorProofGuideInChromium} from "./check-operator-proof-guide.mjs";
 
 const site="http://127.0.0.1:4177/think-tank/";
 // Spawn Vite directly: killing npm alone can leave an orphaned preview server.
@@ -87,6 +88,8 @@ try{
  const observatoryRun=await assertOwnedObservatoryWorkflow(page);
  if(process.env.TT43_REQUIRE_RECEIPT==="1")
   await assertOwnedReceiptReviewInChromium(page);
+ if(process.env.TT51_REQUIRE_GUIDE==="1")
+  await assertOperatorProofGuideInChromium(page);
  assert.deepEqual(bridge,[],"Simulation attempted a local AI bridge call");
  assert.deepEqual(writes,[],"Simulation issued external write traffic");
  assert.deepEqual(exceptions,[],"Public Vite preview produced a runtime exception");
