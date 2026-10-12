@@ -26,6 +26,8 @@ on:
       - "scripts/tt49-offline-adversarial.mjs"
       - "scripts/tt49-offline-adversarial.node.mjs"
       - "scripts/verify-tt49-offline-adversarial.mjs"
+      - "scripts/tt50-signed-subject-binding.mjs"
+      - "scripts/tt50-signed-subject-binding.node.mjs"
       - ".github/workflows/thinktank-independent-provenance-consumer.yml"
       - "tests/fixtures/observatory-owned-counter.html"
       - "tests/fixtures/observatory-owned-counter.contract.json"
