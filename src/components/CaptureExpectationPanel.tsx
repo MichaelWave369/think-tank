@@ -46,7 +46,7 @@ export function CaptureExpectationPanel({
   setError("");setNotice("");
   try{
    if(!evaluation)throw Error("EXPECTATION_NO_RULES");
-   downloadReport(exportCaptureEvaluation(plan,evaluation,candidateSha256));
+   downloadReport(exportCaptureEvaluation(plan,candidate,candidateSha256));
    setNotice("Capture-only evaluation exported, unsigned and not a test execution receipt.");
   }catch(e){setError(String(e))}
  };
