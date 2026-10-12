@@ -1,3 +1,4 @@
+import {BehaviorCapturePanel} from "./BehaviorCapturePanel";
 import {useState} from "react";
 import {
  BEHAVIOR_MAX_STEPS,BEHAVIOR_MAX_STUDIES,BEHAVIOR_STORAGE_KEY,
@@ -144,6 +145,7 @@ export function BehaviorLabPanel(){
     <button type="button" onClick={exportPlan}>EXPORT DRAFT TEST PLAN</button>
     <button type="button" className="behavior-danger" onClick={remove}>DELETE LOCAL STUDY</button>
    </div>
+   <BehaviorCapturePanel key={active.id} study={active}/>
    <div className="behavior-traces">
     {active.steps.length===0&&<p>No traces yet. Start with one observable interaction or an explicitly labeled hypothesis.</p>}
     {active.steps.map((s,i)=><article key={s.id}>
