@@ -14,6 +14,8 @@ on:
       - "scripts/tt45-consumer-policy.mjs"
       - "scripts/tt45-consumer-policy.node.mjs"
       - "scripts/verify-tt45-independent-consumer.mjs"
+      - "scripts/tt46-adversarial-attestations.mjs"
+      - "scripts/tt46-adversarial-attestations.node.mjs"
       - ".github/workflows/thinktank-independent-provenance-consumer.yml"
       - "tests/fixtures/observatory-owned-counter.html"
       - "tests/fixtures/observatory-owned-counter.contract.json"

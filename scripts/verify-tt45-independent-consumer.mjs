@@ -14,6 +14,7 @@ import {
  validateConsumerArtifactFiles,consumerVerificationArgs,
  requireGitHubVerifiedOutput,consumerSummary
 } from "./tt45-consumer-policy.mjs";
+import {challengeLiveAttestations} from "./tt46-adversarial-attestations.mjs";
 
 const output="artifacts/observatory/tt45-independent-consumer-review.json";
 const cli=(args,{maxBuffer=4*1024*1024}={})=>execFileSync("gh",args,{
@@ -62,6 +63,13 @@ async function main(){
    const cliOutput=cli(args);
    requireGitHubVerifiedOutput(cliOutput);
   }
+  // TT-46: adversarial CLI checks use real downloaded subject bytes, never mock signatures.
+  // Positive cryptographic re-verification follows all rejection challenges.
+  const adversarial=await challengeLiveAttestations({
+   receiptBytes:receipt,imageBytes:png,sha:producer.commit,
+   receiptPath:resolve(folder,basename(TT44_RECEIPT_PATH)),
+   imagePath:resolve(folder,basename(TT44_SCREENSHOT_PATH))
+  });
   const report={
    ...consumerSummary(producer,contents,2),
    verifiedAt:new Date().toISOString(),
@@ -69,6 +77,20 @@ async function main(){
   };
   await mkdir(dirname(output),{recursive:true});
   await writeFile(output,JSON.stringify(report,null,2)+"\n");
+  const tt46Output="artifacts/observatory/tt46-adversarial-verification-review.json";
+  const tt46Report={
+   ...adversarial,producerRunId:id,
+   originalReceiptSha256:contents.receiptSha256,
+   originalScreenshotSha256:contents.screenshotSha256,
+   reviewedAt:new Date().toISOString(),
+   caveat:"This is an unsigned machine report. Only a fresh CLI verification of original subjects can authenticate its claims."
+  };
+  await writeFile(tt46Output,JSON.stringify(tt46Report,null,2)+"\n");
+  console.log("TT46_ADVERSARIAL_PROVENANCE_PASS",JSON.stringify({
+   producerRunId:id,negativeRejections:adversarial.negativeChecks.length,
+   positiveReverifications:adversarial.positiveReverification.length,
+   releaseAuthorized:false,antiMDone:false
+  }));
   console.log("TT45_INDEPENDENT_CONSUMER_VERIFIED",JSON.stringify({
    producerRunId:id,expectedMainSha:producer.commit,subjects:2,
    receiptSha256:report.receiptSha256,
