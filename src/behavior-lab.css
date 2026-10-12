@@ -50,3 +50,20 @@
 .capture-table th{color:#abf7db;background:#0c2825}
 .capture-table td{color:#d5f2e6}
 @media(max-width:700px){.capture-inputs{grid-template-columns:1fr}.capture-table{min-width:540px}}
+
+/* TT-40: expectation checking on capture values, never a release or application test */
+.expectation-lab{display:grid;gap:10px;margin-top:8px;border:1px solid #846a43;background:#1b150e;padding:12px;color:#f7e9d3}
+.expectation-lab>header{display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:1px solid #806944;padding-bottom:8px;flex-wrap:wrap}
+.expectation-lab>header strong{font-size:.75rem;color:#ffe1a7}
+.expectation-lab>header small{font-size:.6rem;color:#e6ba83}
+.expectation-entry{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.expectation-entry label{display:grid;gap:6px;font-size:.61rem;color:#ffe0b6}
+.expectation-entry input,.expectation-entry select{min-width:0;width:100%;background:#100e0b;color:#fff3df;border:1px solid #8a7353;padding:9px;font:inherit;font-size:.74rem}
+.expectation-results{display:grid;gap:8px}
+.expectation-results article{border:1px solid #654d36;padding:10px;background:#100e0c;display:grid;gap:5px;overflow-wrap:anywhere}
+.expectation-results article>div{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.expectation-results strong{font-size:.7rem;color:#f6d5a0}
+.expectation-results button{border:1px solid #8e6f5e;background:#211713;color:#ffd7c2;font:inherit;font-size:.61rem;padding:6px}
+.expectation-results p{font-size:.69rem;line-height:1.5;margin:0;white-space:pre-wrap}
+.expectation-results small{font-size:.66rem;color:#ffe0aa}
+@media(max-width:700px){.expectation-entry{grid-template-columns:1fr}}

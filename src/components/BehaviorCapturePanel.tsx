@@ -1,3 +1,4 @@
+import {CaptureExpectationPanel} from "./CaptureExpectationPanel";
 import {useRef,useState} from "react";
 import {type BehaviorStep,type BehaviorStudy} from "../behaviorLab";
 import {
@@ -102,6 +103,8 @@ function LocalCaptureComparator({study,trace}:{study:BehaviorStudy;trace:Behavio
    <div className="behavior-actions">
     <button type="button" onClick={exportReport}>EXPORT REVIEW-ONLY COMPARISON</button>
    </div>
+   {candidate&&<CaptureExpectationPanel key={candidate.sha256} study={study}
+    trace={trace} candidate={candidate.capture} candidateSha256={candidate.sha256}/>}
   </>}
   <small className="behavior-footer">SHA-256 fingerprints the exact selected file bytes.
    It does not certify file origin, observational accuracy, test results or permission.
