@@ -1,4 +1,5 @@
 import {OwnedReceiptReviewPanel} from "./OwnedReceiptReviewPanel";
+import {ProvenanceOperatorPanel} from "./ProvenanceOperatorPanel";
 import {BehaviorCapturePanel} from "./BehaviorCapturePanel";
 import {useState} from "react";
 import {
@@ -95,6 +96,7 @@ export function BehaviorLabPanel(){
    All access assertions, observations, documentation notes and hypotheses are operator-unverified.
    No borrowed implementation, agent execution, canonical evidence, release authority or Anti-M DONE.</p>
   <OwnedReceiptReviewPanel/>
+  <ProvenanceOperatorPanel/>
   <div className="behavior-create">
    <label>TARGET / APP NAME
     <input value={newStudy.target} maxLength={120} placeholder="Our owned prototype"
