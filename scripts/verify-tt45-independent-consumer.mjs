@@ -52,7 +52,7 @@ async function main(){
   const contents=validateConsumerArtifactFiles(receipt,png,producer.commit);
   for(const subject of [TT44_RECEIPT_PATH,TT44_SCREENSHOT_PATH]){
    const original=resolve(folder,subject);
-   const args=consumerVerificationArgs(original,producer.commit);
+   const args=consumerVerificationArgs(subject,original,producer.commit);
    // The CLI must cryptographically validate exact subject bytes and identity.
    // We do not accept a user-supplied, editable "verified" JSON report.
    const cliOutput=cli(args);
