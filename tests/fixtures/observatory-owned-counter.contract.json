@@ -1,0 +1,27 @@
+{
+  "schema": "thinktank.owned-probe-contract.v1",
+  "target": "ThinkTank owned counter fixture",
+  "fixturePath": "tests/fixtures/observatory-owned-counter.html",
+  "observations": [
+    {
+      "key": "ui.mode",
+      "testId": "mode"
+    },
+    {
+      "key": "ui.count",
+      "testId": "count"
+    }
+  ],
+  "action": {
+    "kind": "click",
+    "testId": "advance"
+  },
+  "expectedBefore": {
+    "ui.mode": "day",
+    "ui.count": "0"
+  },
+  "expectedAfter": {
+    "ui.mode": "night",
+    "ui.count": "1"
+  }
+}

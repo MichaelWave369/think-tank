@@ -10,6 +10,11 @@ on:
       - "scripts/check-pages-build.mjs"
       - "scripts/check-pages-preview.mjs"
       - "scripts/check-observatory-live.mjs"
+      - "scripts/owned-browser-contract.mjs"
+      - "scripts/owned-browser-contract.node.mjs"
+      - "scripts/run-owned-browser-probe.mjs"
+      - "tests/fixtures/observatory-owned-counter.html"
+      - "tests/fixtures/observatory-owned-counter.contract.json"
       - ".github/workflows/thinktank-pages-preview-browser.yml"
 
 permissions:
@@ -40,6 +45,16 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Verify actual hosted-path React render, browser simulation and zero local AI traffic
         run: node scripts/check-pages-preview.mjs
+      - name: Exercise separate owned fixture in real loopback Chromium
+        run: node scripts/run-owned-browser-probe.mjs
+      - name: Upload TT-42 separate owned app machine observations
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tt42-owned-app-dom-probe
+          path: artifacts/observatory/tt42-*
+          if-no-files-found: error
+          retention-days: 14
       - name: Upload scoped first-party Observatory browser receipt
         if: success()
         uses: actions/upload-artifact@v4

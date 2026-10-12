@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <link rel="icon" href="data:,">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>TT-42 · Owned Counter Fixture</title>
+  <style>
+    body{font:16px system-ui,sans-serif;background:#091313;color:#e6fff0;margin:2rem;max-width:40rem}
+    main{border:1px solid #436e60;padding:2rem}
+    output{font-weight:700}
+    button{padding:.75rem 1.5rem;background:#16372e;color:#e6fff0;border:1px solid #70be98;cursor:pointer}
+  </style>
+</head>
+<body>
+ <main>
+  <h1>TT-42 · Independent Owned App Fixture</h1>
+  <p>Visible mode: <output data-testid="mode">day</output></p>
+  <p>Completed transitions: <output data-testid="count">0</output></p>
+  <button type="button" data-testid="advance">Advance owned fixture</button>
+  <p>Only this checked-in fixture is loaded by the loopback test runner.</p>
+ </main>
+ <script>
+  (() => {
+    "use strict";
+    let count=0;
+    document.querySelector('[data-testid="advance"]').addEventListener("click",() => {
+      count+=1;
+      document.querySelector('[data-testid="mode"]').textContent=count%2?"night":"day";
+      document.querySelector('[data-testid="count"]').textContent=String(count);
+    });
+  })();
+ </script>
+</body>
+</html>
