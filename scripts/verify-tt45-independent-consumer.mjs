@@ -3,8 +3,8 @@
  * No arbitrary URLs, no shell interpretation, no re-signing, no promotion.
  */
 import {execFileSync} from "node:child_process";
-import {mkdtemp,readFile,lstat,mkdir,writeFile,rm} from "node:fs/promises";
-import {join,dirname,resolve,relative,isAbsolute} from "node:path";
+import {mkdtemp,readFile,lstat,realpath,mkdir,writeFile,rm} from "node:fs/promises";
+import {join,dirname,resolve,relative,isAbsolute,basename} from "node:path";
 import {tmpdir} from "node:os";
 import {
  TT44_REPOSITORY,TT44_RECEIPT_PATH,TT44_SCREENSHOT_PATH
@@ -36,6 +36,10 @@ async function fileReadWithinDirectory(root,filename){
   throw Error("TT45_CONSUMER_PATH_ESCAPE");
  const stat=await lstat(file);
  if(!stat.isFile()||stat.isSymbolicLink())throw Error("TT45_CONSUMER_NOT_REGULAR_FILE");
+ const actual=await realpath(file),base=await realpath(root);
+ const resolvedRelative=relative(base,actual);
+ if(resolvedRelative.startsWith("..")||isAbsolute(resolvedRelative))
+  throw Error("TT45_CONSUMER_REALPATH_ESCAPE");
  return readFile(file);
 }
 async function main(){
@@ -47,11 +51,11 @@ async function main(){
   folder=await mkdtemp(join(tmpdir(),"tt45-consumer-"));
   cli(["run","download",String(id),"--repo",TT44_REPOSITORY,
    "--name",TT45_ARTIFACT_NAME,"--dir",folder],{maxBuffer:8*1024*1024});
-  const receipt=await fileReadWithinDirectory(folder,TT44_RECEIPT_PATH);
-  const png=await fileReadWithinDirectory(folder,TT44_SCREENSHOT_PATH);
+  const receipt=await fileReadWithinDirectory(folder,basename(TT44_RECEIPT_PATH));
+  const png=await fileReadWithinDirectory(folder,basename(TT44_SCREENSHOT_PATH));
   const contents=validateConsumerArtifactFiles(receipt,png,producer.commit);
   for(const subject of [TT44_RECEIPT_PATH,TT44_SCREENSHOT_PATH]){
-   const original=resolve(folder,subject);
+   const original=resolve(folder,basename(subject));
    const args=consumerVerificationArgs(subject,original,producer.commit);
    // The CLI must cryptographically validate exact subject bytes and identity.
    // We do not accept a user-supplied, editable "verified" JSON report.
