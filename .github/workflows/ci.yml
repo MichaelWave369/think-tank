@@ -26,6 +26,22 @@ jobs:
       - run: node --test scripts/tt48-isolation-policy.node.mjs
       - run: node --check scripts/tt48-isolation-policy.mjs
       - run: node --check scripts/verify-tt48-network-isolated.mjs
+      - name: Verify actual network-disabled Docker namespace and mounted GitHub CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker pull node:24-bookworm-slim
+          gh_binary="$(command -v gh)"
+          test -f "$gh_binary"
+          docker run --rm --network none --read-only \
+            --cap-drop=ALL --security-opt=no-new-privileges \
+            --pids-limit=128 --tmpfs /tmp:rw,noexec,nosuid,size=32m \
+            --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/work,readonly" \
+            --mount "type=bind,src=$gh_binary,dst=/usr/local/bin/gh,readonly" \
+            --workdir /work --env HOME=/tmp \
+            --env XDG_CONFIG_HOME=/tmp --env XDG_CACHE_HOME=/tmp \
+            node:24-bookworm-slim \
+            node scripts/tt48-docker-preflight.mjs
       - run: npm run bridge:check
       - run: npm run bridge:test
       - run: npm run council:build
