@@ -11,7 +11,7 @@ on:
       - "scripts/check-pages-preview.mjs"
       - "scripts/check-observatory-live.mjs"
       - "scripts/owned-browser-contract.mjs"
-      - "scripts/owned-browser-contract.test.mjs"
+      - "scripts/owned-browser-contract.node.mjs"
       - "scripts/run-owned-browser-probe.mjs"
       - "tests/fixtures/observatory-owned-counter.html"
       - "tests/fixtures/observatory-owned-counter.contract.json"
