@@ -65,7 +65,7 @@ test("TT45 independently binds original fixture bytes to producer commit",()=>{
  assert.equal(content.receiptSha256,digest(raw));
  assert.equal(content.screenshotSha256,digest(screenshot));
  assert.throws(()=>validateConsumerArtifactFiles(raw,screenshot,"a".repeat(40)),/COMMIT_MISMATCH/);
- assert.throws(()=>validateConsumerArtifactFiles(raw,Buffer.from("not png"),sha),/NOT_A_PNG/);
+ assert.throws(()=>validateConsumerArtifactFiles(raw,Buffer.from("not-a-png"),sha),/NOT_A_PNG/);
  assert.throws(()=>validateConsumerArtifactFiles(raw,Buffer.alloc(3145729),sha),/SCREENSHOT_SIZE_REFUSED/);
  assert.throws(()=>validateConsumerArtifactFiles(Buffer.alloc(131073),screenshot,sha),/RECEIPT_SIZE_REFUSED/);
  const forged=receipt();forged.antiMDone=true;
