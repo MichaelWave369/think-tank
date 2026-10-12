@@ -134,7 +134,8 @@ Every normal synthesis carries a deterministic dossier; it can be sealed, journa
 33. ✅ Live prompt contract + simulation provenance clarity
 34–36. ✅ Vessie handoff, local governed council CLI, GitHub Pages control room
 37. ✅ Original Inspiration Ledger (review-only browser workspace)
-38. **Software Behavior Lab (operator-only studies, original designs and candidate tests; pending CI)**
+38. ✅ Software Behavior Lab (operator-only studies, original designs and candidate tests)
+39. **Read-only local capture comparator (operator-selected files; pending CI)**
 
 **Φ THINK TANK is a control room, not eight chat cards.**
 

@@ -29,3 +29,24 @@
 .behavior-app-nav{max-width:1800px;margin:5px auto 0;padding:0 18px;display:flex;justify-content:flex-end}
 .behavior-app-nav a{color:#a0dfff;font-size:.68rem;padding:5px 9px;border:1px solid #335c77;text-decoration:none;background:#081723}
 .behavior-app-nav a:focus-visible{outline:2px solid #b3e7ff;outline-offset:2px}
+
+/* TT-39: explicitly selected local capture files, no automated inspection */
+.capture-lab{display:grid;gap:10px;border:1px solid #477d77;background:#07191b;padding:12px;color:#d0f6ec}
+.capture-lab>header{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;border-bottom:1px solid #477d77;padding-bottom:8px}
+.capture-lab>header strong{font-size:.74rem}.capture-lab>header b{font-size:.58rem;color:#b8f7d4}
+.capture-note{font-size:.69rem;line-height:1.6;color:#add3c8;margin:0}
+.capture-trace-select,.capture-inputs label{display:grid;gap:6px;color:#b2e4d2;font-size:.65rem;min-width:0}
+.capture-trace-select select,.capture-inputs input{width:100%;min-width:0;background:#041011;border:1px solid #4b857c;color:#d2faed;padding:9px;font:inherit}
+.capture-workspace{display:grid;gap:10px;min-width:0}
+.capture-inputs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.capture-inputs label{border:1px solid #3e726d;background:#051113;padding:10px;overflow-wrap:anywhere}
+.capture-inputs small{font-size:.62rem;color:#9cc9bc;line-height:1.5;overflow-wrap:anywhere}
+.capture-summary{display:grid;gap:6px;background:#08211e;padding:10px;border:1px solid #3a8174;overflow-wrap:anywhere}
+.capture-summary strong{font-size:.75rem;color:#afffe3}
+.capture-summary span{font-size:.7rem;color:#c1eede}
+.capture-scroll{overflow-x:auto;max-width:100%;border:1px solid #3b6662}
+.capture-table{border-collapse:collapse;width:100%;min-width:600px;text-align:left;font-size:.67rem;line-height:1.45}
+.capture-table th,.capture-table td{border-bottom:1px solid #284841;padding:9px;vertical-align:top;max-width:270px;overflow-wrap:anywhere;white-space:pre-wrap}
+.capture-table th{color:#abf7db;background:#0c2825}
+.capture-table td{color:#d5f2e6}
+@media(max-width:700px){.capture-inputs{grid-template-columns:1fr}.capture-table{min-width:540px}}
