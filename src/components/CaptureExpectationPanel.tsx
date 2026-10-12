@@ -32,7 +32,7 @@ export function CaptureExpectationPanel({
     id:"RULE-"+crypto.randomUUID(),key:field.trim(),operator,
     expected:operator==="equals"||operator==="differs"?expected:null
    };
-   setPlan(p=>appendCaptureExpectation(p,rule));
+   setPlan(appendCaptureExpectation(plan,rule));
    setExpected("");
    setNotice("Rule added to this browser session only; no target application was tested.");
   }catch(e){setError(String(e))}
