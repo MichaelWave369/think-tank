@@ -54,3 +54,24 @@ An explicit export produces an unsigned JSON review with the chosen candidate's 
 **Example:** For your owned prototype, record one TT-38 trace. Select that trace in TT-39, capture a candidate JSON with `ui.mode=night`, and author `ui.mode equals night`. The screen may report `AGREES_WITH_RULE`, but that is not proof that any target software was exercised.
 
 Merge gates: unit and kernel tests, TypeScript/React build, Pages packaging checks, and Chromium preview. Post-merge production deployment and browser smoke remain separate checks.
+
+## TT-41: Reproducible first-party Chromium workflow receipt
+
+TT-41 adds a **real browser execution test for ThinkTank itself** to the existing `thinktank-pages-preview-browser` workflow. This is not a general-purpose program runner or reverse-engineering engine.
+
+The CI test checks out the actual pull-request merge candidate, builds the production-path Vite assets, and runs Chromium against the loopback-only `/think-tank/` preview. It interacts with the rendered Φ Observatory using the same UI controls as a person would:
+
+1. Create a temporary owned-software study and trace with test-only text.
+2. Download the application's own capture JSON template; assert its non-authority schema flags.
+3. Upload two synthetic JSON observations via the browser's file inputs and assert all four comparison categories.
+4. Add operator-style expectation rules; assert agreement, contradiction and missing-capture distinctions.
+5. Download the resulting review report and assert its SHA-256 input hash, count totals, and explicit `testsPassed:false`, `evidenceVerified:false`, `executionAuthority:false` flags.
+6. Preserve the existing browser smoke's no-local-bridge/no-mutation-request/no-runtime-exception checks across this extended flow.
+
+**CI-generated evidence:** only after all browser assertions pass, the test writes `artifacts/observatory/tt41-owned-ui-receipt.json` and `tt41-owned-ui.png`. The workflow uploads them as an Actions artifact with 14-day retention. The receipt includes exact checked-out commit, test run time, fixture input file hashes, asserted counts, and screenshot digest. It is not signed or a canonical ThinkTank evidence artifact; SHA-256 alone does not authenticate the runner or the observations.
+
+The `TEST_ASSERTIONS_PASSED` outcome is accurate *only for the listed first-party browser-test assertions*. No external application or binary was accessed. The baseline and candidate data are test fixtures created by the test script, **not measured output from an independent target application**. The event kernel, Reality Gate, release authorization and Anti-M DONE remain unaffected.
+
+Run locally only inside the owned repository with an installed Playwright Chromium runner (the existing preview workflow pins `playwright@1.56.1`): `npm run pages:build`, `npm run pages:check`, and `node scripts/check-pages-preview.mjs`. The script starts and stops a loopback Vite preview and does not start a model bridge. Never include secrets, customer records, or private operational data in browser fixtures or downloadable CI artifacts.
+
+Merging a PR does not prove public deployment. Verify `thinktank-pages` and the separate deployed-browser smoke before claiming the public site is updated.

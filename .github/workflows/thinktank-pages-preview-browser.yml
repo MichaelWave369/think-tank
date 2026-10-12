@@ -9,6 +9,7 @@ on:
       - "scripts/build-pages.mjs"
       - "scripts/check-pages-build.mjs"
       - "scripts/check-pages-preview.mjs"
+      - "scripts/check-observatory-live.mjs"
       - ".github/workflows/thinktank-pages-preview-browser.yml"
 
 permissions:
@@ -39,3 +40,11 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Verify actual hosted-path React render, browser simulation and zero local AI traffic
         run: node scripts/check-pages-preview.mjs
+      - name: Upload scoped first-party Observatory browser receipt
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tt41-owned-observatory-chromium
+          path: artifacts/observatory/
+          if-no-files-found: error
+          retention-days: 14
