@@ -43,7 +43,7 @@ describe("TT-40 capture-only expectations",()=>{
   expect(result.evidenceVerified).toBe(false);
   expect(result.targetExecuted).toBe(false);
   expect(result.executionAuthority).toBe(false);
-  const exported=JSON.parse(exportCaptureEvaluation(p,result,"f".repeat(64)));
+  const exported=JSON.parse(exportCaptureEvaluation(p,candidate([{key:"ui.mode",value:"night"},{key:"ui.active",value:"true"}]),"f".repeat(64)));
   expect(exported.testsPassed).toBe(false);
   expect(exported.evidenceVerified).toBe(false);
   expect(exported.warning).toContain("NOT an application");
@@ -65,9 +65,8 @@ describe("TT-40 capture-only expectations",()=>{
   expect(()=>appendCaptureExpectation(plan(),rule("RULE-45678901","ui.status","present","yes"))).toThrow(/NULL/);
   expect(()=>appendCaptureExpectation(plan(),rule("RULE-45678901","__proto__","equals","a"))).toThrow(/KEY/);
   expect(()=>evaluateCaptureExpectations({...good,traceId:"STEP-87654321"},candidate([{key:"ui.mode",value:"night"}]))).toThrow(/MISMATCH/);
-  const real=evaluateCaptureExpectations(good,candidate([{key:"ui.mode",value:"night"}]));
-  expect(()=>exportCaptureEvaluation(good,{...real,targetExecuted:true},"f".repeat(64))).toThrow(/AUTHORITY/);
-  expect(()=>exportCaptureEvaluation(good,real,"not-a-hash")).toThrow(/DIGEST/);
+  expect(()=>exportCaptureEvaluation({...good,executionAuthority:true},candidate([{key:"ui.mode",value:"night"}]),"f".repeat(64))).toThrow(/AUTHORITY/);
+  expect(()=>exportCaptureEvaluation(good,candidate([{key:"ui.mode",value:"night"}]),"not-a-hash")).toThrow(/DIGEST/);
  });
  it("limits rule count and unique rule IDs",()=>{
   let p=plan();
