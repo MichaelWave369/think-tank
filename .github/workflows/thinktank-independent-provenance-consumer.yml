@@ -33,6 +33,7 @@ jobs:
           node --test scripts/tt45-consumer-policy.node.mjs
           node --check scripts/verify-tt45-independent-consumer.mjs
           node --test scripts/tt46-adversarial-attestations.node.mjs
+          node --test scripts/tt47-portable-proof.node.mjs
       - name: Fetch exact producer run and verify both attested files
         env:
           GH_TOKEN: ${{ github.token }}
@@ -50,5 +51,12 @@ jobs:
         with:
           name: tt46-adversarial-attestation-challenges
           path: artifacts/observatory/tt46-adversarial-verification-review.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload TT-47 portable proof with original subjects and offline bundles
+        uses: actions/upload-artifact@v4
+        with:
+          name: tt47-portable-offline-verification-proof
+          path: artifacts/observatory/tt47-portable/
           if-no-files-found: error
           retention-days: 14
