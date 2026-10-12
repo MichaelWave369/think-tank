@@ -11,3 +11,6 @@ dist/
 
 .generated-local-council/
 local-council-artifacts/
+
+# TT-41 ephemeral first-party browser assertion artifacts
+artifacts/observatory/
