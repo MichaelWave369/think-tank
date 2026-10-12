@@ -185,3 +185,30 @@ On success, TT-45's existing unsigned report remains, and the workflow separatel
 PR CI executes deterministic test cases for all four challenge argument contracts, expected process exit handling, mutation logic, and policy parsing. **The actual negative `gh attestation verify` calls happen only in the trusted second workflow after merge.** We intentionally do not report TT-46's real cryptographic challenge coverage as green merely because the PR unit tests pass.
 
 The producer workflow's main-path trigger is updated so merging TT-46 re-runs TT-44 issuance and TT-45/TT-46 consumer testing against that new reviewed commit. No external apps or binaries are probed. Release authorization, canonical event ledger, Reality Gate and Anti-M DONE remain unchanged.
+
+## TT-47: Portable Sigstore evidence for offline-capable, independently pinned verification
+
+The trusted TT-44 producer, independent TT-45 consumer, and all six real TT-46 cryptographic challenges have passed on reviewed main. TT-47 packages the **original** attested first-party counter-app JSON and PNG alongside the two associated GitHub attestation bundles and a fresh Sigstore trusted root, so an operator can independently verify the signed workflow identity without fetching attestations from the GitHub API during that local verification.
+
+Official references: [GitHub verifying attestations offline](https://docs.github.com/en/actions/how-tos/secure-your-work/use-artifact-attestations/verify-attestations-offline), [GitHub CLI download](https://cli.github.com/manual/gh_attestation_download), and [GitHub CLI verify](https://cli.github.com/manual/gh_attestation_verify).
+
+### Producer and independent consumer
+
+- TT-44's main-only GitHub Actions workflow still produces the actual source files and OIDC signatures. TT-45 still downloads the exact producer artifact and verifies the genuine original subjects. TT-46 still rejects four altered/misattributed variants and re-verifies both untouched subjects.
+- TT-47 then downloads the two `gh attestation download` JSONL bundles, obtains a current `gh attestation trusted-root` file, and produces `artifacts/observatory/tt47-portable/` with the original receipt, original PNG, receipt attestation JSONL, PNG attestation JSONL, `trusted-root.jsonl`, and an **unsigned manifest** with the SHA-256 of each component.
+- The separate read-only consumer verifies both original subjects again using `gh attestation verify --bundle <LOCAL_JSONL> --custom-trusted-root <LOCAL_ROOT>`, pinned to exact repository, trusted signer workflow, main branch and **independently obtained producer main commit SHA**. Its CLI process receives no GitHub authentication token; the GitHub API is not needed to look up signatures for these local checks.
+- Only on success does GitHub Actions upload the portable directory under `tt47-portable-offline-verification-proof` (14-day retention). The output is not an executable installer, local model service, generic web crawler or software disassembler.
+
+### How to inspect a downloaded TT-47 bundle
+
+Extract the GitHub Actions `tt47-portable-offline-verification-proof` ZIP into a local folder, without modifying file bytes. Install the GitHub CLI and use a trusted checkout of the ThinkTank repository with Node.js. Obtain the expected **40-character main commit SHA independently** from the associated trusted GitHub producer workflow or reviewed merge, not solely from the editable manifest.
+
+```bash
+node scripts/verify-tt47-portable-proof.mjs ./unpacked-proof YOUR_TRUSTED_MAIN_COMMIT_SHA
+```
+
+The command enforces a six-file allowlist, maximum file sizes, receipt-to-screenshot hash match, manifest byte digests, fixed owned-fixture observations and scope, and both Sigstore verifications using the locally provided bundle and trusted root. It fails closed if input bytes, roots, workflow identity, or SHA expectations disagree. Downloading a ZIP or seeing a positive JSON manifest is **not itself** the verification.
+
+**Offline boundary:** GitHub's documented `--bundle` plus `--custom-trusted-root` verifier supports local verification without API access; this initial CI run executes on a networked GitHub runner with credentials excluded from the verification subprocess. Consequently we should describe this as *offline-capable verification tested with local proof materials*, not claim that a physically network-isolated computer has been tested. A real disconnected-machine check is a separate future acceptance gate.
+
+**Governance:** The SHA-256 manifest and local verifier's output are unsigned explanatory records. Trust comes from locally verifying the actual Sigstore bundles with trusted root, identity and independently pinned source SHA, not from those editable JSON labels. Root freshness and revocation status still matter and may need refreshing when verification moves to a disconnected device. The signed subjects cover only the small checked-in owned counter application, not unrelated programs. No Third-party app testing, source-code transfer, canonical ThinkTank evidence promotion, Reality Gate or Anti-M DONE.
