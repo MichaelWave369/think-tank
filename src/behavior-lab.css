@@ -67,3 +67,16 @@
 .expectation-results p{font-size:.69rem;line-height:1.5;margin:0;white-space:pre-wrap}
 .expectation-results small{font-size:.66rem;color:#ffe0aa}
 @media(max-width:700px){.expectation-entry{grid-template-columns:1fr}}
+
+/* TT-43: read-only machine receipt inspection, kept apart from operator notes */
+.owned-receipt-lab{border:1px solid #736a97;background:#121021;color:#eae3ff;min-width:0}
+.owned-receipt-lab summary{padding:12px;cursor:pointer;font-size:.75rem;font-weight:700;letter-spacing:.025em;color:#ebe2ff;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.owned-receipt-lab summary span{font-size:.6rem;color:#c6b8f6;letter-spacing:0}
+.owned-receipt-body{padding:12px;border-top:1px solid #554e79;display:grid;gap:11px}
+.owned-receipt-body>p{font-size:.71rem;line-height:1.55;color:#d3c9ef;margin:0}
+.owned-receipt-body label{display:grid;gap:7px;font-size:.64rem;color:#dfd0ff;min-width:0}
+.owned-receipt-body input{width:100%;min-width:0;border:1px solid #686092;padding:9px;background:#0e0c1c;color:#eee7ff;font:inherit}
+.owned-receipt-body>small{font-size:.62rem;color:#d3c7ef}
+.owned-receipt-summary{display:grid;gap:6px;border:1px solid #665c91;padding:10px;background:#17152c;overflow-wrap:anywhere}
+.owned-receipt-summary strong{font-size:.74rem;color:#e7d5ff}
+.owned-receipt-summary small,.owned-receipt-summary span{font-size:.65rem;overflow-wrap:anywhere;color:#c5b9e7}

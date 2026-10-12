@@ -7,6 +7,7 @@ import {readFile} from "node:fs/promises";
 import {resolve} from "node:path";
 import {chromium} from "playwright";
 import {assertOwnedObservatoryWorkflow,writeOwnedObservatoryReceipt} from "./check-observatory-live.mjs";
+import {assertOwnedReceiptReviewInChromium} from "./check-owned-receipt-review.mjs";
 
 const site="http://127.0.0.1:4177/think-tank/";
 // Spawn Vite directly: killing npm alone can leave an orphaned preview server.
@@ -84,6 +85,8 @@ try{
   "Test deterministic browser simulation; verify no provider is contacted.");
  assert.match(data.dossier.basisFingerprint,/^fnv1a32:[0-9a-f]{8}$/);
  const observatoryRun=await assertOwnedObservatoryWorkflow(page);
+ if(process.env.TT43_REQUIRE_RECEIPT==="1")
+  await assertOwnedReceiptReviewInChromium(page);
  assert.deepEqual(bridge,[],"Simulation attempted a local AI bridge call");
  assert.deepEqual(writes,[],"Simulation issued external write traffic");
  assert.deepEqual(exceptions,[],"Public Vite preview produced a runtime exception");

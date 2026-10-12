@@ -96,3 +96,21 @@ Run locally from the repository with dependencies, Playwright and Chromium insta
 `node scripts/run-owned-browser-probe.mjs`
 
 The actual execution is covered by the PR preview workflow, and its artifact is available only after a green browser run. Existing TT-41 and earlier trust/approval boundaries remain intact. A merged PR does not establish production Pages deployment or Anti-M DONE.
+
+## TT-43: Read-only machine receipt intake with explicit non-authentication
+
+TT-42 generates a genuine Chromium measurement receipt when the fixed first-party counter app is exercised. TT-43 gives the ThinkTank **browser UI** a way to review that JSON file, separately from the manual operator notes introduced in TT-38 and TT-39.
+
+In Φ Observatory, expand **TT-43 MACHINE RECEIPT REVIEW** and choose `tt42-owned-target-receipt.json` from the TT-42 GitHub Actions artifact. The browser:
+
+- Reads only the explicit local file selection; maximum 128 KiB. The file is never uploaded, executed or sent to another origin.
+- Strictly validates the exact TT-42 v1 schema with no additional fields; scope must be the checked-in counter app. Two rounds must both report day/0 then night/1. Unexpected keys, changed expected values, false claims of network isolation, release authority, signature or canonical evidence are rejected.
+- Displays the **reported** before/after DOM measurements and claimed commit, labeled *STRUCTURALLY CONSISTENT · NOT AUTHENTICATED*. This is a format/consistency validation, **not** independent proof that the app actually ran or that the uploader owns it.
+- Optionally accepts the associated `tt42-owned-target.png` (maximum 3 MiB) and checks its actual PNG signature and SHA-256 against the digest declared inside the selected JSON. A matching digest confirms byte correspondence, not source authenticity. A mismatched screenshot is refused.
+- Exports a distinct `thinktank.owned-receipt-review.v1` JSON with `originAuthenticated:false`, `testExecutionAuthenticated:false`, `evidenceVerified:false`, `releaseAuthorized:false`, `antiMDone:false`. Uploaded files and review output remain outside the canonical ThinkTank event/evidence/release ledger.
+
+CI now runs the TT-42 owned-app Chromium probe **before** the ThinkTank preview browser check. The preview test then loads those actually generated files through the new UI, verifies displayed values and matching PNG hash, exports the unauthenticated review, and injects a forged `releaseAuthorized:true` file to confirm fail-closed rejection. This proves the React UI works and handles the exact artifacts produced in that CI run, while still not authenticating an arbitrary user-supplied copy later.
+
+No new dependencies, external network permissions, code reuse, or provider execution. Running `node scripts/check-pages-preview.mjs` locally without `TT43_REQUIRE_RECEIPT=1` keeps the historical preview behavior; CI sets that environment gate explicitly and fails if the real TT-42 files are missing.
+
+Next development should consider cryptographically authenticated producer-to-reviewer transfer before treating an imported receipt as machine-verified evidence. Even that would not grant release or Anti-M DONE without explicit human authority.

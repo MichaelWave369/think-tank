@@ -1,3 +1,4 @@
+import {OwnedReceiptReviewPanel} from "./OwnedReceiptReviewPanel";
 import {BehaviorCapturePanel} from "./BehaviorCapturePanel";
 import {useState} from "react";
 import {
@@ -93,6 +94,7 @@ export function BehaviorLabPanel(){
   <p className="behavior-warning">First-party investigation notebook. No target is contacted or executed.
    All access assertions, observations, documentation notes and hypotheses are operator-unverified.
    No borrowed implementation, agent execution, canonical evidence, release authority or Anti-M DONE.</p>
+  <OwnedReceiptReviewPanel/>
   <div className="behavior-create">
    <label>TARGET / APP NAME
     <input value={newStudy.target} maxLength={120} placeholder="Our owned prototype"
