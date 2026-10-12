@@ -140,7 +140,8 @@ Every normal synthesis carries a deterministic dossier; it can be sealed, journa
 41. ✅ First-party Chromium Observatory assertions + scoped machine receipt
 42. ✅ Read-only loopback probe for a separate owned app with real measured DOM behavior
 43. ✅ Read-only machine receipt importer and consistency reviewer (no source authentication)
-44. **GitHub Actions OIDC artifact provenance on reviewed main (pending merge + main-branch verification)**
+44. ✅ GitHub Actions OIDC attestation and verification of main-branch owned fixture receipts
+45. **Independent read-only consumer verifies downloaded producer artifacts in a second workflow (pending CI/main gate)**
 
 **Φ THINK TANK is a control room, not eight chat cards.**
 

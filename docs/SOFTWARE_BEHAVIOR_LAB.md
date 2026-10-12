@@ -142,3 +142,25 @@ Repeat for the PNG file. Validate its byte SHA-256 against the JSON receipt, too
 **Important boundaries:** A successful GitHub CLI verification authenticates the provenance claim for these exact file bytes and GitHub workflow identity; it does **not** prove the browser fixture is bug-free or that a different application was tested. The machine-readable TT-44 verification summary is **not itself cryptographically signed** and is not a substitute for independent verification. The TT-43 browser receipt viewer continues to say **UNAUTHENTICATED**, because an arbitrary browser file-picker JSON input cannot validate Sigstore signatures on its own. This rung adds no generic web browsing, binary reverse engineering, AI execution, canonical ledger authority, release permission or Anti-M DONE.
 
 PR verification tests only the hardcoded identity/digest policy. An actual GitHub OIDC attestation **cannot be considered tested until this is merged and the separate main-branch workflow succeeds**. If GitHub Actions attestation permissions or services are unavailable, the workflow must fail and no authenticated result should be claimed.
+
+## TT-45: Separate read-only consumer of main-branch provenance
+
+TT-44 has a successful *producer-side* GitHub Actions OIDC/Sigstore attestation on reviewed main. TT-45 adds an **independent read-only GitHub Actions workflow** (`thinktank-independent-provenance-consumer.yml`) that starts after the `thinktank-owned-receipt-oidc-provenance` workflow completes successfully on `main`. It has only `contents:read` and `actions:read` permissions: no `id-token:write`, `attestations:write`, signing keys, deployment rights, model calls or canonical ThinkTank ledger access.
+
+### Checks, in order
+
+1. Query the GitHub Actions REST metadata for the specific producer run ID from the trusted workflow-run event. Refuse any run that is not the exact repository and head repository, exact workflow name and **exact workflow file path**, successful completion, `main` head branch, expected event (`push` or `workflow_dispatch`), and a 40-digit Git commit SHA.
+2. Download only the fixed `tt44-main-oidc-attested-owned-fixture` artifact from that **run ID** into a new temporary directory using the GitHub CLI. Do not accept arbitrary URLs, subject paths, scripts, selectors, external app targets, or mutable JSON as authorizing evidence.
+3. Read only the two known subjects: `tt42-owned-target-receipt.json` and `tt42-owned-target.png`. Confirm both are regular files under the temporary extraction root; enforce size limits and PNG magic, expected first-party fixture behavior, zero unauthorized browser/network exceptions, the source commit matching GitHub's independent run metadata, false canonical/release flags, and exact screenshot byte digest.
+4. Independently run `gh attestation verify` on **both downloaded original subject files** using the already-tested TT-44 fixed repository, signer workflow, `refs/heads/main`, producer run's verified commit SHA and hosted-runner requirement. Both the CLI's cryptographic verification and parsable, nonempty verification output must succeed.
+5. Delete temporary downloaded inputs after the check. On success, export a lightweight `thinktank.tt45-independent-consumer-review.v1` JSON and upload it as `tt45-independent-provenance-consumer-review` with 14-day retention.
+
+The consumer's success makes a *narrow* claim: an independently run verifier authenticated the exact first-party counter-fixture file bytes and their GitHub producer workflow source, then checked the expected DOM observation statements. It does **not** establish that the counter example proves other products correct. The exported review is unsigned and should not be treated as cryptographic proof by anyone who hasn't independently verified the original attestation.
+
+No new third-party runtime dependencies and no alteration of TT-43's **UNAUTHENTICATED** browser file-review label. A future UI provenance upgrade must incorporate its own trusted verification evidence, not accept the TT-45 JSON summary as a transferable self-authenticating seal.
+
+### Staging / verification distinction
+
+PR CI runs only independent policy and negative-control tests and parses the CLI program. It **cannot** claim that the separate consumer has verified a newly issued producer run. The TT-44 producer workflow is configured to rerun on TT-45's merged workflow/source changes. After human merge, require a successful **new producer run and independent TT-45 consumer run** on that merge before marking this rung green.
+
+**Governance remains unchanged:** no release authorization, Reality Gate evidence promotion, canonical ThinkTank ledger mutation, or Anti-M DONE. Host Action OIDC provenance attests the GitHub workflow and file bytes, not the scientific correctness or trustworthiness of unrelated external inputs.

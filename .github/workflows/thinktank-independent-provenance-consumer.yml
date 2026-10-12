@@ -1,0 +1,46 @@
+name: thinktank-independent-provenance-consumer
+
+# Separate read-only verifier. It does not request OIDC or attestation write.
+on:
+  workflow_run:
+    workflows: ["thinktank-owned-receipt-oidc-provenance"]
+    types: [completed]
+    branches: ["main"]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  independent-consumer:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Checkout reviewed main consumer logic
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Run independent consumer policy negative controls
+        run: |
+          node --test scripts/tt45-consumer-policy.node.mjs
+          node --check scripts/verify-tt45-independent-consumer.mjs
+      - name: Fetch exact producer run and verify both attested files
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TT45_PRODUCER_RUN_ID: ${{ github.event.workflow_run.id }}
+        run: node scripts/verify-tt45-independent-consumer.mjs
+      - name: Upload unsigned read-only consumer report
+        uses: actions/upload-artifact@v4
+        with:
+          name: tt45-independent-provenance-consumer-review
+          path: artifacts/observatory/tt45-independent-consumer-review.json
+          if-no-files-found: error
+          retention-days: 14
