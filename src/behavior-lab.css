@@ -22,3 +22,6 @@
 .behavior-error,.behavior-notice,.behavior-footer{font-size:.64rem;margin:0}
 .behavior-footer{color:#91acc1;line-height:1.4}
 @media(max-width:700px){.behavior-create{grid-template-columns:1fr}.behavior-header{flex-direction:column;align-items:start}.behavior-actions button{min-height:42px}}
+
+.behavior-app-section{max-width:1800px;margin:10px auto 24px;padding:0 18px;scroll-margin-top:12px}
+@media(max-width:700px){.behavior-app-section{padding:0 8px}}
