@@ -227,3 +227,21 @@ Once TT-48 is merged, the existing main-only trusted producer path triggers a fr
 The PR CI can prove Docker `--network none` is actually working and mounted `gh` can run, plus exercise fail-closed trust-pin logic. The **cryptographic** TT-48 gate only runs with genuine post-merge producer attestations, so do not claim full TT-48 until that second-stage action is green.
 
 **Scope/limits:** Docker's network-disabled namespace on GitHub's hosted runner is a real blocked-network test, **not** a physically air-gapped machine. The root retrieved from GitHub's CLI is independently sourced relative to the portable package but remains subject to the usual root distribution and freshness assumptions. The manifest, CI transcript, and machine-written reports remain unsigned assertions unless original Sigstore bundles are verified against authenticated root material.
+
+## TT-49: Adversarial challenges *within* the isolated proof verifier
+
+The TT-48 main-branch consumer passed its actual Docker `--network none` check, independent trusted-root fingerprint comparison, and two locally supplied Sigstore bundle verifications for the original owned-counter fixture. TT-49 requires that **the same network-isolated verifier reject deliberately counterfeit portable materials**, not merely authenticate the real inputs.
+
+The new `tt49-offline-adversarial.mjs` operates only inside Docker's disabled-network namespace. It validates loopback-only networking, confirms direct IP egress fails with a routing error, checks the independent root pin and **cryptographically verifies both unmodified original subjects first**. It then copies the six-file TT-47 package to temporary private directories (never modifying the read-only originals) and performs five challenges:
+
+1. **Mutated JSON receipt:** change only the final line-feed into a space, leaving well-formed JSON. Recalculate the **unsigned manifest's** receipt SHA-256 so that a weak hash-only check would accept it; the actual local Sigstore verification **must** reject the modified signed bytes.
+2. **Swapped attestation bundle:** place the PNG's genuine bundle in the receipt's bundle slot, then rewrite the **unsigned manifest's** bundle digest. The CLI must refuse verification of the mismatched subject and attestation.
+3. **Substituted trusted root:** change root bytes and rewrite the **unsigned manifest's** matching digest. The independently obtained external root pin **must** refuse the substitution.
+4. **Wrong out-of-band commit:** supply a different, well-formed commit SHA from outside the manifest. The receipt-to-source-commit binding **must** reject it.
+5. **Forged unsigned authority:** change `releaseAuthorized` to `true` in the portable manifest. The strict schema/authority policy must refuse the claim.
+
+After **all five** negative checks, TT-49 cryptographically verifies the untouched original signed receipt and screenshot **again**, still with no network access. The required order (authentic proof PASS, five counterfeits REFUSED, authentic proof PASS) prevents a broken reject-everything verifier from appearing trustworthy. CLI crashes, missing executables, and obvious network errors cannot be counted as signature rejection.
+
+The consumer job uploads `tt49-offline-adversarial-signature-checks`, containing the bounded unsigned transcript. This proves only that the isolated verification workflow exercised these fixed known cases and generated the stated result. Do not treat the transcript as a transferable signature, and do not transfer its assertions into the canonical evidence ledger, release status or Anti-M DONE. As with TT-48, this is a network-disabled GitHub-hosted container, not a physically air-gapped independently owned computer.
+
+PR CI covers policy tests and counterexample generation using test doubles. **The live signed-subject cryptographic challenges remain unverified until this PR is merged, TT-44 regenerates attested originals, and the independent TT-45/46/47/48/49 workflow succeeds.**

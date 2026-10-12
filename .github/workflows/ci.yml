@@ -25,6 +25,9 @@ jobs:
       - run: node --check scripts/verify-tt47-portable-proof.mjs
       - run: node --test scripts/tt48-isolation-policy.node.mjs
       - run: node --check scripts/tt48-isolation-policy.mjs
+      - run: node --test scripts/tt49-offline-adversarial.node.mjs
+      - run: node --check scripts/tt49-offline-adversarial.mjs
+      - run: node --check scripts/verify-tt49-offline-adversarial.mjs
       - run: node --check scripts/verify-tt48-network-isolated.mjs
       - name: Verify actual network-disabled Docker namespace and mounted GitHub CLI
         shell: bash
