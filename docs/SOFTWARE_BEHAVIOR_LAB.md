@@ -164,3 +164,24 @@ No new third-party runtime dependencies and no alteration of TT-43's **UNAUTHENT
 PR CI runs only independent policy and negative-control tests and parses the CLI program. It **cannot** claim that the separate consumer has verified a newly issued producer run. The TT-44 producer workflow is configured to rerun on TT-45's merged workflow/source changes. After human merge, require a successful **new producer run and independent TT-45 consumer run** on that merge before marking this rung green.
 
 **Governance remains unchanged:** no release authorization, Reality Gate evidence promotion, canonical ThinkTank ledger mutation, or Anti-M DONE. Host Action OIDC provenance attests the GitHub workflow and file bytes, not the scientific correctness or trustworthiness of unrelated external inputs.
+
+## TT-46: Live adversarial proof checks, not only positive attestations
+
+TT-44's producer and TT-45's independent, read-only consumer both passed on reviewed `main`. TT-46 strengthens the **independent consumer**, without adding another signer or new authority. It challenges the *actual GitHub CLI cryptographic verifier* with four intentionally invalid variants of the current run's original OIDC-attested subjects:
+
+1. **Altered receipt bytes:** convert only the terminal LF of the real JSON receipt to a space, preserving valid JSON but changing the exact signed SHA-256 digest.
+2. **Altered PNG bytes:** flip one bit of a temporary copy of the real image while preserving its PNG signature.
+3. **Incorrect source commit:** test the *untouched original receipt* with an intentionally different 40-character Git SHA.
+4. **Incorrect signing workflow:** test the *untouched original receipt* while claiming the unrelated `MichaelWave369/think-tank/.github/workflows/ci.yml` signer.
+
+All challenges use `gh attestation verify` with the fixed repository/main identity policy. **Each must be rejected**. A variant that verifies successfully makes the independent consumer job fail immediately. Process crashes, timeouts or missing CLI are not counted as successful rejections. After the four rejections, the consumer **re-verifies the two unmodified original subjects** and requires both the real GitHub CLI exit success and a nonempty verified output. This reduces the risk of treating broken network/authentication infrastructure as an effective tamper-detection check.
+
+Tampered files are created only in an isolated temporary directory and are deleted in `finally`; the attested originals remain unchanged. TT-46 runs only in a GitHub Actions consumer with `actions:read`/`contents:read` permissions, without signing keys or OIDC write permission.
+
+On success, TT-45's existing unsigned report remains, and the workflow separately uploads an additional **unsigned, review-only** `tt46-adversarial-attestation-challenges` JSON report. It records the four rejection labels, their mutated/original byte digests, both subsequent successful positive checks, the independently obtained producer commit and run ID, and explicit `releaseAuthorized:false`/`antiMDone:false`. This JSON is not a transferable cryptographic credential and must not be ingested by TT-43 as self-verifying source authority.
+
+### Acceptance boundaries
+
+PR CI executes deterministic test cases for all four challenge argument contracts, expected process exit handling, mutation logic, and policy parsing. **The actual negative `gh attestation verify` calls happen only in the trusted second workflow after merge.** We intentionally do not report TT-46's real cryptographic challenge coverage as green merely because the PR unit tests pass.
+
+The producer workflow's main-path trigger is updated so merging TT-46 re-runs TT-44 issuance and TT-45/TT-46 consumer testing against that new reviewed commit. No external apps or binaries are probed. Release authorization, canonical event ledger, Reality Gate and Anti-M DONE remain unchanged.
