@@ -80,3 +80,19 @@
 .owned-receipt-summary{display:grid;gap:6px;border:1px solid #665c91;padding:10px;background:#17152c;overflow-wrap:anywhere}
 .owned-receipt-summary strong{font-size:.74rem;color:#e7d5ff}
 .owned-receipt-summary small,.owned-receipt-summary span{font-size:.65rem;overflow-wrap:anywhere;color:#c5b9e7}
+
+/* TT-51: manual portable proof instructions, not a browser verifier */
+.tt51-operator-guide{border-color:#447d8e;background:#071923}
+.tt51-operator-guide summary{color:#d1f1ff}
+.tt51-operator-guide summary span{color:#9bc9d8}
+.tt51-operator-guide .owned-receipt-body{border-top-color:#346278}
+.tt51-operator-guide a{color:#a5ddff;overflow-wrap:anywhere}
+.tt51-operator-guide code{font-size:.69rem;color:#f6e8c5}
+.tt51-operator-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.tt51-operator-fields label{display:grid;gap:7px;font-size:.62rem;color:#a6d4ee;min-width:0}
+.tt51-operator-fields input,.tt51-operator-fields select{min-width:0;width:100%;padding:10px;border:1px solid #467589;background:#071019;color:#e6faff;font-size:.72rem;font-family:inherit}
+.tt51-operator-result{display:grid;gap:9px;padding:11px;border:1px solid #42788a;background:#091925;overflow-wrap:anywhere}
+.tt51-operator-result strong{color:#b6e7fc;font-size:.7rem}
+.tt51-operator-result pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#02090f;color:#dcf4ff;padding:12px;border:1px solid #335766;font-size:.72rem;line-height:1.6}
+.tt51-operator-result small{font-size:.63rem;color:#b5cbdc;line-height:1.5}
+@media(max-width:700px){.tt51-operator-fields{grid-template-columns:1fr}}
