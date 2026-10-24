@@ -30,7 +30,7 @@ export function verifyLocalCouncilArtifacts(ledgerInput:unknown,dossierInput?:un
  if(typeof summary.mode!=="string"||!Object.prototype.hasOwnProperty.call(modes,summary.mode))fail("MODE");
  const mode=summary.mode as Mode;
  const model=bounded(summary.model,"MODEL",90);
- const turnsInvoked=summary.turnsInvoked;
+ const turnsInvoked=typeof summary.turnsInvoked==="number" ? summary.turnsInvoked : Number.NaN;
  if(typeof turnsInvoked!=="number"||!Number.isInteger(turnsInvoked)||
   turnsInvoked<0||turnsInvoked>modes[mode])fail("TURN_BUDGET");
  if(typeof summary.completed!=="boolean"||typeof summary.aborted!=="boolean"||
