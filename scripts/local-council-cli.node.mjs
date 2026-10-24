@@ -5,7 +5,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
 import {spawn} from "node:child_process";
-import {createHash} from "node:crypto";
+import {createHash,generateKeyPairSync,verify as edVerify,createPublicKey} from "node:crypto";
 import {readFileSync,writeFileSync,unlinkSync} from "node:fs";
 import {resolve} from "node:path";
 import {once} from "node:events";
@@ -100,6 +100,40 @@ test("actual terminal runner refuses wrong SHA and produces replayed local-only 
   assert.equal(receipt.authGranted,false);
   assert.equal(receipt.truthAuthority,false);
   assert.equal(receipt.signerAuthenticated,false);
+
+  // R9: sign the exact previously generated kernel report using a temporary
+  // Ed25519 test key. Neither signing nor verification invokes providers.
+  const {privateKey}=generateKeyPairSync("ed25519");
+  const signingKeyPath=verificationPath+".private-test.pem";
+  const signedPath=verificationPath+".sig.json";
+  artifacts.push(signingKeyPath,signedPath);
+  writeFileSync(signingKeyPath,privateKey.export({format:"pem",type:"pkcs8"}),{mode:0o600});
+  const signCli=resolve("scripts/sign-local-replay-receipt.mjs");
+  const signer=await new Promise((done,reject)=>{
+    const child=spawn(process.execPath,[signCli,verificationPath,signingKeyPath,signedPath,"--confirm-sign-only"],{
+      cwd:process.cwd(),env:{...process.env,OPENAI_API_KEY:"",KIMI_API_KEY:""},stdio:["ignore","pipe","pipe"]
+    });
+    let stdout="",stderr="";
+    child.stdout.on("data",c=>stdout+=c.toString());
+    child.stderr.on("data",c=>stderr+=c.toString());
+    child.on("error",reject);
+    child.on("close",code=>done({code,stdout,stderr}));
+  });
+  assert.equal(signer.code,0,signer.stderr);
+  assert.equal(invocations.length,5,"signing must not invoke providers");
+  const signature=JSON.parse(readFileSync(signedPath,"utf8"));
+  assert.equal(signature.schema,"phi-thinktank-local-replay-signature.v0.1");
+  assert.equal(signature.reportSha256,createHash("sha256").update(readFileSync(verificationPath)).digest("hex"));
+  const spki=Buffer.from(signature.publicKeySpkiBase64,"base64");
+  assert.equal(signature.publicKeyFingerprintSha256,createHash("sha256").update(spki).digest("hex"));
+  assert.equal(signature.authGranted,false);
+  assert.equal(signature.truthAuthority,false);
+  assert.equal(signature.signerAuthenticated,false);
+  const signedMessage=Buffer.from("PHI_THINKTANK_LOCAL_REPLAY_SIGNATURE_V1\n"+signature.reportSha256);
+  assert.equal(edVerify(null,signedMessage,createPublicKey({key:spki,format:"der",type:"spki"}),Buffer.from(signature.signatureBase64,"base64")),true);
+  const badMessage=Buffer.from("PHI_THINKTANK_LOCAL_REPLAY_SIGNATURE_V1\n"+"f".repeat(64));
+  assert.equal(edVerify(null,badMessage,createPublicKey({key:spki,format:"der",type:"spki"}),Buffer.from(signature.signatureBase64,"base64")),false);
+  assert.equal(invocations.length,5);
 
   const forgedPath=ledgerPath+".forged.json";
   artifacts.push(forgedPath);
