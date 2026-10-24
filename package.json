@@ -21,6 +21,7 @@
     "council:inspect": "node .generated-local-council/local-council-entry.js inspect",
     "council:run": "node .generated-local-council/local-council-entry.js run",
     "council:verify": "node .generated-local-council/local-council-entry.js verify",
+    "council:sign": "node scripts/sign-local-replay-receipt.mjs",
     "pages:build": "node scripts/build-pages.mjs",
     "pages:check": "node scripts/check-pages-build.mjs"
   },
