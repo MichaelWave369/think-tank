@@ -51,7 +51,7 @@ export function verifyLocalCouncilArtifacts(ledgerInput:unknown,dossierInput?:un
  if(state.sessionId!==expectedSession)fail("SESSION");
  const providerTurns=events.filter(event=>
     event.source==="provider"&&["utterance.complete","challenge.raised"].includes(event.kind));
- if(providerTurns.length>summary.turnsInvoked)fail("TURN_COUNT");
+ if(providerTurns.length>turnsInvoked)fail("TURN_COUNT");
  if(providerTurns.some(e=>e.seatId!=="local"||e.providerModel!==model))fail("PROVIDER_SCOPE");
  const decision=state.decisionDossiers.slice(-1)[0]??null;
  let dossierMatch:"NOT_SUPPLIED"|"EXACT"="NOT_SUPPLIED";
