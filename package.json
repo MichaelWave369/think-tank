@@ -20,6 +20,7 @@
     "council:build": "vite build --ssr scripts/local-council-entry.ts --outDir .generated-local-council",
     "council:inspect": "node .generated-local-council/local-council-entry.js inspect",
     "council:run": "node .generated-local-council/local-council-entry.js run",
+    "council:verify": "node .generated-local-council/local-council-entry.js verify",
     "pages:build": "node scripts/build-pages.mjs",
     "pages:check": "node scripts/check-pages-build.mjs"
   },
