@@ -6,6 +6,7 @@ import {readFileSync,mkdirSync,writeFileSync} from "node:fs";
 import {resolve} from "node:path";
 import {inspectLocalCouncilContract,runLocalGovernedCouncil,localCouncilDossierExport} from "../src/localCouncil";
 import {modeDefinition} from "../src/domain/modes";
+import {verifyLocalCouncilArtifacts} from "../src/localCouncilReplayVerifier";
 
 const BRIDGE="http://127.0.0.1:3691";
 const die=(s:string):never=>{throw Error("LOCAL_COUNCIL_CLI_"+s)};
@@ -57,6 +58,35 @@ function output(receipt:Awaited<ReturnType<typeof runLocalGovernedCouncil>>,sha:
 }
 async function main(argv:string[]){
  const [op,path,...rest]=argv;
+ if(op==="verify"){
+  // No bridge, no Ollama, no API, no model inference. Files stay local.
+  if(!path||rest.length>1||rest.some(arg=>arg.startsWith("--")))die("VERIFY_USAGE_LEDGER_OPTIONAL_DOSSIER");
+  const bytes=(filename:string)=>{
+   const buffer=readFileSync(resolve(filename));
+   if(buffer.byteLength===0||buffer.byteLength>4*1024*1024)die("VERIFY_FILE_SIZE");
+   const raw=new TextDecoder("utf-8",{fatal:true}).decode(buffer);
+   return {buffer,parsed:JSON.parse(raw) as unknown};
+  };
+  const ledger=bytes(path);
+  const dossier=rest[0]?bytes(rest[0]):null;
+  const verdict=verifyLocalCouncilArtifacts(ledger.parsed,dossier?.parsed);
+  const receipt={
+   ...verdict,
+   ledgerSha256:createHash("sha256").update(ledger.buffer).digest("hex"),
+   dossierSha256:dossier?createHash("sha256").update(dossier.buffer).digest("hex"):null,
+   verifierOrigin:"local-operator-computer",
+   localClockTrust:"untrusted-local-clock",
+   independentlyAuthenticated:false
+  };
+  const folder=resolve("local-council-artifacts");
+  mkdirSync(folder,{recursive:true,mode:0o700});
+  const id=new Date().toISOString().replace(/[:.]/g,"-")+"-"+randomBytes(4).toString("hex");
+  const output=folder+"/replay-verification-"+id+".json";
+  writeFileSync(output,JSON.stringify(receipt,null,2)+"\n",{flag:"wx",mode:0o600});
+  console.log("LOCAL_COUNCIL_VERIFICATION="+output);
+  console.log("KERNEL_REPLAY_PASS · LOCAL FILE ONLY · NO SIGNER AUTHENTICATION · NO TRUTH AUTHORITY");
+  return;
+ }
  if(!["inspect","run"].includes(op||"")||!path)die("USAGE_inspect_OR_run_CONTRACT_JSON");
  const {contract,sha}=load(path);
  if(op==="inspect"){
