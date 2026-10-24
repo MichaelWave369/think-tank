@@ -27,11 +27,12 @@ export function verifyLocalCouncilArtifacts(ledgerInput:unknown,dossierInput?:un
  if(ledger.schema!=="phi-thinktank-local-council-result.v0.1")fail("LEDGER_SCHEMA");
  if(typeof ledger.contractSha256!=="string"||!/^[a-f0-9]{64}$/.test(ledger.contractSha256))fail("CONTRACT_SHA");
  const summary=obj(ledger.summary,"SUMMARY");
- if(typeof summary.mode!=="string"||!Object.hasOwn(modes,summary.mode))fail("MODE");
+ if(typeof summary.mode!=="string"||!Object.prototype.hasOwnProperty.call(modes,summary.mode))fail("MODE");
  const mode=summary.mode as Mode;
  const model=bounded(summary.model,"MODEL",90);
- if(typeof summary.turnsInvoked!=="number"||!Number.isInteger(summary.turnsInvoked)||
-  summary.turnsInvoked<0||summary.turnsInvoked>modes[mode])fail("TURN_BUDGET");
+ const turnsInvoked=summary.turnsInvoked;
+ if(typeof turnsInvoked!=="number"||!Number.isInteger(turnsInvoked)||
+  turnsInvoked<0||turnsInvoked>modes[mode])fail("TURN_BUDGET");
  if(typeof summary.completed!=="boolean"||typeof summary.aborted!=="boolean"||
     summary.completed&&summary.aborted)fail("SUMMARY_STATUS");
  const authority=obj(ledger.authority,"AUTHORITY");
