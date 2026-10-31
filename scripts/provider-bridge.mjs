@@ -8,12 +8,21 @@ import {execFileSync} from "node:child_process";
 import {tmpdir} from "node:os";
 import {appendFileSync,existsSync,mkdirSync,mkdtempSync,readFileSync,rmSync,writeFileSync} from "node:fs";
 import {dirname,join,resolve} from "node:path";
+import {
+  PHISERVE_DEFAULT_URL,selectLocalBackend,validatePhiServeBase,
+  phiServeHeaders,phiServeChatPayload,phiServeFinalText
+} from "./phiserve-transport.mjs";
 
 try{process.loadEnvFile(".env");}catch{}
 
 const HOST=process.env.THINK_TANK_BRIDGE_HOST||"127.0.0.1";
 const PORT=Number(process.env.THINK_TANK_BRIDGE_PORT||3691);
 const OLLAMA_BASE_URL=(process.env.OLLAMA_BASE_URL||"http://127.0.0.1:11434").replace(/\/$/,"");
+const LOCAL_MODEL_BACKEND=selectLocalBackend(process.env.LOCAL_MODEL_BACKEND||"ollama");
+const PHISERVE_BASE_URL=LOCAL_MODEL_BACKEND==="phiserve"
+  ?validatePhiServeBase(process.env.PHISERVE_BASE_URL||PHISERVE_DEFAULT_URL)
+  :null;
+const PHISERVE_TOKEN_FILE=process.env.PHISERVE_TOKEN_FILE||"";
 const KIMI_BASE_URL=(process.env.KIMI_BASE_URL||"https://api.moonshot.ai/v1").replace(/\/$/,"");
 const MAX_BODY_BYTES=512_000;
 const MAX_OUTPUT_TOKENS=Math.max(64,Number(process.env.PROVIDER_MAX_OUTPUT_TOKENS||1200));
@@ -2768,29 +2777,36 @@ const extractEvidenceText=async({uri,expectedSha256,startChar,endChar})=>{
   };
 };
 
-const ollamaStatus=async()=>{
+export const ollamaStatus=async()=>{
+  const isPhiServe=LOCAL_MODEL_BACKEND==="phiserve";
+  const name=isPhiServe?"PhiServe":"Ollama";
+  const endpoint=isPhiServe?PHISERVE_BASE_URL:OLLAMA_BASE_URL;
   try{
-    const {body}=await fetchJson(OLLAMA_BASE_URL+"/api/tags",{},3500);
+    const {body}=await fetchJson(
+      endpoint+"/api/tags",
+      isPhiServe?{headers:phiServeHeaders(PHISERVE_TOKEN_FILE)}:{},
+      3500
+    );
     const models=Array.isArray(body.models)
       ?body.models.map(item=>item?.name||item?.model).filter(Boolean)
       :[];
-    const preferred=process.env.OLLAMA_MODEL||models[0]||null;
+    const preferred=(isPhiServe?process.env.PHISERVE_MODEL:process.env.OLLAMA_MODEL)||models[0]||null;
     return {
       seatId:"local",
-      provider:"Ollama",
+      provider:name,
       state:"connected",
       model:preferred,
       models,
-      detail:models.length?models.length+" local model(s) discovered.":"Ollama reachable; no local models discovered."
+      detail:models.length?models.length+" "+name+" local GGUF model(s) discovered.":name+" reachable; no local models discovered."
     };
   }catch(error){
     return {
       seatId:"local",
-      provider:"Ollama",
+      provider:name,
       state:"disconnected",
       model:null,
       models:[],
-      detail:"Ollama unavailable at "+OLLAMA_BASE_URL+": "+error.message
+      detail:name+" is unavailable or unauthorized on the local loopback. Check its service, model list and token file."
     };
   }
 };
@@ -2927,13 +2943,35 @@ export const runOllamaChatWithFallback=async({
   );
 };
 
-const invokeOllama=async(request)=>{
+export const invokeOllama=async(request)=>{
   const status=await ollamaStatus();
   if(status.state!=="connected")throw new Error(status.detail);
-  const model=request.model||process.env.OLLAMA_MODEL||status.model;
-  if(!model)throw new Error("No Ollama model is available.");
+  const usingPhiServe=LOCAL_MODEL_BACKEND==="phiserve";
+  const model=request.model||
+    (usingPhiServe?process.env.PHISERVE_MODEL:process.env.OLLAMA_MODEL)||status.model;
+  if(!model||!status.models.includes(model)){
+    throw new Error("Requested model alias is not in the selected local runtime catalog.");
+  }
 
   const started=Date.now();
+  if(usingPhiServe){
+    // Explicit local runtime selection; never silently retries with Ollama, Kimi or cloud.
+    // PhiServe's strict Ollama subset rejects the Ollama-specific think:false field.
+    const payload=phiServeChatPayload({
+      model,messages:request.messages,maxOutputTokens:MAX_OUTPUT_TOKENS
+    });
+    const result=await fetchJson(
+      PHISERVE_BASE_URL+"/api/chat",
+      {method:"POST",headers:phiServeHeaders(PHISERVE_TOKEN_FILE,true),
+       body:JSON.stringify(payload)},
+      180_000
+    );
+    return {
+      ok:true,seatId:"local",provider:"PhiServe",model,
+      text:phiServeFinalText(result.body),latencyMs:Date.now()-started,
+      requestId:result.response.headers.get("x-request-id")||undefined
+    };
+  }
   const result=await runOllamaChatWithFallback({
     model,
     messages:request.messages,

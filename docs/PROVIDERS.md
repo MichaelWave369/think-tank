@@ -389,3 +389,9 @@ Simulation output is marked SIMULATION FIXTURE at the ledger/session/gate/synthe
 That field participates in the deterministic dossier basis fingerprint.
 
 Bridge version remains `0.15.0`.
+
+## PhiServe local provider (opt-in)
+
+Think Tank now accepts `LOCAL_MODEL_BACKEND=phiserve` with a private `PHISERVE_TOKEN_FILE` in the **local Node bridge**. Status and generation use PhiServe's authenticated local `/api/tags` and `/api/chat`, with text-only `stream:false` and no `think:false` field. No model downloads or server configuration changes are made automatically. The existing Ollama path remains the default.
+
+See [PhiServe local integration](PHISERVE_PROVIDER.md). PhiServe provides inference only: the same Think Tank Reality Gate, governance, evidence receipts and operator decisions still govern any effect.
