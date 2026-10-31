@@ -2777,7 +2777,7 @@ const extractEvidenceText=async({uri,expectedSha256,startChar,endChar})=>{
   };
 };
 
-const ollamaStatus=async()=>{
+export const ollamaStatus=async()=>{
   const isPhiServe=LOCAL_MODEL_BACKEND==="phiserve";
   const name=isPhiServe?"PhiServe":"Ollama";
   const endpoint=isPhiServe?PHISERVE_BASE_URL:OLLAMA_BASE_URL;
@@ -2943,7 +2943,7 @@ export const runOllamaChatWithFallback=async({
   );
 };
 
-const invokeOllama=async(request)=>{
+export const invokeOllama=async(request)=>{
   const status=await ollamaStatus();
   if(status.state!=="connected")throw new Error(status.detail);
   const usingPhiServe=LOCAL_MODEL_BACKEND==="phiserve";
