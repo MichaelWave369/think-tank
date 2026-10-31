@@ -11,7 +11,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - run: npm install
+      - name: Install exact reviewed dependencies
+        run: npm ci --no-fund --no-audit
+      - name: Refuse high or critical npm advisories
+        run: npm audit --audit-level=high
       - run: npm test
       - run: node --test scripts/owned-browser-contract.node.mjs
       - run: node --test scripts/tt44-provenance-policy.node.mjs
