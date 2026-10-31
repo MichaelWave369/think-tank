@@ -1,0 +1,57 @@
+name: Temporary ThinkTank lockfile authoring
+on:
+  push:
+    branches:
+      - chore/pin-thinktank-npm-dependencies-20261031
+    paths:
+      - .github/workflows/thinktank-lock-bootstrap.yml
+
+permissions:
+  contents: write
+
+jobs:
+  author-pinned-lock:
+    if: github.repository == 'MichaelWave369/think-tank'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Generate stable exact dependency lock without install hooks
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e package-lock.json
+          git diff --quiet -- package.json
+          npm --version
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          cp package-lock.json /tmp/thinktank-first-lock.json
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          cmp -s /tmp/thinktank-first-lock.json package-lock.json
+          node -e 'const p=require("./package.json");const l=require("./package-lock.json");if(l.lockfileVersion!==3||l.packages[""].name!==p.name||l.packages[""].version!==p.version)process.exit(1);console.log("LOCKFILE_SCHEMA_AND_ROOT_MATCH")'
+          sha256sum package-lock.json
+      - name: Verify committed candidate resolves and builds
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --no-audit --no-fund
+          npm test
+          npm run build
+          npm audit --audit-level=high
+      - name: Commit only lock and remove this temporary write-capable workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/thinktank-lock-bootstrap.yml
+          git add package-lock.json
+          test "$(git diff --cached --name-only | sort)" = "$(printf '.github/workflows/thinktank-lock-bootstrap.yml\npackage-lock.json')"
+          git commit -m "chore(deps): commit tested ThinkTank npm dependency lock"
+          git push origin HEAD:refs/heads/chore/pin-thinktank-npm-dependencies-20261031
+          echo "LOCK_AUTHORED_AND_BOOTSTRAP_REMOVED"
