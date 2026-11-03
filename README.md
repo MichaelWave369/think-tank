@@ -157,3 +157,7 @@ Every normal synthesis carries a deterministic dossier; it can be sealed, journa
 Φ THINK TANK is open-source software released under the [MIT License](LICENSE).
 
 Copyright © 2026 MichaelWave369.
+
+## PocketMesh Research Council E1 · Read-only receipt consumer
+
+ThinkTank now includes an [offline PocketMesh E1 typed-receipt consumer](docs/POCKETMESH_E1_CONSUMER.md). It validates synthetic council envelope structure, declared source SHA format, per-seat lineage digests, action pairs and strict no-authority flags, then returns `HELD_UNTRUSTED_REVIEW_ONLY`. Operator-selected local file inspection: `npm run pocketmesh:e1:inspect -- --file /path/to/public-synthetic-e1.json`. The consumer is covered by `npm run bridge:test`. **No live provider calls, external source authentication, raw prompt intake, science verification or council execution occurs.**

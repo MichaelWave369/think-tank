@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "bridge": "node scripts/provider-bridge.mjs",
     "bridge:check": "node --check scripts/provider-bridge.mjs",
-    "bridge:test": "node --test scripts/evidence-verifier.node.mjs scripts/dossier-transparency.node.mjs scripts/dossier-witness.node.mjs scripts/dossier-rfc3161.node.mjs scripts/dossier-publication.node.mjs scripts/release-seal.node.mjs scripts/release-rfc3161.node.mjs scripts/release-publication.node.mjs scripts/release-durability.node.mjs scripts/publisher-origin-identity.node.mjs scripts/ollama-live.node.mjs scripts/phiserve-transport.node.mjs",
+    "bridge:test": "node --test scripts/evidence-verifier.node.mjs scripts/dossier-transparency.node.mjs scripts/dossier-witness.node.mjs scripts/dossier-rfc3161.node.mjs scripts/dossier-publication.node.mjs scripts/release-seal.node.mjs scripts/release-rfc3161.node.mjs scripts/release-publication.node.mjs scripts/release-durability.node.mjs scripts/publisher-origin-identity.node.mjs scripts/ollama-live.node.mjs scripts/phiserve-transport.node.mjs scripts/pocketmesh-e1-consumer.node.mjs",
     "dossier:keygen": "node scripts/generate-dossier-key.mjs",
     "release:keygen": "node scripts/generate-release-key.mjs",
     "witness:keygen": "node scripts/generate-witness-key.mjs",
@@ -23,7 +23,8 @@
     "council:verify": "node .generated-local-council/local-council-entry.js verify",
     "council:sign": "node scripts/sign-local-replay-receipt.mjs",
     "pages:build": "node scripts/build-pages.mjs",
-    "pages:check": "node scripts/check-pages-build.mjs"
+    "pages:check": "node scripts/check-pages-build.mjs",
+    "pocketmesh:e1:inspect": "node scripts/inspect-pocketmesh-e1.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",
