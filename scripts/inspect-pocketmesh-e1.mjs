@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import { constants, lstatSync, openSync, fstatSync, readFileSync, closeSync } from "node:fs";
 import { reviewPocketMeshE1 } from "./pocketmesh-e1-consumer.mjs";
+import { pathToFileURL } from "node:url";
+import { resolve } from "node:path";
 
 // Explicit operator-supplied file only; no stdin, network or state writes.
 export function inspectPocketMeshFile(file) {
@@ -25,7 +27,7 @@ export function inspectPocketMeshFile(file) {
   }
 }
 
-if (process.argv[1] && import.meta.url === new URL("file://" + process.argv[1]).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   try {
     if (process.argv.length !== 4 || process.argv[2] !== "--file") {
       throw new Error("E1_ARGS_REFUSED");
